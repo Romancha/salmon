@@ -52,6 +52,10 @@ type Store interface {
 	AckQueueItems(ctx context.Context, items []models.SyncAckItem) error
 	PendingQueueCount(ctx context.Context) (int, error)
 
+	// Conflicts
+	CountConflicts(ctx context.Context) (int, error)
+	ListConflictNoteIDs(ctx context.Context) ([]string, error)
+
 	// Sync Meta
 	GetSyncMeta(ctx context.Context, key string) (string, error)
 	SetSyncMeta(ctx context.Context, key, value string) error

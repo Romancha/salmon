@@ -149,10 +149,10 @@
 
 ### Task 13: Обработка конфликтов
 
-- [ ] Hub: при sync/push — детекция конфликта: заметка имеет `sync_status=pending_to_bear` (изменена openclaw) И пришёл push с новым `modified_at` из Bear (изменена пользователем). Сравнение: `hub_modified_at` заметки vs `last_push_at` из `sync_meta`. Пометка `sync_status: conflict`
-- [ ] Bridge: при lease queue — пропуск items для заметок с `sync_status: conflict`
-- [ ] Bridge: создание conflict-заметки `"[Conflict] Original Title"` через xcall с версией openclaw
-- [ ] Hub: `GET /api/sync/status` — включение информации о конфликтах
+- [x] Hub: при sync/push — детекция конфликта: заметка имеет `sync_status=pending_to_bear` (изменена openclaw) И пришёл push с новым `modified_at` из Bear (изменена пользователем). Сравнение: `hub_modified_at` заметки vs `last_push_at` из `sync_meta`. Пометка `sync_status: conflict`
+- [x] Bridge: при lease queue — пропуск items для заметок с `sync_status: conflict`
+- [x] Bridge: создание conflict-заметки `"[Conflict] Original Title"` через xcall с версией openclaw
+- [x] Hub: `GET /api/sync/status` — включение информации о конфликтах
 
 ### Task 14: Тестовые фикстуры и E2E тесты
 

@@ -78,6 +78,12 @@ func (b *Bridge) applyQueueItem(ctx context.Context, item *models.WriteQueueItem
 		IdempotencyKey: item.IdempotencyKey,
 	}
 
+	// Skip items for notes with sync_status=conflict — create a conflict copy instead.
+	if item.NoteSyncStatus == "conflict" {
+		b.handleConflictItem(ctx, item, &ack)
+		return ack
+	}
+
 	var err error
 
 	switch item.Action {
@@ -109,6 +115,73 @@ func (b *Bridge) applyQueueItem(ctx context.Context, item *models.WriteQueueItem
 	}
 
 	return ack
+}
+
+// handleConflictItem creates a conflict note in Bear with the openclaw version content.
+// The original note in Bear keeps the user's version; a new note "[Conflict] Title" is created
+// with the openclaw content so the user can manually reconcile.
+func (b *Bridge) handleConflictItem(ctx context.Context, item *models.WriteQueueItem, ack *models.SyncAckItem) {
+	b.logger.Warn("conflict detected for queue item, creating conflict note",
+		"queue_id", item.ID, "action", item.Action, "note_id", item.NoteID)
+
+	// Extract the openclaw content from the payload.
+	title, body := b.extractConflictContent(item)
+	if title == "" {
+		title = "Untitled"
+	}
+
+	conflictTitle := "[Conflict] " + title
+
+	// Create a conflict note in Bear via xcall.
+	bearID, err := b.xcall.Create(ctx, b.bearToken, conflictTitle, body, nil)
+	if err != nil {
+		ack.Status = "failed"
+		ack.Error = fmt.Sprintf("create conflict note: %v", err)
+		b.logger.Warn("failed to create conflict note", "queue_id", item.ID, "error", err)
+
+		return
+	}
+
+	ack.Status = "applied"
+	ack.BearID = bearID
+	b.logger.Info("conflict note created",
+		"queue_id", item.ID, "conflict_bear_id", bearID, "conflict_title", conflictTitle)
+}
+
+// extractConflictContent extracts the title and body from a queue item's payload for conflict resolution.
+func (b *Bridge) extractConflictContent(item *models.WriteQueueItem) (title, body string) {
+	var payloadMap map[string]any
+	if err := json.Unmarshal([]byte(item.Payload), &payloadMap); err != nil {
+		return "", ""
+	}
+
+	if t, ok := payloadMap["title"].(string); ok {
+		title = t
+	}
+
+	if bd, ok := payloadMap["body"].(string); ok {
+		body = bd
+	}
+
+	// If no title in payload, try to get it from the original Bear note.
+	if title == "" && item.NoteID != "" {
+		note, err := b.db.NoteByUUID(context.Background(), item.NoteID)
+		if err == nil && note != nil {
+			title = note.Title
+		}
+
+		// Also try bear_id from payload.
+		if title == "" {
+			if bearID, ok := payloadMap["bear_id"].(string); ok && bearID != "" {
+				note, err := b.db.NoteByUUID(context.Background(), bearID)
+				if err == nil && note != nil {
+					title = note.Title
+				}
+			}
+		}
+	}
+
+	return title, body
 }
 
 // applyCreate creates a new note in Bear via xcall and returns the bear_id.

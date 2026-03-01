@@ -167,10 +167,12 @@ func (s *Server) syncUploadAttachment(w http.ResponseWriter, r *http.Request) {
 }
 
 type syncStatusResponse struct {
-	LastSyncAt          string `json:"last_sync_at"`
-	LastPushAt          string `json:"last_push_at"`
-	QueueSize           string `json:"queue_size"`
-	InitialSyncComplete string `json:"initial_sync_complete"`
+	LastSyncAt          string   `json:"last_sync_at"`
+	LastPushAt          string   `json:"last_push_at"`
+	QueueSize           string   `json:"queue_size"`
+	InitialSyncComplete string   `json:"initial_sync_complete"`
+	ConflictCount       int      `json:"conflict_count"`
+	ConflictNoteIDs     []string `json:"conflict_note_ids,omitempty"`
 }
 
 func (s *Server) syncStatus(w http.ResponseWriter, r *http.Request) {
@@ -185,6 +187,18 @@ func (s *Server) syncStatus(w http.ResponseWriter, r *http.Request) {
 	count, err := s.store.PendingQueueCount(ctx)
 	if err == nil {
 		resp.QueueSize = fmt.Sprintf("%d", count)
+	}
+
+	conflictCount, err := s.store.CountConflicts(ctx)
+	if err == nil {
+		resp.ConflictCount = conflictCount
+	}
+
+	if conflictCount > 0 {
+		conflictIDs, err := s.store.ListConflictNoteIDs(ctx)
+		if err == nil {
+			resp.ConflictNoteIDs = conflictIDs
+		}
 	}
 
 	writeJSON(w, http.StatusOK, resp)

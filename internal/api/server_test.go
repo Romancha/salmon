@@ -853,3 +853,24 @@ func TestGetAttachment_ServesFile(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, fileContent, string(body))
 }
+
+func TestSyncStatus_WithConflicts(t *testing.T) {
+	ts, s := setupServer(t)
+
+	bearID := "bear-conflict-1"
+	require.NoError(t, s.CreateNote(t.Context(), &models.Note{
+		ID: "n1", BearID: &bearID, Title: "Conflicted", SyncStatus: "conflict",
+		ModifiedAt: "2025-01-01T12:00:00Z",
+	}))
+
+	resp := doRequest(t, ts, http.MethodGet, "/api/sync/status", nil, bridgeToken, nil)
+
+	result := readBody(t, resp)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Equal(t, float64(1), result["conflict_count"])
+
+	conflictIDs, ok := result["conflict_note_ids"].([]any)
+	require.True(t, ok)
+	require.Len(t, conflictIDs, 1)
+	assert.Equal(t, "n1", conflictIDs[0])
+}

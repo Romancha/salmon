@@ -725,18 +725,19 @@ func (s *SQLiteStore) ProcessSyncPush(ctx context.Context, req models.SyncPushRe
 func upsertNote(ctx context.Context, tx *sql.Tx, note *models.Note) error {
 	var existingID string
 	var existingSyncStatus string
+	var existingModifiedAt string
 
 	if note.BearID != nil && *note.BearID != "" {
 		err := tx.QueryRowContext(ctx,
-			"SELECT id, sync_status FROM notes WHERE bear_id = ?", *note.BearID,
-		).Scan(&existingID, &existingSyncStatus)
+			"SELECT id, sync_status, COALESCE(modified_at, '') FROM notes WHERE bear_id = ?", *note.BearID,
+		).Scan(&existingID, &existingSyncStatus, &existingModifiedAt)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("lookup note by bear_id: %w", err)
 		}
 	}
 
 	if existingID != "" {
-		return updateExistingNote(ctx, tx, note, existingID, existingSyncStatus)
+		return updateExistingNote(ctx, tx, note, existingID, existingSyncStatus, existingModifiedAt)
 	}
 
 	return insertNewNote(ctx, tx, note)
@@ -744,9 +745,16 @@ func upsertNote(ctx context.Context, tx *sql.Tx, note *models.Note) error {
 
 func updateExistingNote(
 	ctx context.Context, tx *sql.Tx, note *models.Note,
-	existingID, existingSyncStatus string,
+	existingID, existingSyncStatus, existingModifiedAt string,
 ) error {
 	if existingSyncStatus == "pending_to_bear" {
+		// Conflict detection: if Bear's modified_at changed since our last sync,
+		// the user edited the note while openclaw had pending changes.
+		newSyncStatus := "pending_to_bear"
+		if note.ModifiedAt != "" && existingModifiedAt != "" && note.ModifiedAt != existingModifiedAt {
+			newSyncStatus = "conflict"
+		}
+
 		query := `UPDATE notes SET
 			bear_id = ?, subtitle = ?,
 			archived = ?, encrypted = ?, has_files = ?, has_images = ?,
@@ -756,7 +764,8 @@ func updateExistingNote(
 			created_at = ?, modified_at = ?, archived_at = ?, encrypted_at = ?,
 			locked_at = ?, pinned_at = ?, trashed_at = ?, order_date = ?,
 			conflict_id_date = ?, last_editing_device = ?, conflict_id = ?,
-			encryption_id = ?, encrypted_data = ?, bear_raw = ?
+			encryption_id = ?, encrypted_data = ?, bear_raw = ?,
+			sync_status = ?
 		WHERE id = ?`
 
 		if _, err := tx.ExecContext(ctx, query,
@@ -769,6 +778,7 @@ func updateExistingNote(
 			note.LockedAt, note.PinnedAt, note.TrashedAt, note.OrderDate,
 			note.ConflictIDDate, note.LastEditingDevice, note.ConflictID,
 			note.EncryptionID, note.EncryptedData, note.BearRaw,
+			newSyncStatus,
 			existingID,
 		); err != nil {
 			return fmt.Errorf("update pending_to_bear note: %w", err)
@@ -1189,8 +1199,9 @@ func (s *SQLiteStore) LeaseQueueItems(
 
 	//nolint:gosec // columns are internal constants
 	rows, err := tx.QueryContext(ctx,
-		"SELECT "+writeQueueColumns()+
-			" FROM write_queue WHERE status = 'pending' ORDER BY id",
+		"SELECT "+prefixedWriteQueueColumns("wq")+", COALESCE(n.sync_status, '')"+
+			" FROM write_queue wq LEFT JOIN notes n ON n.id = wq.note_id"+
+			" WHERE wq.status = 'pending' ORDER BY wq.id",
 	)
 	if err != nil {
 		return nil, fmt.Errorf("select pending items: %w", err)
@@ -1199,7 +1210,7 @@ func (s *SQLiteStore) LeaseQueueItems(
 	var items []models.WriteQueueItem
 
 	for rows.Next() {
-		item, scanErr := scanWriteQueueRows(rows)
+		item, scanErr := scanWriteQueueWithSyncStatus(rows)
 		if scanErr != nil {
 			_ = rows.Close()
 
@@ -1349,6 +1360,48 @@ func (s *SQLiteStore) PendingQueueCount(ctx context.Context) (int, error) {
 	}
 
 	return count, nil
+}
+
+// --- Conflicts ---
+
+func (s *SQLiteStore) CountConflicts(ctx context.Context) (int, error) {
+	var count int
+
+	err := s.db.QueryRowContext(ctx,
+		"SELECT COUNT(*) FROM notes WHERE sync_status = 'conflict'",
+	).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("count conflicts: %w", err)
+	}
+
+	return count, nil
+}
+
+func (s *SQLiteStore) ListConflictNoteIDs(ctx context.Context) ([]string, error) {
+	rows, err := s.db.QueryContext(ctx,
+		"SELECT id FROM notes WHERE sync_status = 'conflict' ORDER BY modified_at DESC",
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list conflict note IDs: %w", err)
+	}
+	defer rows.Close() //nolint:errcheck // rows.Close error is not actionable
+
+	var ids []string
+
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("scan conflict note ID: %w", err)
+		}
+
+		ids = append(ids, id)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate conflict note IDs: %w", err)
+	}
+
+	return ids, nil
 }
 
 // --- Sync Meta ---

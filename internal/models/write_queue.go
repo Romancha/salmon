@@ -15,4 +15,8 @@ type WriteQueueItem struct {
 	LeaseUntil     string `json:"lease_until,omitempty"`
 	AppliedAt      string `json:"applied_at,omitempty"`
 	Error          string `json:"error,omitempty"`
+
+	// NoteSyncStatus is populated during lease to indicate the associated note's sync_status.
+	// Not stored in DB — filled by JOIN during LeaseQueueItems.
+	NoteSyncStatus string `json:"note_sync_status,omitempty"`
 }

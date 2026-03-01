@@ -820,6 +820,147 @@ func TestGetNote_WithTagsAndBacklinks(t *testing.T) {
 	assert.Equal(t, "n2", got.Backlinks[0].LinkedByID)
 }
 
+// --- Conflict Detection ---
+
+func TestProcessSyncPush_ConflictDetection(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	// Create a note with pending_to_bear status and a known modified_at.
+	bearID := "bear-conflict-1"
+	require.NoError(t, s.CreateNote(ctx, &models.Note{
+		ID:            "n1",
+		BearID:        &bearID,
+		Title:         "OpenClaw Title",
+		Body:          "OpenClaw Body",
+		SyncStatus:    "pending_to_bear",
+		HubModifiedAt: "2025-01-01T12:00:00Z",
+		ModifiedAt:    "2025-01-01T10:00:00Z",
+	}))
+
+	// Bridge pushes the same note with a DIFFERENT modified_at (user changed it in Bear).
+	req := models.SyncPushRequest{
+		Notes: []models.Note{
+			{
+				BearID:     &bearID,
+				Title:      "Bear Title",
+				Body:       "Bear Body",
+				ModifiedAt: "2025-01-01T11:00:00Z", // Changed since last push
+				SyncStatus: "synced",
+			},
+		},
+	}
+	require.NoError(t, s.ProcessSyncPush(ctx, req))
+
+	got, err := s.GetNote(ctx, "n1")
+	require.NoError(t, err)
+	assert.Equal(t, "conflict", got.SyncStatus, "sync_status should be conflict")
+	assert.Equal(t, "OpenClaw Title", got.Title, "title should be preserved")
+	assert.Equal(t, "OpenClaw Body", got.Body, "body should be preserved")
+}
+
+func TestProcessSyncPush_NoConflictOnSameModifiedAt(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	// Create a note with pending_to_bear status.
+	bearID := "bear-noconflict-1"
+	require.NoError(t, s.CreateNote(ctx, &models.Note{
+		ID:         "n1",
+		BearID:     &bearID,
+		Title:      "OpenClaw Title",
+		Body:       "OpenClaw Body",
+		SyncStatus: "pending_to_bear",
+		ModifiedAt: "2025-01-01T10:00:00Z",
+	}))
+
+	// Bridge pushes with the SAME modified_at (overlap-window duplicate, not a real change).
+	req := models.SyncPushRequest{
+		Notes: []models.Note{
+			{
+				BearID:     &bearID,
+				Title:      "Bear Title",
+				Body:       "Bear Body",
+				ModifiedAt: "2025-01-01T10:00:00Z", // Same as stored
+				SyncStatus: "synced",
+			},
+		},
+	}
+	require.NoError(t, s.ProcessSyncPush(ctx, req))
+
+	got, err := s.GetNote(ctx, "n1")
+	require.NoError(t, err)
+	assert.Equal(t, "pending_to_bear", got.SyncStatus, "sync_status should stay pending_to_bear")
+	assert.Equal(t, "OpenClaw Title", got.Title, "title should be preserved")
+}
+
+func TestCountConflicts(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	count, err := s.CountConflicts(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, 0, count)
+
+	bearID1 := "bear-1"
+	bearID2 := "bear-2"
+	require.NoError(t, s.CreateNote(ctx, &models.Note{
+		ID: "n1", BearID: &bearID1, Title: "Note 1", SyncStatus: "conflict",
+	}))
+	require.NoError(t, s.CreateNote(ctx, &models.Note{
+		ID: "n2", BearID: &bearID2, Title: "Note 2", SyncStatus: "synced",
+	}))
+
+	count, err = s.CountConflicts(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, 1, count)
+}
+
+func TestListConflictNoteIDs(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	ids, err := s.ListConflictNoteIDs(ctx)
+	require.NoError(t, err)
+	assert.Empty(t, ids)
+
+	bearID1 := "bear-1"
+	bearID2 := "bear-2"
+	require.NoError(t, s.CreateNote(ctx, &models.Note{
+		ID: "n1", BearID: &bearID1, Title: "Note 1", SyncStatus: "conflict", ModifiedAt: "2025-01-01T12:00:00Z",
+	}))
+	require.NoError(t, s.CreateNote(ctx, &models.Note{
+		ID: "n2", BearID: &bearID2, Title: "Note 2", SyncStatus: "conflict", ModifiedAt: "2025-01-02T12:00:00Z",
+	}))
+
+	ids, err = s.ListConflictNoteIDs(ctx)
+	require.NoError(t, err)
+	require.Len(t, ids, 2)
+	assert.Equal(t, "n2", ids[0]) // Most recent first
+	assert.Equal(t, "n1", ids[1])
+}
+
+func TestLeaseQueueItems_IncludesNoteSyncStatus(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	// Create a note with conflict status.
+	bearID := "bear-conflict"
+	require.NoError(t, s.CreateNote(ctx, &models.Note{
+		ID: "n1", BearID: &bearID, Title: "Conflicted Note", SyncStatus: "conflict",
+	}))
+
+	// Enqueue a write for the conflicted note.
+	_, err := s.EnqueueWrite(ctx, "idem-1", "update", "n1", `{"body":"new body"}`)
+	require.NoError(t, err)
+
+	// Lease and verify sync_status is included.
+	items, err := s.LeaseQueueItems(ctx, "bridge", 5*time.Minute)
+	require.NoError(t, err)
+	require.Len(t, items, 1)
+	assert.Equal(t, "conflict", items[0].NoteSyncStatus)
+}
+
 // --- Temp dir cleanup ---
 
 func TestStore_CleanupOnClose(t *testing.T) {

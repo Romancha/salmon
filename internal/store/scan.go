@@ -502,6 +502,15 @@ func writeQueueColumns() string {
 	return strings.Join(writeQueueColumnList, ", ")
 }
 
+func prefixedWriteQueueColumns(prefix string) string {
+	cols := make([]string, len(writeQueueColumnList))
+	for i, c := range writeQueueColumnList {
+		cols[i] = prefix + "." + c
+	}
+
+	return strings.Join(cols, ", ")
+}
+
 type writeQueueScanner struct {
 	ID             int64
 	IdempotencyKey string
@@ -549,11 +558,17 @@ func scanWriteQueueRow(row *sql.Row) (models.WriteQueueItem, error) {
 	return ws.toItem(), nil
 }
 
-func scanWriteQueueRows(rows *sql.Rows) (models.WriteQueueItem, error) {
+func scanWriteQueueWithSyncStatus(rows *sql.Rows) (models.WriteQueueItem, error) {
 	var ws writeQueueScanner
-	if err := rows.Scan(ws.dest()...); err != nil {
-		return models.WriteQueueItem{}, fmt.Errorf("scan write queue rows: %w", err)
+	var noteSyncStatus sql.NullString
+
+	dest := append(ws.dest(), &noteSyncStatus) //nolint:gocritic // append to new slice is intentional
+	if err := rows.Scan(dest...); err != nil {
+		return models.WriteQueueItem{}, fmt.Errorf("scan write queue with sync status: %w", err)
 	}
 
-	return ws.toItem(), nil
+	item := ws.toItem()
+	item.NoteSyncStatus = noteSyncStatus.String
+
+	return item, nil
 }
