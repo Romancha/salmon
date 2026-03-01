@@ -228,9 +228,10 @@ func TestInitialSync(t *testing.T) {
 	// First push: notes.
 	assert.Len(t, hub.pushes[0].Notes, 2)
 
-	// Second push: tags + junction tables.
+	// Second push: tags + junction tables + initial_sync_complete meta.
 	assert.Len(t, hub.pushes[1].Tags, 1)
 	assert.Len(t, hub.pushes[1].NoteTags, 1)
+	assert.Equal(t, "true", hub.pushes[1].Meta["initial_sync_complete"])
 
 	// State file should exist.
 	state, err := loadState(statePath)
@@ -269,11 +270,12 @@ func TestInitialSync_BatchedNotes(t *testing.T) {
 	err := bridge.Run(context.Background())
 	require.NoError(t, err)
 
-	// No tags/attachments/backlinks, so no initial batch, just 3 note batches.
-	require.Len(t, hub.pushes, 3)
+	// 3 note batches + 1 metadata-only push with initial_sync_complete=true.
+	require.Len(t, hub.pushes, 4)
 	assert.Len(t, hub.pushes[0].Notes, 50)
 	assert.Len(t, hub.pushes[1].Notes, 50)
 	assert.Len(t, hub.pushes[2].Notes, 20)
+	assert.Equal(t, "true", hub.pushes[3].Meta["initial_sync_complete"])
 
 	state, err := loadState(statePath)
 	require.NoError(t, err)

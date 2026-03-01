@@ -13,6 +13,8 @@ type SyncPushRequest struct {
 	DeletedTagIDs        []string `json:"deleted_tag_ids,omitempty"`
 	DeletedAttachmentIDs []string `json:"deleted_attachment_ids,omitempty"`
 	DeletedBacklinkIDs   []string `json:"deleted_backlink_ids,omitempty"`
+
+	Meta map[string]string `json:"meta,omitempty"` // key-value pairs to store in sync_meta
 }
 
 // NoteTagPair represents a note-tag association (used in junction tables).

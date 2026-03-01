@@ -70,13 +70,16 @@ func NewServer(s store.Store, openclawToken, bridgeToken, attachmentsDir string)
 		})
 
 		r.Route("/sync", func(r chi.Router) {
-			r.Use(srv.authMiddleware("bridge"))
+			r.With(srv.authMiddleware("any")).Get("/status", srv.syncStatus)
 
-			r.With(bodyLimitMiddleware(50 << 20)).Post("/push", srv.syncPush)
-			r.Get("/queue", srv.syncQueue)
-			r.With(bodyLimitMiddleware(1 << 20)).Post("/ack", srv.syncAck)
-			r.With(bodyLimitMiddleware(100 << 20)).Post("/attachments/{id}", srv.syncUploadAttachment)
-			r.Get("/status", srv.syncStatus)
+			r.Group(func(r chi.Router) {
+				r.Use(srv.authMiddleware("bridge"))
+
+				r.With(bodyLimitMiddleware(50 << 20)).Post("/push", srv.syncPush)
+				r.Get("/queue", srv.syncQueue)
+				r.With(bodyLimitMiddleware(1 << 20)).Post("/ack", srv.syncAck)
+				r.With(bodyLimitMiddleware(100 << 20)).Post("/attachments/{id}", srv.syncUploadAttachment)
+			})
 		})
 	})
 
@@ -129,6 +132,11 @@ func (s *Server) authMiddleware(scope string) func(http.Handler) http.Handler {
 			case "bridge":
 				if token != s.bridgeToken {
 					writeError(w, http.StatusForbidden, "invalid token for bridge scope")
+					return
+				}
+			case "any":
+				if token != s.openclawToken && token != s.bridgeToken {
+					writeError(w, http.StatusForbidden, "invalid token")
 					return
 				}
 			default:

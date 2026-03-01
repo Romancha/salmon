@@ -175,12 +175,12 @@
 
 ### Task 16: Финальная сверка с дизайн-документом
 
-- [ ] Прочитать `docs/plans/2026-02-27-bear-sync-design.md` целиком и сверить с реализацией
-- [ ] Проверить схему БД: все таблицы (notes, tags, note_tags, pinned_note_tags, attachments, backlinks, write_queue, sync_meta), все колонки, индексы, FTS5 триггеры соответствуют дизайну
-- [ ] Проверить маппинг полей: все поля из таблиц маппинга (ZSFNOTE→notes, ZSFNOTETAG→tags, Z_5TAGS→note_tags, Z_5PINNEDINTAGS→pinned_note_tags, ZSFNOTEFILE→attachments, ZSFNOTEBACKLINK→backlinks) реализованы корректно
-- [ ] Проверить API эндпоинты: все эндпоинты из дизайна (openclaw API + sync API) реализованы с правильными контрактами, фильтрами, пагинацией
-- [ ] Проверить потоки данных: чтение (Bear→hub→openclaw), запись (openclaw→hub→write_queue→bridge→Bear→ack), initial sync, dual-id lifecycle (hub UUID + bear_id заполняется при ack)
-- [ ] Проверить sync/push логику: upsert по bear_id, DELETE+INSERT note_tags/pinned_note_tags (scope: note_id IN push), обработка deleted_*_ids, защита pending_to_bear заметок (body/title НЕ перезаписываются)
-- [ ] Проверить write_queue семантику: effectively-once (openclaw→hub через Idempotency-Key), at-least-once (hub→bridge через lease), duplicate-safe apply (bridge проверяет состояние в Bear перед xcall)
-- [ ] Проверить ограничения из дизайна: лимит x-callback-url (~50KB body → failed), зашифрованные заметки read-only (403), bridge flock protection
-- [ ] Исправить любые расхождения между реализацией и дизайн-документом
+- [x] Прочитать `docs/plans/2026-02-27-bear-sync-design.md` целиком и сверить с реализацией
+- [x] Проверить схему БД: все таблицы (notes, tags, note_tags, pinned_note_tags, attachments, backlinks, write_queue, sync_meta), все колонки, индексы, FTS5 триггеры соответствуют дизайну
+- [x] Проверить маппинг полей: все поля из таблиц маппинга (ZSFNOTE→notes, ZSFNOTETAG→tags, Z_5TAGS→note_tags, Z_5PINNEDINTAGS→pinned_note_tags, ZSFNOTEFILE→attachments, ZSFNOTEBACKLINK→backlinks) реализованы корректно
+- [x] Проверить API эндпоинты: все эндпоинты из дизайна (openclaw API + sync API) реализованы с правильными контрактами, фильтрами, пагинацией
+- [x] Проверить потоки данных: чтение (Bear→hub→openclaw), запись (openclaw→hub→write_queue→bridge→Bear→ack), initial sync, dual-id lifecycle (hub UUID + bear_id заполняется при ack)
+- [x] Проверить sync/push логику: upsert по bear_id, DELETE+INSERT note_tags/pinned_note_tags (scope: note_id IN push), обработка deleted_*_ids, защита pending_to_bear заметок (body/title НЕ перезаписываются)
+- [x] Проверить write_queue семантику: effectively-once (openclaw→hub через Idempotency-Key), at-least-once (hub→bridge через lease), duplicate-safe apply (bridge проверяет состояние в Bear перед xcall)
+- [x] Проверить ограничения из дизайна: лимит x-callback-url (~50KB body → failed), зашифрованные заметки read-only (403), bridge flock protection
+- [x] Исправить любые расхождения между реализацией и дизайн-документом

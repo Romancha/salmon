@@ -131,13 +131,27 @@ func TestAuth_WrongScope_BridgeOnOpenclawRoute(t *testing.T) {
 	assert.Equal(t, http.StatusForbidden, resp.StatusCode)
 }
 
-func TestAuth_WrongScope_OpenclawOnSyncRoute(t *testing.T) {
+func TestAuth_WrongScope_OpenclawOnBridgeRoute(t *testing.T) {
 	ts, _ := setupServer(t)
 
-	resp := doRequest(t, ts, http.MethodGet, "/api/sync/status", nil, openclawToken, nil)
+	resp := doRequest(t, ts, http.MethodGet, "/api/sync/queue", nil, openclawToken, nil)
 	defer resp.Body.Close() //nolint:errcheck // test
 
 	assert.Equal(t, http.StatusForbidden, resp.StatusCode)
+}
+
+func TestSyncStatus_AccessibleByBothTokens(t *testing.T) {
+	ts, _ := setupServer(t)
+
+	// openclaw token should access sync/status.
+	resp := doRequest(t, ts, http.MethodGet, "/api/sync/status", nil, openclawToken, nil)
+	defer resp.Body.Close() //nolint:errcheck // test
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	// bridge token should also access sync/status.
+	resp2 := doRequest(t, ts, http.MethodGet, "/api/sync/status", nil, bridgeToken, nil)
+	defer resp2.Body.Close() //nolint:errcheck // test
+	assert.Equal(t, http.StatusOK, resp2.StatusCode)
 }
 
 func TestAuth_ValidToken(t *testing.T) {

@@ -83,56 +83,113 @@ func (b *Bridge) Run(ctx context.Context) error {
 	return nil
 }
 
+// initialSyncData holds all data read from Bear during initial sync.
+type initialSyncData struct {
+	noteRows       []mapper.BearNoteRow
+	tagRows        []mapper.BearTagRow
+	attachmentRows []mapper.BearAttachmentRow
+	backlinkRows   []mapper.BearBacklinkRow
+	tags           []models.Tag
+	attachments    []models.Attachment
+	backlinks      []models.Backlink
+	noteTags       []beardb.NoteTagPair
+	pinnedNoteTags []beardb.NoteTagPair
+}
+
+// readAllBearData reads all entities from Bear SQLite for initial sync.
+func (b *Bridge) readAllBearData(ctx context.Context) (*initialSyncData, error) {
+	d := &initialSyncData{}
+	var err error
+
+	if d.noteRows, err = b.db.Notes(ctx, 0); err != nil {
+		return nil, fmt.Errorf("read all notes: %w", err)
+	}
+	if d.tagRows, err = b.db.Tags(ctx, 0); err != nil {
+		return nil, fmt.Errorf("read all tags: %w", err)
+	}
+	if d.attachmentRows, err = b.db.Attachments(ctx, 0); err != nil {
+		return nil, fmt.Errorf("read all attachments: %w", err)
+	}
+	if d.backlinkRows, err = b.db.Backlinks(ctx, 0); err != nil {
+		return nil, fmt.Errorf("read all backlinks: %w", err)
+	}
+	if d.noteTags, err = b.db.NoteTags(ctx); err != nil {
+		return nil, fmt.Errorf("read all note tags: %w", err)
+	}
+	if d.pinnedNoteTags, err = b.db.PinnedNoteTags(ctx); err != nil {
+		return nil, fmt.Errorf("read all pinned note tags: %w", err)
+	}
+	if d.tags, err = mapTags(d.tagRows); err != nil {
+		return nil, fmt.Errorf("map tags: %w", err)
+	}
+	if d.attachments, err = mapAttachments(d.attachmentRows); err != nil {
+		return nil, fmt.Errorf("map attachments: %w", err)
+	}
+	if d.backlinks, err = mapBacklinks(d.backlinkRows); err != nil {
+		return nil, fmt.Errorf("map backlinks: %w", err)
+	}
+
+	return d, nil
+}
+
 // initialSync performs the first-time full export from Bear to the hub.
 func (b *Bridge) initialSync(ctx context.Context) error {
 	b.logger.Info("starting initial sync")
 
-	noteRows, err := b.db.Notes(ctx, 0)
+	d, err := b.readAllBearData(ctx)
 	if err != nil {
-		return fmt.Errorf("read all notes: %w", err)
+		return err
 	}
 
-	tagRows, err := b.db.Tags(ctx, 0)
-	if err != nil {
-		return fmt.Errorf("read all tags: %w", err)
+	if err := b.pushNotesBatched(ctx, d.noteRows); err != nil {
+		return err
 	}
 
-	attachmentRows, err := b.db.Attachments(ctx, 0)
-	if err != nil {
-		return fmt.Errorf("read all attachments: %w", err)
+	// Push tags, attachments, backlinks, junction tables, and mark initial sync complete on hub.
+	metaReq := models.SyncPushRequest{
+		Tags:           d.tags,
+		Attachments:    d.attachments,
+		Backlinks:      d.backlinks,
+		NoteTags:       convertNoteTags(d.noteTags),
+		PinnedNoteTags: convertNoteTags(d.pinnedNoteTags),
+		Meta:           map[string]string{"initial_sync_complete": "true"},
 	}
 
-	backlinkRows, err := b.db.Backlinks(ctx, 0)
-	if err != nil {
-		return fmt.Errorf("read all backlinks: %w", err)
+	if err := b.hub.SyncPush(ctx, metaReq); err != nil {
+		return fmt.Errorf("push tags/attachments/backlinks: %w", err)
 	}
 
-	noteTags, err := b.db.NoteTags(ctx)
-	if err != nil {
-		return fmt.Errorf("read all note tags: %w", err)
+	// Upload attachment files after metadata push.
+	if len(d.attachments) > 0 {
+		b.uploadAttachmentModels(ctx, d.attachments)
 	}
 
-	pinnedNoteTags, err := b.db.PinnedNoteTags(ctx)
-	if err != nil {
-		return fmt.Errorf("read all pinned note tags: %w", err)
+	// Build and save initial state.
+	state := &BridgeState{
+		LastSyncAt:              currentCoreDataEpoch(),
+		KnownNoteIDs:            extractNoteUUIDs(d.noteRows),
+		KnownTagIDs:             extractTagUUIDs(d.tagRows),
+		KnownAttachmentIDs:      extractAttachmentUUIDs(d.attachmentRows),
+		KnownBacklinkIDs:        extractBacklinkUUIDs(d.backlinkRows),
+		KnownNoteTagPairs:       convertToIDPairs(d.noteTags),
+		KnownPinnedNoteTagPairs: convertToIDPairs(d.pinnedNoteTags),
 	}
 
-	tags, err := mapTags(tagRows)
-	if err != nil {
-		return fmt.Errorf("map tags: %w", err)
+	if err := saveState(b.statePath, state); err != nil {
+		return fmt.Errorf("save initial state: %w", err)
 	}
 
-	attachments, err := mapAttachments(attachmentRows)
-	if err != nil {
-		return fmt.Errorf("map attachments: %w", err)
-	}
+	b.logger.Info("initial sync complete",
+		"notes", len(d.noteRows),
+		"tags", len(d.tagRows),
+		"attachments", len(d.attachmentRows),
+		"backlinks", len(d.backlinkRows))
 
-	backlinks, err := mapBacklinks(backlinkRows)
-	if err != nil {
-		return fmt.Errorf("map backlinks: %w", err)
-	}
+	return nil
+}
 
-	// Push notes first (batched) so attachments/backlinks can resolve FK references in hub.
+// pushNotesBatched pushes notes in batches during initial sync.
+func (b *Bridge) pushNotesBatched(ctx context.Context, noteRows []mapper.BearNoteRow) error {
 	for i := 0; i < len(noteRows); i += initialSyncBatchSize {
 		end := i + initialSyncBatchSize
 		if end > len(noteRows) {
@@ -155,50 +212,6 @@ func (b *Bridge) initialSync(ctx context.Context) error {
 			"count", len(notes),
 			"total", len(noteRows))
 	}
-
-	// Push tags, attachments, backlinks, and junction tables after notes exist in hub.
-	if len(tags) > 0 || len(attachments) > 0 || len(backlinks) > 0 {
-		req := models.SyncPushRequest{
-			Tags:           tags,
-			Attachments:    attachments,
-			Backlinks:      backlinks,
-			NoteTags:       convertNoteTags(noteTags),
-			PinnedNoteTags: convertNoteTags(pinnedNoteTags),
-		}
-
-		if err := b.hub.SyncPush(ctx, req); err != nil {
-			return fmt.Errorf("push tags/attachments/backlinks: %w", err)
-		}
-	}
-
-	// Upload attachment files after metadata push.
-	if len(attachments) > 0 {
-		b.uploadAttachmentModels(ctx, attachments)
-	}
-
-	// Build and save initial state.
-	now := currentCoreDataEpoch()
-
-	state := &BridgeState{
-		LastSyncAt:              now,
-		KnownNoteIDs:            extractNoteUUIDs(noteRows),
-		KnownTagIDs:             extractTagUUIDs(tagRows),
-		KnownAttachmentIDs:      extractAttachmentUUIDs(attachmentRows),
-		KnownBacklinkIDs:        extractBacklinkUUIDs(backlinkRows),
-		KnownNoteTagPairs:       convertToIDPairs(noteTags),
-		KnownPinnedNoteTagPairs: convertToIDPairs(pinnedNoteTags),
-		JunctionFullScanCounter: 0,
-	}
-
-	if err := saveState(b.statePath, state); err != nil {
-		return fmt.Errorf("save initial state: %w", err)
-	}
-
-	b.logger.Info("initial sync complete",
-		"notes", len(noteRows),
-		"tags", len(tagRows),
-		"attachments", len(attachmentRows),
-		"backlinks", len(backlinkRows))
 
 	return nil
 }

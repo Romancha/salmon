@@ -12,6 +12,10 @@ import (
 // verifyDelay is how long to wait before verifying xcall results in Bear SQLite.
 const verifyDelay = 2 * time.Second
 
+// maxXCallbackBodySize is the practical limit for x-callback-url body size (~50 KB).
+// Notes with body exceeding this limit after URL-encoding will fail the xcall invocation.
+const maxXCallbackBodySize = 50 * 1024
+
 // createFallbackWindow is the time window for finding recently created notes (5 seconds).
 const createFallbackWindow = 5.0 // seconds in Core Data epoch
 
@@ -191,6 +195,10 @@ func (b *Bridge) applyCreate(ctx context.Context, item *models.WriteQueueItem) (
 		return "", fmt.Errorf("parse create payload: %w", err)
 	}
 
+	if len(payload.Body) > maxXCallbackBodySize {
+		return "", fmt.Errorf("note body too large for x-callback-url (%d bytes, limit %d)", len(payload.Body), maxXCallbackBodySize)
+	}
+
 	bearID, err := b.xcall.Create(ctx, b.bearToken, payload.Title, payload.Body, payload.Tags)
 	if err != nil {
 		return "", fmt.Errorf("xcall create: %w", err)
@@ -254,6 +262,10 @@ func (b *Bridge) applyUpdate(ctx context.Context, item *models.WriteQueueItem) e
 	body := payload.Body
 	if body == "" {
 		return fmt.Errorf("update payload has no body")
+	}
+
+	if len(body) > maxXCallbackBodySize {
+		return fmt.Errorf("note body too large for x-callback-url (%d bytes, limit %d)", len(body), maxXCallbackBodySize)
 	}
 
 	if err := b.xcall.Update(ctx, b.bearToken, note.UUID, body); err != nil {

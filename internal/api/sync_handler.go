@@ -37,6 +37,11 @@ func (s *Server) syncPush(w http.ResponseWriter, r *http.Request) {
 
 	_ = s.store.SetSyncMeta(r.Context(), "last_push_at", now)
 
+	// Store any metadata key-value pairs from the push request.
+	for k, v := range req.Meta {
+		_ = s.store.SetSyncMeta(r.Context(), k, v)
+	}
+
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
