@@ -130,14 +130,14 @@
 
 ### Task 11: Bridge main — применение очереди записи
 
-- [ ] Lease очереди: `hubclient.LeaseQueue()` → получение pending items
-- [ ] Duplicate-safe apply: перед выполнением проверка в Bear SQLite — уже создано/обновлено/тег добавлен? Если да → ack `applied` без xcall
-- [ ] Apply `create`: `xcallback.Create(token, title, body, tags)` → получить bear_id из x-success ответа. Fallback верификация (если xcall не вернул UUID): ждёт 2 сек, ищет в Bear SQLite по `title + ZCREATIONDATE > now-5sec`. Если >1 результат → `failed`
-- [ ] Apply `update`: `xcallback.Update(token, bearID, body)`. Верификация: ждёт 2 сек, перечитывает Bear SQLite по bear_id, проверяет что body обновлён
-- [ ] Apply `add_tag`: `xcallback.AddTag(token, bearID, tag)`. Верификация: ждёт 2 сек, перечитывает Bear SQLite, проверяет наличие тега
-- [ ] Apply `trash`: `xcallback.Trash(token, bearID)` — вызов `bear://x-callback-url/trash?token=...&id=<bear_id>`. Верификация: перечитать Bear SQLite, проверить `ZTRASHED=1`
-- [ ] Ack: `hubclient.AckQueue(items []SyncAckItem)` — каждый item содержит `QueueID`, `IdempotencyKey`, `Status` (applied/failed), `BearID` (UUID из Bear — хаб заполнит notes.bear_id), `Error` (описание при failed)
-- [ ] Обработка ошибок: failed items логируются, не блокируют остальные
+- [x] Lease очереди: `hubclient.LeaseQueue()` → получение pending items
+- [x] Duplicate-safe apply: перед выполнением проверка в Bear SQLite — уже создано/обновлено/тег добавлен? Если да → ack `applied` без xcall
+- [x] Apply `create`: `xcallback.Create(token, title, body, tags)` → получить bear_id из x-success ответа. Fallback верификация (если xcall не вернул UUID): ждёт 2 сек, ищет в Bear SQLite по `title + ZCREATIONDATE > now-5sec`. Если >1 результат → `failed`
+- [x] Apply `update`: `xcallback.Update(token, bearID, body)`. Верификация: ждёт 2 сек, перечитывает Bear SQLite по bear_id, проверяет что body обновлён
+- [x] Apply `add_tag`: `xcallback.AddTag(token, bearID, tag)`. Верификация: ждёт 2 сек, перечитывает Bear SQLite, проверяет наличие тега
+- [x] Apply `trash`: `xcallback.Trash(token, bearID)` — вызов `bear://x-callback-url/trash?token=...&id=<bear_id>`. Верификация: перечитать Bear SQLite, проверить `ZTRASHED=1`
+- [x] Ack: `hubclient.AckQueue(items []SyncAckItem)` — каждый item содержит `QueueID`, `IdempotencyKey`, `Status` (applied/failed), `BearID` (UUID из Bear — хаб заполнит notes.bear_id), `Error` (описание при failed)
+- [x] Обработка ошибок: failed items логируются, не блокируют остальные
 
 ### Task 12: Синхронизация вложений
 

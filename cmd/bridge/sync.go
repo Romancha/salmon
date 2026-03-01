@@ -10,6 +10,7 @@ import (
 	"github.com/romancha/bear-sync/internal/hubclient"
 	"github.com/romancha/bear-sync/internal/mapper"
 	"github.com/romancha/bear-sync/internal/models"
+	"github.com/romancha/bear-sync/internal/xcallback"
 )
 
 // coreDataEpochOffset is the difference between Unix epoch and Core Data epoch.
@@ -25,21 +26,34 @@ const initialSyncBatchSize = 50
 type Bridge struct {
 	db        beardb.BearDB
 	hub       hubclient.HubClient
+	xcall     xcallback.XCallback
+	bearToken string
 	statePath string
 	logger    *slog.Logger
+	sleepFn   func(time.Duration) // injectable sleep for testing
 }
 
 // NewBridge creates a new Bridge instance.
-func NewBridge(db beardb.BearDB, hub hubclient.HubClient, statePath string, logger *slog.Logger) *Bridge {
+func NewBridge(
+	db beardb.BearDB,
+	hub hubclient.HubClient,
+	xcall xcallback.XCallback,
+	bearToken string,
+	statePath string,
+	logger *slog.Logger,
+) *Bridge {
 	return &Bridge{
 		db:        db,
 		hub:       hub,
+		xcall:     xcall,
+		bearToken: bearToken,
 		statePath: statePath,
 		logger:    logger,
+		sleepFn:   time.Sleep,
 	}
 }
 
-// Run executes a single sync cycle: delta export + push.
+// Run executes a single sync cycle: delta export + push + queue processing.
 func (b *Bridge) Run(ctx context.Context) error {
 	state, err := loadState(b.statePath)
 	if err != nil {
@@ -47,10 +61,21 @@ func (b *Bridge) Run(ctx context.Context) error {
 	}
 
 	if state == nil {
-		return b.initialSync(ctx)
+		if err := b.initialSync(ctx); err != nil {
+			return err
+		}
+	} else {
+		if err := b.deltaSync(ctx, state); err != nil {
+			return err
+		}
 	}
 
-	return b.deltaSync(ctx, state)
+	// Process write queue (apply pending operations from hub to Bear).
+	if err := b.processQueue(ctx); err != nil {
+		return fmt.Errorf("process queue: %w", err)
+	}
+
+	return nil
 }
 
 // initialSync performs the first-time full export from Bear to the hub.

@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -29,6 +30,11 @@ type mockBearDB struct {
 	tagUUIDs    []string
 	attUUIDs    []string
 	blUUIDs     []string
+
+	// Verification data for write queue tests.
+	notesByUUID   map[string]*beardb.NoteBasicInfo
+	tagsByNote    map[string][]string // bearUUID -> tag titles
+	recentNotes   []beardb.NoteBasicInfo
 }
 
 func (m *mockBearDB) Notes(_ context.Context, _ float64) ([]mapper.BearNoteRow, error) {
@@ -89,9 +95,33 @@ func (m *mockBearDB) AllAttachmentUUIDs(_ context.Context) ([]string, error) { r
 func (m *mockBearDB) AllBacklinkUUIDs(_ context.Context) ([]string, error)   { return m.blUUIDs, nil }
 func (m *mockBearDB) Close() error                                           { return nil }
 
+func (m *mockBearDB) NoteByUUID(_ context.Context, bearUUID string) (*beardb.NoteBasicInfo, error) {
+	if m.notesByUUID == nil {
+		return nil, nil
+	}
+	info, ok := m.notesByUUID[bearUUID]
+	if !ok {
+		return nil, nil
+	}
+	return info, nil
+}
+
+func (m *mockBearDB) NoteTagTitles(_ context.Context, bearUUID string) ([]string, error) {
+	if m.tagsByNote == nil {
+		return nil, nil
+	}
+	return m.tagsByNote[bearUUID], nil
+}
+
+func (m *mockBearDB) FindRecentNotesByTitle(_ context.Context, _ string, _ float64) ([]beardb.NoteBasicInfo, error) {
+	return m.recentNotes, nil
+}
+
 // mockHubClient implements hubclient.HubClient for testing.
 type mockHubClient struct {
-	pushes []models.SyncPushRequest
+	pushes     []models.SyncPushRequest
+	queueItems []models.WriteQueueItem
+	ackItems   []models.SyncAckItem
 }
 
 func (m *mockHubClient) SyncPush(_ context.Context, req models.SyncPushRequest) error { //nolint:gocritic // interface match
@@ -100,10 +130,11 @@ func (m *mockHubClient) SyncPush(_ context.Context, req models.SyncPushRequest) 
 }
 
 func (m *mockHubClient) LeaseQueue(_ context.Context, _ string) ([]models.WriteQueueItem, error) {
-	return nil, nil
+	return m.queueItems, nil
 }
 
-func (m *mockHubClient) AckQueue(_ context.Context, _ []models.SyncAckItem) error {
+func (m *mockHubClient) AckQueue(_ context.Context, items []models.SyncAckItem) error {
+	m.ackItems = append(m.ackItems, items...)
 	return nil
 }
 
@@ -115,8 +146,54 @@ func (m *mockHubClient) GetSyncStatus(_ context.Context) (*hubclient.SyncStatus,
 	return nil, nil
 }
 
+// mockXCallback implements xcallback.XCallback for testing.
+type mockXCallback struct {
+	createBearID string
+	createErr    error
+	updateErr    error
+	addTagErr    error
+	trashErr     error
+	calls        []xcallCall
+}
+
+type xcallCall struct {
+	action string
+	bearID string
+	title  string
+	body   string
+	tags   []string
+	tag    string
+}
+
+func (m *mockXCallback) Create(_ context.Context, _, title, body string, tags []string) (string, error) {
+	m.calls = append(m.calls, xcallCall{action: "create", title: title, body: body, tags: tags})
+	return m.createBearID, m.createErr
+}
+
+func (m *mockXCallback) Update(_ context.Context, _, bearID, body string) error {
+	m.calls = append(m.calls, xcallCall{action: "update", bearID: bearID, body: body})
+	return m.updateErr
+}
+
+func (m *mockXCallback) AddTag(_ context.Context, _, bearID, tag string) error {
+	m.calls = append(m.calls, xcallCall{action: "add_tag", bearID: bearID, tag: tag})
+	return m.addTagErr
+}
+
+func (m *mockXCallback) Trash(_ context.Context, _, bearID string) error {
+	m.calls = append(m.calls, xcallCall{action: "trash", bearID: bearID})
+	return m.trashErr
+}
+
 func strPtr(s string) *string    { return &s }
 func floatPtr(f float64) *float64 { return &f }
+
+// newTestBridge creates a Bridge for testing with nil xcallback (no queue processing).
+func newTestBridge(db beardb.BearDB, hub hubclient.HubClient, statePath string) *Bridge {
+	b := NewBridge(db, hub, nil, "", statePath, testLogger())
+	b.sleepFn = func(_ time.Duration) {} // no-op sleep for tests
+	return b
+}
 
 func TestInitialSync(t *testing.T) {
 	tmpDir := t.TempDir()
@@ -138,8 +215,7 @@ func TestInitialSync(t *testing.T) {
 	}
 
 	hub := &mockHubClient{}
-	logger := testLogger()
-	bridge := NewBridge(db, hub, statePath, logger)
+	bridge := newTestBridge(db, hub, statePath)
 
 	err := bridge.Run(context.Background())
 	require.NoError(t, err)
@@ -186,7 +262,7 @@ func TestInitialSync_BatchedNotes(t *testing.T) {
 		noteUUIDs: noteUUIDs,
 	}
 	hub := &mockHubClient{}
-	bridge := NewBridge(db, hub, filepath.Join(tmpDir, "state.json"), testLogger())
+	bridge := newTestBridge(db, hub, filepath.Join(tmpDir, "state.json"))
 
 	err := bridge.Run(context.Background())
 	require.NoError(t, err)
@@ -219,7 +295,7 @@ func TestDeltaSync_NoChanges(t *testing.T) {
 		tagUUIDs:  []string{"tag-1"},
 	}
 	hub := &mockHubClient{}
-	bridge := NewBridge(db, hub, statePath, testLogger())
+	bridge := newTestBridge(db, hub, statePath)
 
 	err := bridge.Run(context.Background())
 	require.NoError(t, err)
@@ -255,7 +331,7 @@ func TestDeltaSync_WithChanges(t *testing.T) {
 		tagUUIDs:  []string{"tag-1"},
 	}
 	hub := &mockHubClient{}
-	bridge := NewBridge(db, hub, statePath, testLogger())
+	bridge := newTestBridge(db, hub, statePath)
 
 	err := bridge.Run(context.Background())
 	require.NoError(t, err)
@@ -291,7 +367,7 @@ func TestDeltaSync_DeletionDetection(t *testing.T) {
 		blUUIDs:   []string{"bl-1"},
 	}
 	hub := &mockHubClient{}
-	bridge := NewBridge(db, hub, statePath, testLogger())
+	bridge := newTestBridge(db, hub, statePath)
 
 	err := bridge.Run(context.Background())
 	require.NoError(t, err)
@@ -329,7 +405,7 @@ func TestDeltaSync_JunctionFullScan(t *testing.T) {
 		tagUUIDs:  []string{"tag-1", "tag-2"},
 	}
 	hub := &mockHubClient{}
-	bridge := NewBridge(db, hub, statePath, testLogger())
+	bridge := newTestBridge(db, hub, statePath)
 
 	err := bridge.Run(context.Background())
 	require.NoError(t, err)
@@ -368,7 +444,7 @@ func TestDeltaSync_NoFullScanOnNonInterval(t *testing.T) {
 		tagUUIDs:  []string{"tag-1", "tag-2"},
 	}
 	hub := &mockHubClient{}
-	bridge := NewBridge(db, hub, statePath, testLogger())
+	bridge := newTestBridge(db, hub, statePath)
 
 	err := bridge.Run(context.Background())
 	require.NoError(t, err)

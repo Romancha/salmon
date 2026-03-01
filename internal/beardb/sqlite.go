@@ -338,6 +338,108 @@ func (s *SQLiteBearDB) AllBacklinkUUIDs(ctx context.Context) ([]string, error) {
 	)
 }
 
+// NoteByUUID returns basic note info by Bear UUID for write queue verification.
+func (s *SQLiteBearDB) NoteByUUID(ctx context.Context, bearUUID string) (*NoteBasicInfo, error) {
+	var info NoteBasicInfo
+	var title, body sql.NullString
+	var trashed sql.NullInt64
+
+	err := s.db.QueryRowContext(ctx,
+		"SELECT ZUNIQUEIDENTIFIER, ZTITLE, ZTEXT, ZTRASHED FROM ZSFNOTE WHERE ZUNIQUEIDENTIFIER = ?",
+		bearUUID,
+	).Scan(&info.UUID, &title, &body, &trashed)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("query note by uuid: %w", err)
+	}
+
+	if title.Valid {
+		info.Title = title.String
+	}
+	if body.Valid {
+		info.Body = body.String
+	}
+	if trashed.Valid {
+		info.Trashed = trashed.Int64
+	}
+
+	return &info, nil
+}
+
+// NoteTagTitles returns tag titles for a note identified by Bear UUID.
+func (s *SQLiteBearDB) NoteTagTitles(ctx context.Context, bearUUID string) ([]string, error) {
+	rows, err := s.db.QueryContext(ctx,
+		"SELECT t.ZTITLE FROM Z_5TAGS j"+
+			" JOIN ZSFNOTE n ON j.Z_5NOTES = n.Z_PK"+
+			" JOIN ZSFNOTETAG t ON j.Z_13TAGS = t.Z_PK"+
+			" WHERE n.ZUNIQUEIDENTIFIER = ? AND t.ZTITLE IS NOT NULL",
+		bearUUID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("query note tag titles: %w", err)
+	}
+	defer rows.Close() //nolint:errcheck // read-only query
+
+	var result []string
+	for rows.Next() {
+		var title string
+		if err := rows.Scan(&title); err != nil {
+			return nil, fmt.Errorf("scan tag title: %w", err)
+		}
+		result = append(result, title)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate tag titles: %w", err)
+	}
+
+	return result, nil
+}
+
+// FindRecentNotesByTitle finds notes by title created after the given Core Data epoch timestamp.
+func (s *SQLiteBearDB) FindRecentNotesByTitle(
+	ctx context.Context, title string, createdAfter float64,
+) ([]NoteBasicInfo, error) {
+	rows, err := s.db.QueryContext(ctx,
+		"SELECT ZUNIQUEIDENTIFIER, ZTITLE, ZTEXT, ZTRASHED FROM ZSFNOTE"+
+			" WHERE ZTITLE = ? AND ZCREATIONDATE > ?",
+		title, createdAfter,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("query recent notes by title: %w", err)
+	}
+	defer rows.Close() //nolint:errcheck // read-only query
+
+	var result []NoteBasicInfo
+	for rows.Next() {
+		var info NoteBasicInfo
+		var noteTitle, body sql.NullString
+		var trashed sql.NullInt64
+
+		if err := rows.Scan(&info.UUID, &noteTitle, &body, &trashed); err != nil {
+			return nil, fmt.Errorf("scan recent note: %w", err)
+		}
+		if noteTitle.Valid {
+			info.Title = noteTitle.String
+		}
+		if body.Valid {
+			info.Body = body.String
+		}
+		if trashed.Valid {
+			info.Trashed = trashed.Int64
+		}
+		result = append(result, info)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate recent notes: %w", err)
+	}
+
+	return result, nil
+}
+
 // queryJunction executes a junction table query and returns NoteTagPair results.
 func (s *SQLiteBearDB) queryJunction(ctx context.Context, query string) ([]NoteTagPair, error) {
 	return s.queryJunctionWithArgs(ctx, query)

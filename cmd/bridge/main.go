@@ -10,6 +10,7 @@ import (
 
 	"github.com/romancha/bear-sync/internal/beardb"
 	"github.com/romancha/bear-sync/internal/hubclient"
+	"github.com/romancha/bear-sync/internal/xcallback"
 )
 
 func main() {
@@ -99,7 +100,18 @@ func run(logger *slog.Logger) error {
 	defer db.Close() //nolint:errcheck // best-effort close
 
 	hub := hubclient.NewHTTPClient(cfg.hubURL, cfg.hubToken, logger)
-	bridge := NewBridge(db, hub, cfg.statePath, logger)
+
+	// Initialize xcallback for write queue processing.
+	// If xcall is not available, queue processing will be skipped.
+	var xcall xcallback.XCallback
+	xc, err := xcallback.New(xcallback.WithLogger(logger))
+	if err != nil {
+		logger.Warn("xcall not available, write queue processing disabled", "error", err)
+	} else {
+		xcall = xc
+	}
+
+	bridge := NewBridge(db, hub, xcall, cfg.bearToken, cfg.statePath, logger)
 
 	if err := bridge.Run(ctx); err != nil {
 		return fmt.Errorf("sync: %w", err)

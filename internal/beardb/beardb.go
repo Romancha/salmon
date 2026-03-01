@@ -12,6 +12,14 @@ type NoteTagPair struct {
 	TagUUID  string
 }
 
+// NoteBasicInfo contains minimal note data for write queue verification.
+type NoteBasicInfo struct {
+	UUID    string
+	Title   string
+	Body    string
+	Trashed int64
+}
+
 // BearDB defines the read-only interface for accessing Bear's SQLite database.
 type BearDB interface {
 	// Notes returns notes modified since lastSyncAt (Core Data epoch).
@@ -53,6 +61,16 @@ type BearDB interface {
 
 	// AllBacklinkUUIDs returns UUIDs of all backlinks (for deletion detection).
 	AllBacklinkUUIDs(ctx context.Context) ([]string, error)
+
+	// NoteByUUID returns basic note info by Bear UUID for write queue verification.
+	// Returns nil if note not found.
+	NoteByUUID(ctx context.Context, bearUUID string) (*NoteBasicInfo, error)
+
+	// NoteTagTitles returns tag titles for a note identified by Bear UUID.
+	NoteTagTitles(ctx context.Context, bearUUID string) ([]string, error)
+
+	// FindRecentNotesByTitle finds notes by title created after the given Core Data epoch timestamp.
+	FindRecentNotesByTitle(ctx context.Context, title string, createdAfter float64) ([]NoteBasicInfo, error)
 
 	// Close closes the database connection.
 	Close() error
