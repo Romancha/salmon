@@ -37,12 +37,12 @@
 
 ### Task 3: Маппер Bear → Hub (`internal/mapper`)
 
-- [ ] `mapper.go` — функции маппинга: `MapBearNote(row) → Note`, `MapBearTag(row) → Tag`, `MapBearAttachment(row) → Attachment`, `MapBearBacklink(row) → Backlink`
-- [ ] Конвертация Core Data epoch → ISO 8601 (`+978307200`, `time.Unix()`, `Format(time.RFC3339)`)
-- [ ] Конвертация `Z_ENT` → тип: 8→`file`, 9→`image`, 10→`video`
-- [ ] Формирование `bear_raw` JSON из оригинальных полей Bear
-- [ ] Генерация hub UUID: `hex(randomblob(16))` аналог через `crypto/rand`
-- [ ] Unit-тесты маппера: конвертация дат (включая NULL), маппинг всех полей, формирование bear_raw, edge cases (NULL bear_id, зашифрованные заметки)
+- [x] `mapper.go` — функции маппинга: `MapBearNote(row) → Note`, `MapBearTag(row) → Tag`, `MapBearAttachment(row) → Attachment`, `MapBearBacklink(row) → Backlink`
+- [x] Конвертация Core Data epoch → ISO 8601 (`+978307200`, `time.Unix()`, `Format(time.RFC3339)`)
+- [x] Конвертация `Z_ENT` → тип: 8→`file`, 9→`image`, 10→`video`
+- [x] Формирование `bear_raw` JSON из оригинальных полей Bear
+- [x] Генерация hub UUID: `hex(randomblob(16))` аналог через `crypto/rand`
+- [x] Unit-тесты маппера: конвертация дат (включая NULL), маппинг всех полей, формирование bear_raw, edge cases (NULL bear_id, зашифрованные заметки)
 
 ### Task 4: SQLite store хаба (`internal/store`)
 
