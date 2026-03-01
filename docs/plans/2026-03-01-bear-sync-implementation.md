@@ -105,15 +105,15 @@
 
 ### Task 9: X-callback-url executor (`internal/xcallback`)
 
-- [ ] `xcallback.go` — интерфейс `XCallback` и реализация через xcall CLI
-- [ ] `Create(ctx, token, title, body, tags)` → `bear_id` (UUID из x-success ответа). URL: `bear://x-callback-url/create?token=...&title=...&text=...&tags=...`
-- [ ] `Update(ctx, token, bearID, body)` — URL: `bear://x-callback-url/add-text?token=...&id=<bear_id>&text=...&mode=replace`
-- [ ] `AddTag(ctx, token, bearID, tag)` — URL: `bear://x-callback-url/add-tag?token=...&id=<bear_id>&tag=...`
-- [ ] `Trash(ctx, token, bearID)` — URL: `bear://x-callback-url/trash?token=...&id=<bear_id>`
-- [ ] URL-формирование с правильным URL-encoding параметров
-- [ ] Маскировка token в логах: `token=***`
-- [ ] Проверка наличия xcall при инициализации
-- [ ] Unit-тесты: формирование URL, экранирование параметров, маскировка token
+- [x] `xcallback.go` — интерфейс `XCallback` и реализация через xcall CLI
+- [x] `Create(ctx, token, title, body, tags)` → `bear_id` (UUID из x-success ответа). URL: `bear://x-callback-url/create?token=...&title=...&text=...&tags=...`
+- [x] `Update(ctx, token, bearID, body)` — URL: `bear://x-callback-url/add-text?token=...&id=<bear_id>&text=...&mode=replace`
+- [x] `AddTag(ctx, token, bearID, tag)` — URL: `bear://x-callback-url/add-tag?token=...&id=<bear_id>&tag=...`
+- [x] `Trash(ctx, token, bearID)` — URL: `bear://x-callback-url/trash?token=...&id=<bear_id>`
+- [x] URL-формирование с правильным URL-encoding параметров
+- [x] Маскировка token в логах: `token=***`
+- [x] Проверка наличия xcall при инициализации
+- [x] Unit-тесты: формирование URL, экранирование параметров, маскировка token
 
 ### Task 10: Bridge main — экспорт дельт (`cmd/bridge`)
 
