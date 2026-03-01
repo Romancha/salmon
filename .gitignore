@@ -1,0 +1,6 @@
+bin/
+coverage.out
+coverage.html
+
+# ralphex progress logs
+.ralphex/progress/
