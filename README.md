@@ -21,7 +21,7 @@ Syncs Bear notes with openclaw. Two components: **hub** (API server on VPS) and 
 make build
 ```
 
-Binaries are placed in `bin/hub` and `bin/bridge`.
+Binaries are placed in `bin/bear-sync-hub` and `bin/bear-bridge`.
 
 ## Hub Setup
 
@@ -41,7 +41,7 @@ Binaries are placed in `bin/hub` and `bin/bridge`.
 export HUB_DB_PATH=/opt/bear-sync/data/hub.db
 export HUB_OPENCLAW_TOKEN=<token>
 export HUB_BRIDGE_TOKEN=<token>
-./bin/hub
+./bin/bear-sync-hub
 ```
 
 The hub listens on `127.0.0.1:PORT` (localhost only). Use a reverse proxy (e.g. Caddy) for TLS termination.
@@ -74,7 +74,7 @@ Create `/opt/bear-sync/.env` with the environment variables above.
 export BRIDGE_HUB_URL=https://bear-sync.example.com
 export BRIDGE_HUB_TOKEN=<token>
 export BEAR_TOKEN=<token>
-./bin/bridge
+./bin/bear-bridge
 ```
 
 The bridge runs once per invocation (no daemon mode). Use launchd to schedule periodic runs.

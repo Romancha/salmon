@@ -59,7 +59,12 @@ func (s *Server) addTag(w http.ResponseWriter, r *http.Request) {
 
 	idempotencyKey := r.Header.Get("Idempotency-Key")
 
-	payload, _ := json.Marshal(req) //nolint:errcheck // marshaling a simple struct cannot fail
+	tagPayload := map[string]string{"tag": req.Tag}
+	if note.BearID != nil && *note.BearID != "" {
+		tagPayload["bear_id"] = *note.BearID
+	}
+
+	payload, _ := json.Marshal(tagPayload) //nolint:errcheck // marshaling a simple map cannot fail
 
 	item, err := s.store.EnqueueWrite(
 		r.Context(), idempotencyKey, "add_tag", note.ID, string(payload),

@@ -1244,7 +1244,7 @@ func (s *SQLiteStore) LeaseQueueItems(
 	rows, err := tx.QueryContext(ctx,
 		"SELECT "+prefixedWriteQueueColumns("wq")+", COALESCE(n.sync_status, '')"+
 			" FROM write_queue wq LEFT JOIN notes n ON n.id = wq.note_id"+
-			" WHERE wq.status = 'pending' ORDER BY wq.id",
+			" WHERE wq.status = 'pending' ORDER BY wq.id LIMIT 100",
 	)
 	if err != nil {
 		return nil, fmt.Errorf("select pending items: %w", err)
@@ -1372,19 +1372,26 @@ func ackApplied(ctx context.Context, tx *sql.Tx, item models.SyncAckItem, now st
 		return fmt.Errorf("ack applied: %w", err)
 	}
 
-	if item.BearID != "" {
-		var noteID sql.NullString
+	var noteID sql.NullString
 
-		err := tx.QueryRowContext(ctx,
-			"SELECT note_id FROM write_queue WHERE idempotency_key = ?",
-			item.IdempotencyKey,
-		).Scan(&noteID)
-		if err == nil && noteID.Valid && noteID.String != "" {
+	err := tx.QueryRowContext(ctx,
+		"SELECT note_id FROM write_queue WHERE idempotency_key = ?",
+		item.IdempotencyKey,
+	).Scan(&noteID)
+	if err == nil && noteID.Valid && noteID.String != "" {
+		if item.BearID != "" {
 			if _, err := tx.ExecContext(ctx,
 				"UPDATE notes SET bear_id = ?, sync_status = 'synced' WHERE id = ?",
 				item.BearID, noteID.String,
 			); err != nil {
 				return fmt.Errorf("set bear_id on ack: %w", err)
+			}
+		} else {
+			if _, err := tx.ExecContext(ctx,
+				"UPDATE notes SET sync_status = 'synced' WHERE id = ?",
+				noteID.String,
+			); err != nil {
+				return fmt.Errorf("reset sync_status on ack: %w", err)
 			}
 		}
 	}

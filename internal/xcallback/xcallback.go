@@ -243,11 +243,6 @@ func (x *Xcall) Trash(ctx context.Context, token, bearID string) error {
 	return nil
 }
 
-// BuildURL constructs a Bear x-callback-url with the given action and parameters.
-func BuildURL(action string, params url.Values) string {
-	return "bear://x-callback-url/" + action + "?" + params.Encode()
-}
-
 // MaskToken replaces the token value in a URL string with "***" for safe logging.
 func MaskToken(rawURL string) string {
 	parsed, err := url.Parse(rawURL)

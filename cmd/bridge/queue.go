@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/romancha/bear-sync/internal/beardb"
 	"github.com/romancha/bear-sync/internal/models"
 )
 
@@ -129,7 +130,7 @@ func (b *Bridge) handleConflictItem(ctx context.Context, item *models.WriteQueue
 		"queue_id", item.ID, "action", item.Action, "note_id", item.NoteID)
 
 	// Extract the openclaw content from the payload.
-	title, body := b.extractConflictContent(item)
+	title, body := b.extractConflictContent(ctx, item)
 	if title == "" {
 		title = "Untitled"
 	}
@@ -153,7 +154,7 @@ func (b *Bridge) handleConflictItem(ctx context.Context, item *models.WriteQueue
 }
 
 // extractConflictContent extracts the title and body from a queue item's payload for conflict resolution.
-func (b *Bridge) extractConflictContent(item *models.WriteQueueItem) (title, body string) {
+func (b *Bridge) extractConflictContent(ctx context.Context, item *models.WriteQueueItem) (title, body string) {
 	var payloadMap map[string]any
 	if err := json.Unmarshal([]byte(item.Payload), &payloadMap); err != nil {
 		return "", ""
@@ -169,7 +170,7 @@ func (b *Bridge) extractConflictContent(item *models.WriteQueueItem) (title, bod
 
 	// If no title in payload, try to get it from the original Bear note.
 	if title == "" && item.NoteID != "" {
-		note, err := b.db.NoteByUUID(context.Background(), item.NoteID)
+		note, err := b.db.NoteByUUID(ctx, item.NoteID)
 		if err == nil && note != nil {
 			title = note.Title
 		}
@@ -177,7 +178,7 @@ func (b *Bridge) extractConflictContent(item *models.WriteQueueItem) (title, bod
 		// Also try bear_id from payload.
 		if title == "" {
 			if bearID, ok := payloadMap["bear_id"].(string); ok && bearID != "" {
-				note, err := b.db.NoteByUUID(context.Background(), bearID)
+				note, err := b.db.NoteByUUID(ctx, bearID)
 				if err == nil && note != nil {
 					title = note.Title
 				}
@@ -377,7 +378,7 @@ func (b *Bridge) applyTrash(ctx context.Context, item *models.WriteQueueItem) er
 // findBearNoteForItem resolves the Bear UUID for a write queue item.
 // The item.NoteID contains a "bear_id" field that maps to the Bear UUID.
 // For items that target existing notes, we need to look up the note in Bear's SQLite.
-func (b *Bridge) findBearNoteForItem(ctx context.Context, item *models.WriteQueueItem) (*bearNoteRef, error) {
+func (b *Bridge) findBearNoteForItem(ctx context.Context, item *models.WriteQueueItem) (*beardb.NoteBasicInfo, error) {
 	// The NoteID on the queue item is the hub UUID. We need to find the corresponding Bear UUID.
 	// The hub stores bear_id on the note. When the queue item is leased, the hub should include
 	// enough info to find the note. We look for bear_id in the payload or use the note_id
@@ -392,7 +393,7 @@ func (b *Bridge) findBearNoteForItem(ctx context.Context, item *models.WriteQueu
 				return nil, fmt.Errorf("query note by bear_id from payload: %w", err)
 			}
 			if note != nil {
-				return &bearNoteRef{UUID: note.UUID, Title: note.Title, Body: note.Body, Trashed: note.Trashed}, nil
+				return note, nil
 			}
 		}
 	}
@@ -404,19 +405,11 @@ func (b *Bridge) findBearNoteForItem(ctx context.Context, item *models.WriteQueu
 			return nil, fmt.Errorf("query note by note_id: %w", err)
 		}
 		if note != nil {
-			return &bearNoteRef{UUID: note.UUID, Title: note.Title, Body: note.Body, Trashed: note.Trashed}, nil
+			return note, nil
 		}
 	}
 
 	return nil, fmt.Errorf("cannot resolve bear UUID for queue item %d (note_id=%s)", item.ID, item.NoteID)
-}
-
-// bearNoteRef holds resolved Bear note info for queue processing.
-type bearNoteRef struct {
-	UUID    string
-	Title   string
-	Body    string
-	Trashed int64
 }
 
 // countByStatus counts ack items with the given status.

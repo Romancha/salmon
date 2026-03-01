@@ -22,7 +22,12 @@ func (s *Server) getAttachment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	filePath := filepath.Join(s.attachmentsDir, attachment.ID, attachment.Filename)
+	filename := filepath.Base(attachment.Filename)
+	if filename == "" || filename == "." || filename == "/" {
+		filename = "file"
+	}
+
+	filePath := filepath.Join(s.attachmentsDir, attachment.ID, filename)
 
 	if _, err := os.Stat(filePath); os.IsNotExist(err) { //nolint:gosec // path from DB, not user input
 		writeError(w, http.StatusNotFound, "attachment file not found on disk")

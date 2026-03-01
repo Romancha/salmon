@@ -35,11 +35,15 @@ func (s *Server) syncPush(w http.ResponseWriter, r *http.Request) {
 
 	now := time.Now().UTC().Format(time.RFC3339)
 
-	_ = s.store.SetSyncMeta(r.Context(), "last_push_at", now)
+	if err := s.store.SetSyncMeta(r.Context(), "last_push_at", now); err != nil {
+		slog.Warn("failed to set last_push_at", "error", err)
+	}
 
 	// Store any metadata key-value pairs from the push request.
 	for k, v := range req.Meta {
-		_ = s.store.SetSyncMeta(r.Context(), k, v)
+		if err := s.store.SetSyncMeta(r.Context(), k, v); err != nil {
+			slog.Warn("failed to set sync meta", "key", k, "error", err)
+		}
 	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
@@ -143,8 +147,8 @@ func (s *Server) syncUploadAttachment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	filename := attachment.Filename
-	if filename == "" {
+	filename := filepath.Base(attachment.Filename)
+	if filename == "" || filename == "." || filename == "/" {
 		filename = "file"
 	}
 
@@ -168,7 +172,7 @@ func (s *Server) syncUploadAttachment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "path": filePath})
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
 type syncStatusResponse struct {

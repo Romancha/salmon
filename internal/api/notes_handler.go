@@ -202,7 +202,18 @@ func (s *Server) updateNote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	payload, _ := json.Marshal(req) //nolint:errcheck // marshaling a simple struct cannot fail
+	payloadMap := map[string]string{}
+	if req.Title != "" {
+		payloadMap["title"] = req.Title
+	}
+	if req.Body != "" {
+		payloadMap["body"] = req.Body
+	}
+	if note.BearID != nil && *note.BearID != "" {
+		payloadMap["bear_id"] = *note.BearID
+	}
+
+	payload, _ := json.Marshal(payloadMap) //nolint:errcheck // marshaling a simple map cannot fail
 
 	if _, err := s.store.EnqueueWrite(
 		r.Context(), idempotencyKey, "update", note.ID, string(payload),
@@ -246,7 +257,12 @@ func (s *Server) trashNote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	payload, _ := json.Marshal(map[string]string{"action": "trash"}) //nolint:errcheck // cannot fail
+	trashPayload := map[string]string{"action": "trash"}
+	if note.BearID != nil && *note.BearID != "" {
+		trashPayload["bear_id"] = *note.BearID
+	}
+
+	payload, _ := json.Marshal(trashPayload) //nolint:errcheck // cannot fail
 
 	if _, err := s.store.EnqueueWrite(
 		r.Context(), idempotencyKey, "trash", note.ID, string(payload),

@@ -300,20 +300,6 @@ func TestMaskToken(t *testing.T) {
 	}
 }
 
-func TestBuildURL(t *testing.T) {
-	params := url.Values{}
-	params.Set("token", "abc")
-	params.Set("title", "Hello World")
-
-	result := BuildURL("create", params)
-
-	assert.True(t, strings.HasPrefix(result, "bear://x-callback-url/create?"))
-	parsed, err := url.Parse(result)
-	require.NoError(t, err)
-	assert.Equal(t, "abc", parsed.Query().Get("token"))
-	assert.Equal(t, "Hello World", parsed.Query().Get("title"))
-}
-
 func TestURLEncoding(t *testing.T) {
 	t.Run("special characters in title and body", func(t *testing.T) {
 		resp := xcallResult{Identifier: "ID-1"}

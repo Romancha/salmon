@@ -1,8 +1,7 @@
 package api
 
 import (
-	"crypto/rand"
-	"encoding/hex"
+	"crypto/subtle"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -12,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
+	"github.com/romancha/bear-sync/internal/mapper"
 	"github.com/romancha/bear-sync/internal/store"
 )
 
@@ -125,17 +125,19 @@ func (s *Server) authMiddleware(scope string) func(http.Handler) http.Handler {
 
 			switch scope {
 			case "openclaw":
-				if token != s.openclawToken {
+				if subtle.ConstantTimeCompare([]byte(token), []byte(s.openclawToken)) != 1 {
 					writeError(w, http.StatusForbidden, "invalid token for openclaw scope")
 					return
 				}
 			case "bridge":
-				if token != s.bridgeToken {
+				if subtle.ConstantTimeCompare([]byte(token), []byte(s.bridgeToken)) != 1 {
 					writeError(w, http.StatusForbidden, "invalid token for bridge scope")
 					return
 				}
 			case "any":
-				if token != s.openclawToken && token != s.bridgeToken {
+				validOC := subtle.ConstantTimeCompare([]byte(token), []byte(s.openclawToken))
+				validBR := subtle.ConstantTimeCompare([]byte(token), []byte(s.bridgeToken))
+				if validOC|validBR != 1 {
 					writeError(w, http.StatusForbidden, "invalid token")
 					return
 				}
@@ -197,8 +199,7 @@ func readJSON(r *http.Request, v any) error {
 }
 
 func generateID() string {
-	b := make([]byte, 16)
-	_, _ = rand.Read(b) //nolint:errcheck // crypto/rand.Read never returns error on supported platforms
+	id, _ := mapper.GenerateID() //nolint:errcheck // crypto/rand.Read never returns error on supported platforms
 
-	return hex.EncodeToString(b)
+	return id
 }
