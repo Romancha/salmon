@@ -82,15 +82,15 @@
 
 ### Task 7: Чтение Bear SQLite (`internal/beardb`)
 
-- [ ] `beardb.go` — интерфейс `BearDB` со всеми методами чтения
-- [ ] `sqlite.go` — реализация: открытие Bear БД read-only (`?mode=ro`), путь `~/Library/Group Containers/9K33E3U3T4.net.shinyfrog.bear/Application Data/database.sqlite`
-- [ ] Чтение `ZSFNOTE` — все колонки, delta по `ZMODIFICATIONDATE >= lastSyncAt`
-- [ ] Чтение `ZSFNOTETAG` — все колонки, delta по `ZMODIFICATIONDATE`
-- [ ] Чтение `ZSFNOTEFILE` — все колонки, delta по `ZMODIFICATIONDATE`
-- [ ] Чтение `ZSFNOTEBACKLINK` — все колонки (включая `ZLINKEDBY`, `ZLINKINGTO` — resolve Z_PK → UUID через JOIN с ZSFNOTE), delta по `ZMODIFICATIONDATE`
-- [ ] Чтение junction tables: `Z_5TAGS` (Z_5NOTES, Z_13TAGS) и `Z_5PINNEDINTAGS` (Z_5PINNEDNOTES, Z_13PINNEDINTAGS) — full read, resolve Z_PK → UUID через JOIN
-- [ ] Чтение полного списка UUID всех сущностей (для обнаружения удалений)
-- [ ] Unit-тесты: парсинг Bear SQLite из `testdata/` (тестовая БД с заметками, тегами, вложениями, бэклинками, зашифрованной заметкой, junction table связями)
+- [x] `beardb.go` — интерфейс `BearDB` со всеми методами чтения
+- [x] `sqlite.go` — реализация: открытие Bear БД read-only (`?mode=ro`), путь `~/Library/Group Containers/9K33E3U3T4.net.shinyfrog.bear/Application Data/database.sqlite`
+- [x] Чтение `ZSFNOTE` — все колонки, delta по `ZMODIFICATIONDATE >= lastSyncAt`
+- [x] Чтение `ZSFNOTETAG` — все колонки, delta по `ZMODIFICATIONDATE`
+- [x] Чтение `ZSFNOTEFILE` — все колонки, delta по `ZMODIFICATIONDATE`
+- [x] Чтение `ZSFNOTEBACKLINK` — все колонки (включая `ZLINKEDBY`, `ZLINKINGTO` — resolve Z_PK → UUID через JOIN с ZSFNOTE), delta по `ZMODIFICATIONDATE`
+- [x] Чтение junction tables: `Z_5TAGS` (Z_5NOTES, Z_13TAGS) и `Z_5PINNEDINTAGS` (Z_5PINNEDNOTES, Z_13PINNEDINTAGS) — full read, resolve Z_PK → UUID через JOIN
+- [x] Чтение полного списка UUID всех сущностей (для обнаружения удалений)
+- [x] Unit-тесты: парсинг Bear SQLite из `testdata/` (тестовая БД с заметками, тегами, вложениями, бэклинками, зашифрованной заметкой, junction table связями)
 
 ### Task 8: HTTP-клиент хаба (`internal/hubclient`)
 
