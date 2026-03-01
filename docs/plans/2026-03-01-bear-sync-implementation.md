@@ -94,14 +94,14 @@
 
 ### Task 8: HTTP-клиент хаба (`internal/hubclient`)
 
-- [ ] `client.go` — интерфейс `HubClient` и реализация HTTP-клиента для API хаба
-- [ ] `SyncPush(ctx, req SyncPushRequest)` — `POST /api/sync/push` с Bearer token
-- [ ] `LeaseQueue(ctx, processingBy)` — `GET /api/sync/queue` → список `WriteQueueItem`
-- [ ] `AckQueue(ctx, items)` — `POST /api/sync/ack`
-- [ ] `UploadAttachment(ctx, attachmentID, reader)` — `POST /api/sync/attachments/:id`
-- [ ] `GetSyncStatus(ctx)` — `GET /api/sync/status`
-- [ ] Retry с exponential backoff для transient errors
-- [ ] Unit-тесты: с `httptest.NewServer` mock-сервером
+- [x] `client.go` — интерфейс `HubClient` и реализация HTTP-клиента для API хаба
+- [x] `SyncPush(ctx, req SyncPushRequest)` — `POST /api/sync/push` с Bearer token
+- [x] `LeaseQueue(ctx, processingBy)` — `GET /api/sync/queue` → список `WriteQueueItem`
+- [x] `AckQueue(ctx, items)` — `POST /api/sync/ack`
+- [x] `UploadAttachment(ctx, attachmentID, reader)` — `POST /api/sync/attachments/:id`
+- [x] `GetSyncStatus(ctx)` — `GET /api/sync/status`
+- [x] Retry с exponential backoff для transient errors
+- [x] Unit-тесты: с `httptest.NewServer` mock-сервером
 
 ### Task 9: X-callback-url executor (`internal/xcallback`)
 
