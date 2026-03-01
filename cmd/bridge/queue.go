@@ -87,7 +87,7 @@ func (b *Bridge) applyQueueItem(ctx context.Context, item *models.WriteQueueItem
 	var err error
 
 	switch item.Action {
-	case "create":
+	case "create": //nolint:goconst // action string literal used in switch
 		ack.BearID, err = b.applyCreate(ctx, item)
 	case "update":
 		err = b.applyUpdate(ctx, item)

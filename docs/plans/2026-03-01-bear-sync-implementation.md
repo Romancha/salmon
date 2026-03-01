@@ -156,14 +156,14 @@
 
 ### Task 14: Тестовые фикстуры и E2E тесты
 
-- [ ] Создать тестовую Bear SQLite в `testdata/` (Core Data формат: несколько заметок, теги с иерархией, вложения, бэклинки, зашифрованная заметка, junction table связи)
-- [ ] E2E тест чтения: bridge читает testdata Bear SQLite → push на hub (in-process, `:0` порт) → openclaw API читает → проверка данных
-- [ ] E2E тест записи: openclaw POST/PUT через API → write_queue → bridge lease → mock xcall ack (с bear_id) → проверка статусов и заполнения notes.bear_id
-- [ ] E2E тест idempotency: повторный HTTP запрос с тем же Idempotency-Key → тот же результат, без дубля в write_queue
-- [ ] E2E тест crash-recovery: apply без ack → lease expiry (processing + lease_until < now → pending) → повторный pickup → no duplicate
-- [ ] E2E тест junction table full-scan: связи тегов изменились без изменения ZMODIFICATIONDATE заметки → delta-цикл не подхватывает → full-scan цикл подхватывает
-- [ ] E2E тест encrypted: попытка PUT/DELETE зашифрованной заметки → 403
-- [ ] E2E тест конфликтов: openclaw обновляет заметку (pending_to_bear) → bridge push с новым modified_at из Bear → sync_status=conflict → bridge создаёт conflict-заметку
+- [x] Создать тестовую Bear SQLite в `testdata/` (Core Data формат: несколько заметок, теги с иерархией, вложения, бэклинки, зашифрованная заметка, junction table связи)
+- [x] E2E тест чтения: bridge читает testdata Bear SQLite → push на hub (in-process, `:0` порт) → openclaw API читает → проверка данных
+- [x] E2E тест записи: openclaw POST/PUT через API → write_queue → bridge lease → mock xcall ack (с bear_id) → проверка статусов и заполнения notes.bear_id
+- [x] E2E тест idempotency: повторный HTTP запрос с тем же Idempotency-Key → тот же результат, без дубля в write_queue
+- [x] E2E тест crash-recovery: apply без ack → lease expiry (processing + lease_until < now → pending) → повторный pickup → no duplicate
+- [x] E2E тест junction table full-scan: связи тегов изменились без изменения ZMODIFICATIONDATE заметки → delta-цикл не подхватывает → full-scan цикл подхватывает
+- [x] E2E тест encrypted: попытка PUT/DELETE зашифрованной заметки → 403
+- [x] E2E тест конфликтов: openclaw обновляет заметку (pending_to_bear) → bridge push с новым modified_at из Bear → sync_status=conflict → bridge создаёт conflict-заметку
 
 ### Task 15: Деплой и конфигурация
 

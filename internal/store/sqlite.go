@@ -906,6 +906,18 @@ func upsertTag(ctx context.Context, tx *sql.Tx, tag *models.Tag) error {
 
 //nolint:dupl // upsert pattern is similar but SQL schemas differ
 func upsertAttachment(ctx context.Context, tx *sql.Tx, a *models.Attachment) error {
+	// Resolve note_id from bear_id to hub UUID (the mapper produces Bear UUIDs).
+	if a.NoteID != "" {
+		var hubNoteID string
+		err := tx.QueryRowContext(ctx,
+			"SELECT id FROM notes WHERE bear_id = ? OR id = ?", a.NoteID, a.NoteID,
+		).Scan(&hubNoteID)
+		if err == nil {
+			a.NoteID = hubNoteID
+		}
+		// If note not found, keep the original ID (may be a hub UUID already or note not yet synced).
+	}
+
 	var existingID string
 
 	if a.BearID != nil && *a.BearID != "" {
@@ -974,6 +986,10 @@ func upsertAttachment(ctx context.Context, tx *sql.Tx, a *models.Attachment) err
 
 //nolint:dupl // upsert pattern is similar but SQL schemas differ
 func upsertBacklink(ctx context.Context, tx *sql.Tx, b *models.Backlink) error {
+	// Resolve linked_by_id and linking_to_id from bear_id to hub UUID.
+	b.LinkedByID = resolveNoteID(ctx, tx, b.LinkedByID)
+	b.LinkingToID = resolveNoteID(ctx, tx, b.LinkingToID)
+
 	var existingID string
 
 	if b.BearID != nil && *b.BearID != "" {
@@ -1029,12 +1045,13 @@ func replaceNoteTags(
 	ctx context.Context, tx *sql.Tx, table string,
 	notes []models.Note, pairs []models.NoteTagPair,
 ) error {
-	if len(notes) == 0 {
+	if len(notes) == 0 && len(pairs) == 0 {
 		return nil
 	}
 
 	noteHubIDs := make(map[string]string)
 
+	// Resolve note IDs from the Notes slice (if present in same push).
 	for i := range notes {
 		if notes[i].BearID != nil && *notes[i].BearID != "" {
 			var hubID string
@@ -1049,6 +1066,16 @@ func replaceNoteTags(
 
 		if notes[i].ID != "" {
 			noteHubIDs[notes[i].ID] = notes[i].ID
+		}
+	}
+
+	// Also resolve note IDs referenced in pairs (notes may have been pushed in a separate request).
+	for _, pair := range pairs {
+		if _, ok := noteHubIDs[pair.NoteID]; !ok {
+			resolved := resolveNoteID(ctx, tx, pair.NoteID)
+			if resolved != "" {
+				noteHubIDs[pair.NoteID] = resolved
+			}
 		}
 	}
 
@@ -1112,6 +1139,22 @@ func replaceNoteTags(
 	}
 
 	return nil
+}
+
+// resolveNoteID resolves a Bear UUID or hub UUID to the hub note ID.
+func resolveNoteID(ctx context.Context, tx *sql.Tx, id string) string {
+	if id == "" {
+		return id
+	}
+
+	var hubID string
+
+	err := tx.QueryRowContext(ctx, "SELECT id FROM notes WHERE bear_id = ? OR id = ?", id, id).Scan(&hubID)
+	if err == nil {
+		return hubID
+	}
+
+	return id
 }
 
 func deleteByBearIDs(ctx context.Context, tx *sql.Tx, table string, bearIDs []string) error {

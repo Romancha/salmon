@@ -222,15 +222,15 @@ func TestInitialSync(t *testing.T) {
 	err := bridge.Run(context.Background())
 	require.NoError(t, err)
 
-	// Should have pushed: 1 batch for tags/attachments/backlinks + 1 batch for notes (2 < 50).
+	// Should have pushed: 1 batch for notes (2 < 50) + 1 batch for tags/attachments/backlinks.
 	require.Len(t, hub.pushes, 2)
 
-	// First push: tags + junction tables.
-	assert.Len(t, hub.pushes[0].Tags, 1)
-	assert.Len(t, hub.pushes[0].NoteTags, 1)
+	// First push: notes.
+	assert.Len(t, hub.pushes[0].Notes, 2)
 
-	// Second push: notes.
-	assert.Len(t, hub.pushes[1].Notes, 2)
+	// Second push: tags + junction tables.
+	assert.Len(t, hub.pushes[1].Tags, 1)
+	assert.Len(t, hub.pushes[1].NoteTags, 1)
 
 	// State file should exist.
 	state, err := loadState(statePath)

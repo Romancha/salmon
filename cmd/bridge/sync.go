@@ -132,27 +132,7 @@ func (b *Bridge) initialSync(ctx context.Context) error {
 		return fmt.Errorf("map backlinks: %w", err)
 	}
 
-	// Push tags, attachments, backlinks, and junction tables in one batch.
-	if len(tags) > 0 || len(attachments) > 0 || len(backlinks) > 0 {
-		req := models.SyncPushRequest{
-			Tags:           tags,
-			Attachments:    attachments,
-			Backlinks:      backlinks,
-			NoteTags:       convertNoteTags(noteTags),
-			PinnedNoteTags: convertNoteTags(pinnedNoteTags),
-		}
-
-		if err := b.hub.SyncPush(ctx, req); err != nil {
-			return fmt.Errorf("push tags/attachments/backlinks: %w", err)
-		}
-	}
-
-	// Upload attachment files after metadata push.
-	if len(attachments) > 0 {
-		b.uploadAttachmentModels(ctx, attachments)
-	}
-
-	// Push notes in batches of initialSyncBatchSize.
+	// Push notes first (batched) so attachments/backlinks can resolve FK references in hub.
 	for i := 0; i < len(noteRows); i += initialSyncBatchSize {
 		end := i + initialSyncBatchSize
 		if end > len(noteRows) {
@@ -174,6 +154,26 @@ func (b *Bridge) initialSync(ctx context.Context) error {
 			"batch", i/initialSyncBatchSize+1,
 			"count", len(notes),
 			"total", len(noteRows))
+	}
+
+	// Push tags, attachments, backlinks, and junction tables after notes exist in hub.
+	if len(tags) > 0 || len(attachments) > 0 || len(backlinks) > 0 {
+		req := models.SyncPushRequest{
+			Tags:           tags,
+			Attachments:    attachments,
+			Backlinks:      backlinks,
+			NoteTags:       convertNoteTags(noteTags),
+			PinnedNoteTags: convertNoteTags(pinnedNoteTags),
+		}
+
+		if err := b.hub.SyncPush(ctx, req); err != nil {
+			return fmt.Errorf("push tags/attachments/backlinks: %w", err)
+		}
+	}
+
+	// Upload attachment files after metadata push.
+	if len(attachments) > 0 {
+		b.uploadAttachmentModels(ctx, attachments)
 	}
 
 	// Build and save initial state.
