@@ -28,12 +28,12 @@
 
 ### Task 2: Общие модели (`internal/models`)
 
-- [ ] `note.go` — структура `Note` со всеми полями из схемы БД (dual-id: `ID` + `BearID`, все флаги, даты ISO 8601, `SyncStatus`, `HubModifiedAt`, `BearRaw`). JSON-теги для API.
-- [ ] `tag.go` — структура `Tag` (dual-id, все поля из схемы, `BearRaw`)
-- [ ] `attachment.go` — структура `Attachment` (dual-id, `Type` file/image/video, медиа-метаданные, `FilePath`, `BearRaw`)
-- [ ] `backlink.go` — структура `Backlink` (dual-id, `LinkedByID`, `LinkingToID`, `BearRaw`)
-- [ ] `write_queue.go` — структура `WriteQueueItem` (`ID`, `IdempotencyKey`, `Action` create/update/add_tag/trash, `NoteID`, `Payload` JSON, `Status`, `ProcessingBy`, `LeaseUntil`, `AppliedAt`, `Error`)
-- [ ] `sync.go` — структуры `SyncPushRequest` (notes, tags, note_tags, pinned_note_tags, attachments, backlinks, deleted_*_ids), `SyncAckRequest`, `SyncAckItem` (поля: `QueueID`, `IdempotencyKey`, `Status` applied/failed, `BearID` — UUID из Bear для заполнения notes.bear_id при ack, `Error`)
+- [x] `note.go` — структура `Note` со всеми полями из схемы БД (dual-id: `ID` + `BearID`, все флаги, даты ISO 8601, `SyncStatus`, `HubModifiedAt`, `BearRaw`). JSON-теги для API.
+- [x] `tag.go` — структура `Tag` (dual-id, все поля из схемы, `BearRaw`)
+- [x] `attachment.go` — структура `Attachment` (dual-id, `Type` file/image/video, медиа-метаданные, `FilePath`, `BearRaw`)
+- [x] `backlink.go` — структура `Backlink` (dual-id, `LinkedByID`, `LinkingToID`, `BearRaw`)
+- [x] `write_queue.go` — структура `WriteQueueItem` (`ID`, `IdempotencyKey`, `Action` create/update/add_tag/trash, `NoteID`, `Payload` JSON, `Status`, `ProcessingBy`, `LeaseUntil`, `AppliedAt`, `Error`)
+- [x] `sync.go` — структуры `SyncPushRequest` (notes, tags, note_tags, pinned_note_tags, attachments, backlinks, deleted_*_ids), `SyncAckRequest`, `SyncAckItem` (поля: `QueueID`, `IdempotencyKey`, `Status` applied/failed, `BearID` — UUID из Bear для заполнения notes.bear_id при ack, `Error`)
 
 ### Task 3: Маппер Bear → Hub (`internal/mapper`)
 
