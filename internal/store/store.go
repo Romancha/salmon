@@ -36,6 +36,7 @@ type Store interface {
 
 	// Attachments
 	GetAttachment(ctx context.Context, id string) (*models.Attachment, error)
+	GetAttachmentByBearID(ctx context.Context, bearID string) (*models.Attachment, error)
 	ListAttachmentsByNote(ctx context.Context, noteID string) ([]models.Attachment, error)
 	UpdateAttachment(ctx context.Context, attachment *models.Attachment) error
 

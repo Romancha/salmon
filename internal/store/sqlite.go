@@ -556,6 +556,21 @@ func (s *SQLiteStore) GetAttachment(ctx context.Context, id string) (*models.Att
 	return &a, nil
 }
 
+func (s *SQLiteStore) GetAttachmentByBearID(ctx context.Context, bearID string) (*models.Attachment, error) {
+	query := "SELECT " + attachmentColumns() + " FROM attachments WHERE bear_id = ?"
+
+	a, err := scanAttachmentRow(s.db.QueryRowContext(ctx, query, bearID))
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+
+		return nil, fmt.Errorf("get attachment by bear_id: %w", err)
+	}
+
+	return &a, nil
+}
+
 func (s *SQLiteStore) ListAttachmentsByNote(
 	ctx context.Context, noteID string,
 ) ([]models.Attachment, error) {

@@ -19,7 +19,7 @@ import (
 func newQueueBridge(
 	db *mockBearDB, hub *mockHubClient, xcall *mockXCallback, statePath string,
 ) *Bridge {
-	b := NewBridge(db, hub, xcall, "test-bear-token", statePath, testLogger())
+	b := NewBridge(db, hub, xcall, "test-bear-token", statePath, "", testLogger())
 	b.sleepFn = func(_ time.Duration) {} // no-op sleep for tests
 	return b
 }

@@ -141,11 +141,11 @@
 
 ### Task 12: Синхронизация вложений
 
-- [ ] Bridge: после sync push — проверка новых/изменённых attachments, чтение файлов из Bear (`~/Library/Group Containers/.../Local Files/Note Images/<UUID>/` и `Note Files/<UUID>/`)
-- [ ] Upload: `hubclient.UploadAttachment(attachmentID, fileReader)` → `POST /api/sync/attachments/:id`
-- [ ] Hub: сохранение файлов на диск VPS в `HUB_ATTACHMENTS_DIR/<attachment_id>/<filename>`
-- [ ] Hub: `GET /api/attachments/:id` — отдача файлов с диска
-- [ ] Очистка: при `permanently_deleted=1` в sync push — удаление файлов с диска VPS
+- [x] Bridge: после sync push — проверка новых/изменённых attachments, чтение файлов из Bear (`~/Library/Group Containers/.../Local Files/Note Images/<UUID>/` и `Note Files/<UUID>/`)
+- [x] Upload: `hubclient.UploadAttachment(attachmentID, fileReader)` → `POST /api/sync/attachments/:id`
+- [x] Hub: сохранение файлов на диск VPS в `HUB_ATTACHMENTS_DIR/<attachment_id>/<filename>`
+- [x] Hub: `GET /api/attachments/:id` — отдача файлов с диска
+- [x] Очистка: при `permanently_deleted=1` в sync push — удаление файлов с диска VPS
 
 ### Task 13: Обработка конфликтов
 

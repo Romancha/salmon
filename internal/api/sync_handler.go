@@ -1,8 +1,10 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -20,16 +22,65 @@ func (s *Server) syncPush(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Collect attachment IDs to clean up before DB deletion removes the records.
+	cleanupIDs := s.collectAttachmentCleanupIDs(r.Context(), req)
+
 	if err := s.store.ProcessSyncPush(r.Context(), req); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to process sync push")
 		return
 	}
+
+	// Clean up attachment files from disk after successful DB processing.
+	s.cleanupAttachmentFiles(cleanupIDs)
 
 	now := time.Now().UTC().Format(time.RFC3339)
 
 	_ = s.store.SetSyncMeta(r.Context(), "last_push_at", now)
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+// collectAttachmentCleanupIDs gathers attachment IDs whose files should be removed from disk.
+// This includes explicitly deleted attachments and those marked as permanently_deleted.
+//nolint:gocritic // req is read-only, no need for pointer
+func (s *Server) collectAttachmentCleanupIDs(ctx context.Context, req models.SyncPushRequest) []string {
+	var ids []string
+
+	// Attachments in deleted_attachment_ids will be removed from DB — clean their files.
+	for _, bearID := range req.DeletedAttachmentIDs {
+		att, err := s.store.GetAttachmentByBearID(ctx, bearID)
+		if err != nil || att == nil {
+			continue
+		}
+		ids = append(ids, att.ID)
+	}
+
+	// Attachments pushed with permanently_deleted=1.
+	for i := range req.Attachments {
+		if req.Attachments[i].PermanentlyDeleted == 1 {
+			if req.Attachments[i].BearID != nil && *req.Attachments[i].BearID != "" {
+				att, err := s.store.GetAttachmentByBearID(ctx, *req.Attachments[i].BearID)
+				if err != nil || att == nil {
+					continue
+				}
+				ids = append(ids, att.ID)
+			}
+		}
+	}
+
+	return ids
+}
+
+// cleanupAttachmentFiles removes attachment directories from disk.
+func (s *Server) cleanupAttachmentFiles(attachmentIDs []string) {
+	for _, id := range attachmentIDs {
+		dir := filepath.Join(s.attachmentsDir, id)
+		if err := os.RemoveAll(dir); err != nil { //nolint:gosec // path from internal data
+			slog.Warn("failed to remove attachment files", "attachment_id", id, "error", err)
+		} else {
+			slog.Debug("removed attachment files", "attachment_id", id)
+		}
+	}
 }
 
 func (s *Server) syncQueue(w http.ResponseWriter, r *http.Request) {

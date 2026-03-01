@@ -119,9 +119,10 @@ func (m *mockBearDB) FindRecentNotesByTitle(_ context.Context, _ string, _ float
 
 // mockHubClient implements hubclient.HubClient for testing.
 type mockHubClient struct {
-	pushes     []models.SyncPushRequest
-	queueItems []models.WriteQueueItem
-	ackItems   []models.SyncAckItem
+	pushes      []models.SyncPushRequest
+	queueItems  []models.WriteQueueItem
+	ackItems    []models.SyncAckItem
+	uploadedIDs []string // attachment IDs that were uploaded
 }
 
 func (m *mockHubClient) SyncPush(_ context.Context, req models.SyncPushRequest) error { //nolint:gocritic // interface match
@@ -138,7 +139,8 @@ func (m *mockHubClient) AckQueue(_ context.Context, items []models.SyncAckItem) 
 	return nil
 }
 
-func (m *mockHubClient) UploadAttachment(_ context.Context, _ string, _ io.Reader) error {
+func (m *mockHubClient) UploadAttachment(_ context.Context, attachmentID string, _ io.Reader) error {
+	m.uploadedIDs = append(m.uploadedIDs, attachmentID)
 	return nil
 }
 
@@ -190,7 +192,7 @@ func floatPtr(f float64) *float64 { return &f }
 
 // newTestBridge creates a Bridge for testing with nil xcallback (no queue processing).
 func newTestBridge(db beardb.BearDB, hub hubclient.HubClient, statePath string) *Bridge {
-	b := NewBridge(db, hub, nil, "", statePath, testLogger())
+	b := NewBridge(db, hub, nil, "", statePath, "", testLogger())
 	b.sleepFn = func(_ time.Duration) {} // no-op sleep for tests
 	return b
 }
@@ -599,6 +601,154 @@ func TestLoadConfig_AllSet(t *testing.T) {
 	assert.Equal(t, "bear-token", cfg.bearToken)
 	assert.Equal(t, "/tmp/test-state.json", cfg.statePath)
 	assert.Equal(t, "/tmp/test-bear-db", cfg.bearDBDir)
+}
+
+func TestInitialSync_UploadsAttachmentFiles(t *testing.T) {
+	tmpDir := t.TempDir()
+	statePath := filepath.Join(tmpDir, "state.json")
+
+	// Create a fake Bear data dir with attachment files.
+	bearDataDir := filepath.Join(tmpDir, "bear-data")
+	imgDir := filepath.Join(bearDataDir, "Local Files", "Note Images", "att-uuid-1")
+	require.NoError(t, os.MkdirAll(imgDir, 0o750))
+	require.NoError(t, os.WriteFile(filepath.Join(imgDir, "photo.jpg"), []byte("image-data"), 0o600))
+
+	fileDir := filepath.Join(bearDataDir, "Local Files", "Note Files", "att-uuid-2")
+	require.NoError(t, os.MkdirAll(fileDir, 0o750))
+	require.NoError(t, os.WriteFile(filepath.Join(fileDir, "doc.pdf"), []byte("pdf-data"), 0o600))
+
+	db := &mockBearDB{
+		attachments: []mapper.BearAttachmentRow{
+			{
+				ZPK: 1, ZENT: 9, ZUNIQUEIDENTIFIER: strPtr("att-uuid-1"),
+				ZFILENAME: strPtr("photo.jpg"), ZNOTE: strPtr("note-1"),
+			},
+			{
+				ZPK: 2, ZENT: 8, ZUNIQUEIDENTIFIER: strPtr("att-uuid-2"),
+				ZFILENAME: strPtr("doc.pdf"), ZNOTE: strPtr("note-1"),
+			},
+		},
+		attUUIDs: []string{"att-uuid-1", "att-uuid-2"},
+	}
+
+	hub := &mockHubClient{}
+	b := NewBridge(db, hub, nil, "", statePath, bearDataDir, testLogger())
+	b.sleepFn = func(_ time.Duration) {}
+
+	err := b.Run(context.Background())
+	require.NoError(t, err)
+
+	// Both attachment files should have been uploaded.
+	assert.Len(t, hub.uploadedIDs, 2)
+}
+
+func TestInitialSync_SkipsEncryptedAndDeletedAttachments(t *testing.T) {
+	tmpDir := t.TempDir()
+	statePath := filepath.Join(tmpDir, "state.json")
+	bearDataDir := filepath.Join(tmpDir, "bear-data")
+
+	encInt := int64(1)
+	delInt := int64(1)
+
+	db := &mockBearDB{
+		attachments: []mapper.BearAttachmentRow{
+			{
+				ZPK: 1, ZENT: 9, ZUNIQUEIDENTIFIER: strPtr("att-encrypted"),
+				ZFILENAME: strPtr("secret.jpg"), ZNOTE: strPtr("note-1"),
+				ZENCRYPTED: &encInt,
+			},
+			{
+				ZPK: 2, ZENT: 8, ZUNIQUEIDENTIFIER: strPtr("att-deleted"),
+				ZFILENAME: strPtr("gone.pdf"), ZNOTE: strPtr("note-1"),
+				ZPERMANENTLYDELETED: &delInt,
+			},
+		},
+		attUUIDs: []string{"att-encrypted", "att-deleted"},
+	}
+
+	hub := &mockHubClient{}
+	b := NewBridge(db, hub, nil, "", statePath, bearDataDir, testLogger())
+	b.sleepFn = func(_ time.Duration) {}
+
+	err := b.Run(context.Background())
+	require.NoError(t, err)
+
+	// Neither encrypted nor deleted attachments should be uploaded.
+	assert.Empty(t, hub.uploadedIDs)
+}
+
+func TestResolveAttachmentFilePath(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create image directory with file.
+	imgDir := filepath.Join(tmpDir, "Local Files", "Note Images", "img-1")
+	require.NoError(t, os.MkdirAll(imgDir, 0o750))
+	require.NoError(t, os.WriteFile(filepath.Join(imgDir, "photo.jpg"), []byte("data"), 0o600))
+
+	// Create file directory with file.
+	fileDir := filepath.Join(tmpDir, "Local Files", "Note Files", "file-1")
+	require.NoError(t, os.MkdirAll(fileDir, 0o750))
+	require.NoError(t, os.WriteFile(filepath.Join(fileDir, "doc.pdf"), []byte("data"), 0o600))
+
+	b := &Bridge{bearDataDir: tmpDir, logger: testLogger()}
+
+	// Image type resolves to Note Images.
+	path := b.resolveAttachmentFilePath("image", "img-1", "photo.jpg")
+	assert.Equal(t, filepath.Join(imgDir, "photo.jpg"), path)
+
+	// File type resolves to Note Files.
+	path = b.resolveAttachmentFilePath("file", "file-1", "doc.pdf")
+	assert.Equal(t, filepath.Join(fileDir, "doc.pdf"), path)
+
+	// Video type also resolves to Note Files.
+	path = b.resolveAttachmentFilePath("video", "file-1", "doc.pdf")
+	assert.Equal(t, filepath.Join(fileDir, "doc.pdf"), path)
+
+	// Missing file returns empty.
+	path = b.resolveAttachmentFilePath("image", "nonexistent", "nope.jpg")
+	assert.Empty(t, path)
+
+	// Fallback to first file in directory when filename doesn't match.
+	path = b.resolveAttachmentFilePath("image", "img-1", "wrong-name.jpg")
+	assert.Equal(t, filepath.Join(imgDir, "photo.jpg"), path)
+}
+
+func TestDeltaSync_UploadsChangedAttachments(t *testing.T) {
+	tmpDir := t.TempDir()
+	statePath := filepath.Join(tmpDir, "state.json")
+
+	bearDataDir := filepath.Join(tmpDir, "bear-data")
+	imgDir := filepath.Join(bearDataDir, "Local Files", "Note Images", "att-new")
+	require.NoError(t, os.MkdirAll(imgDir, 0o750))
+	require.NoError(t, os.WriteFile(filepath.Join(imgDir, "new.jpg"), []byte("new-data"), 0o600))
+
+	state := &BridgeState{
+		LastSyncAt:   100,
+		KnownNoteIDs: []string{"note-1"},
+	}
+	require.NoError(t, saveState(statePath, state))
+
+	db := &mockBearDB{
+		attachments: []mapper.BearAttachmentRow{
+			{
+				ZPK: 1, ZENT: 9, ZUNIQUEIDENTIFIER: strPtr("att-new"),
+				ZFILENAME: strPtr("new.jpg"), ZNOTE: strPtr("note-1"),
+				ZMODIFICATIONDATE: floatPtr(150),
+			},
+		},
+		noteUUIDs: []string{"note-1"},
+		attUUIDs:  []string{"att-new"},
+	}
+
+	hub := &mockHubClient{}
+	b := NewBridge(db, hub, nil, "", statePath, bearDataDir, testLogger())
+	b.sleepFn = func(_ time.Duration) {}
+
+	err := b.Run(context.Background())
+	require.NoError(t, err)
+
+	// Attachment file should have been uploaded.
+	assert.Len(t, hub.uploadedIDs, 1)
 }
 
 func testLogger() *slog.Logger {

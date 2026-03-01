@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/romancha/bear-sync/internal/beardb"
@@ -24,13 +26,14 @@ const initialSyncBatchSize = 50
 
 // Bridge orchestrates the sync cycle between Bear SQLite and the hub.
 type Bridge struct {
-	db        beardb.BearDB
-	hub       hubclient.HubClient
-	xcall     xcallback.XCallback
-	bearToken string
-	statePath string
-	logger    *slog.Logger
-	sleepFn   func(time.Duration) // injectable sleep for testing
+	db         beardb.BearDB
+	hub        hubclient.HubClient
+	xcall      xcallback.XCallback
+	bearToken  string
+	statePath  string
+	bearDataDir string // Bear Application Data directory for reading attachment files
+	logger     *slog.Logger
+	sleepFn    func(time.Duration) // injectable sleep for testing
 }
 
 // NewBridge creates a new Bridge instance.
@@ -40,16 +43,18 @@ func NewBridge(
 	xcall xcallback.XCallback,
 	bearToken string,
 	statePath string,
+	bearDataDir string,
 	logger *slog.Logger,
 ) *Bridge {
 	return &Bridge{
-		db:        db,
-		hub:       hub,
-		xcall:     xcall,
-		bearToken: bearToken,
-		statePath: statePath,
-		logger:    logger,
-		sleepFn:   time.Sleep,
+		db:          db,
+		hub:         hub,
+		xcall:       xcall,
+		bearToken:   bearToken,
+		statePath:   statePath,
+		bearDataDir: bearDataDir,
+		logger:      logger,
+		sleepFn:     time.Sleep,
 	}
 }
 
@@ -142,6 +147,11 @@ func (b *Bridge) initialSync(ctx context.Context) error {
 		}
 	}
 
+	// Upload attachment files after metadata push.
+	if len(attachments) > 0 {
+		b.uploadAttachmentModels(ctx, attachments)
+	}
+
 	// Push notes in batches of initialSyncBatchSize.
 	for i := 0; i < len(noteRows); i += initialSyncBatchSize {
 		end := i + initialSyncBatchSize
@@ -214,6 +224,11 @@ func (b *Bridge) deltaSync(ctx context.Context, state *BridgeState) error {
 
 	if err := b.hub.SyncPush(ctx, *req); err != nil {
 		return fmt.Errorf("push delta: %w", err)
+	}
+
+	// Upload attachment files for new/changed attachments.
+	if len(req.Attachments) > 0 {
+		b.uploadAttachmentModels(ctx, req.Attachments)
 	}
 
 	// Update state after successful push.
@@ -523,6 +538,84 @@ func (b *Bridge) updateKnownIDs(ctx context.Context, state *BridgeState) error {
 		return fmt.Errorf("get all pinned note tags: %w", err)
 	}
 	state.KnownPinnedNoteTagPairs = convertToIDPairs(pinnedNoteTags)
+
+	return nil
+}
+
+// uploadAttachmentModels uploads attachment files from Bear's local storage to the hub.
+// Errors are logged but don't fail the sync — metadata is already pushed successfully.
+func (b *Bridge) uploadAttachmentModels(ctx context.Context, attachments []models.Attachment) {
+	for i := range attachments {
+		att := &attachments[i]
+		if att.BearID == nil || *att.BearID == "" {
+			continue
+		}
+		if att.PermanentlyDeleted == 1 || att.Encrypted == 1 {
+			continue
+		}
+
+		filePath := b.resolveAttachmentFilePath(att.Type, *att.BearID, att.Filename)
+		if filePath == "" {
+			b.logger.Debug("no file path resolved for attachment", "bear_id", *att.BearID, "type", att.Type)
+			continue
+		}
+
+		if err := b.uploadSingleAttachment(ctx, att.ID, filePath); err != nil {
+			b.logger.Warn("failed to upload attachment file",
+				"attachment_id", att.ID, "bear_id", *att.BearID, "path", filePath, "error", err)
+		}
+	}
+}
+
+// resolveAttachmentFilePath determines the full file path for a Bear attachment.
+// Bear stores files in Local Files/Note Images or Note Files subdirectories.
+func (b *Bridge) resolveAttachmentFilePath(attType, bearID, filename string) string {
+	var subdir string
+
+	switch attType {
+	case "image":
+		subdir = "Note Images"
+	default:
+		subdir = "Note Files"
+	}
+
+	dir := filepath.Join(b.bearDataDir, "Local Files", subdir, bearID)
+
+	if filename != "" {
+		candidate := filepath.Join(dir, filename)
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate
+		}
+	}
+
+	// If filename doesn't match or is empty, try to find any file in the directory.
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return ""
+	}
+
+	for _, e := range entries {
+		if !e.IsDir() {
+			return filepath.Join(dir, e.Name())
+		}
+	}
+
+	return ""
+}
+
+// uploadSingleAttachment reads a file from disk and uploads it to the hub.
+func (b *Bridge) uploadSingleAttachment(ctx context.Context, attachmentID, filePath string) error {
+	f, err := os.Open(filePath) //nolint:gosec // path constructed from internal data
+	if err != nil {
+		return fmt.Errorf("open attachment file: %w", err)
+	}
+	defer f.Close() //nolint:errcheck // best-effort close on read path
+
+	if err := b.hub.UploadAttachment(ctx, attachmentID, f); err != nil {
+		return fmt.Errorf("upload to hub: %w", err)
+	}
+
+	b.logger.Debug("uploaded attachment file", "attachment_id", attachmentID, "path", filePath)
 
 	return nil
 }

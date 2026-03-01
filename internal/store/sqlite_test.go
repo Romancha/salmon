@@ -282,6 +282,18 @@ func TestAttachments(t *testing.T) {
 	atts, err := s.ListAttachmentsByNote(ctx, "n1")
 	require.NoError(t, err)
 	assert.Len(t, atts, 1)
+
+	// Test GetAttachmentByBearID.
+	attByBear, err := s.GetAttachmentByBearID(ctx, "bear-a1")
+	require.NoError(t, err)
+	require.NotNil(t, attByBear)
+	assert.Equal(t, "a1", attByBear.ID)
+	assert.Equal(t, "photo.jpg", attByBear.Filename)
+
+	// Non-existent bear_id returns nil.
+	attByBear, err = s.GetAttachmentByBearID(ctx, "nonexistent")
+	require.NoError(t, err)
+	assert.Nil(t, attByBear)
 }
 
 // --- Backlinks ---

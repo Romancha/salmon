@@ -698,3 +698,158 @@ func TestIdempotency_CreateNoteDuplicate(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, note)
 }
+
+func TestSyncPush_CleansUpDeletedAttachmentFiles(t *testing.T) {
+	ts, s := setupServer(t)
+
+	require.NoError(t, s.CreateNote(t.Context(), &models.Note{ID: "note-1", Title: "Note"}))
+
+	bearAttID := "bear-att-del"
+
+	// Push an attachment first.
+	err := s.ProcessSyncPush(t.Context(), models.SyncPushRequest{
+		Attachments: []models.Attachment{
+			{BearID: &bearAttID, NoteID: "note-1", Type: "file", Filename: "to-delete.txt"},
+		},
+	})
+	require.NoError(t, err)
+
+	// Upload a file for this attachment.
+	att, err := s.GetAttachmentByBearID(t.Context(), bearAttID)
+	require.NoError(t, err)
+	require.NotNil(t, att)
+
+	fileContent := "file to be deleted"
+	req, err := http.NewRequest( //nolint:noctx // test
+		http.MethodPost,
+		ts.URL+"/api/sync/attachments/"+att.ID,
+		bytes.NewReader([]byte(fileContent)),
+	)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer "+bridgeToken)
+
+	resp, err := http.DefaultClient.Do(req) //nolint:noctx,gosec // test
+	require.NoError(t, err)
+	defer resp.Body.Close() //nolint:errcheck // test
+
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	// Verify file exists on disk.
+	att, err = s.GetAttachmentByBearID(t.Context(), bearAttID)
+	require.NoError(t, err)
+	require.NotEmpty(t, att.FilePath)
+	_, statErr := os.Stat(att.FilePath)
+	require.NoError(t, statErr, "file should exist before deletion")
+
+	// Push with deleted_attachment_ids.
+	deleteReq := models.SyncPushRequest{
+		DeletedAttachmentIDs: []string{bearAttID},
+	}
+	deleteResp := doRequest(t, ts, http.MethodPost, "/api/sync/push", deleteReq, bridgeToken, nil)
+	result := readBody(t, deleteResp)
+	assert.Equal(t, http.StatusOK, deleteResp.StatusCode)
+	assert.Equal(t, "ok", result["status"])
+
+	// Verify file was cleaned up from disk.
+	_, statErr = os.Stat(att.FilePath)
+	assert.True(t, os.IsNotExist(statErr), "attachment file should be removed from disk")
+}
+
+func TestSyncPush_CleansUpPermanentlyDeletedAttachmentFiles(t *testing.T) {
+	ts, s := setupServer(t)
+
+	require.NoError(t, s.CreateNote(t.Context(), &models.Note{ID: "note-1", Title: "Note"}))
+
+	bearAttID := "bear-att-perm"
+
+	// Push attachment.
+	err := s.ProcessSyncPush(t.Context(), models.SyncPushRequest{
+		Attachments: []models.Attachment{
+			{BearID: &bearAttID, NoteID: "note-1", Type: "image", Filename: "photo.jpg"},
+		},
+	})
+	require.NoError(t, err)
+
+	att, err := s.GetAttachmentByBearID(t.Context(), bearAttID)
+	require.NoError(t, err)
+	require.NotNil(t, att)
+
+	// Upload file.
+	fileReq, err := http.NewRequest( //nolint:noctx // test
+		http.MethodPost,
+		ts.URL+"/api/sync/attachments/"+att.ID,
+		bytes.NewReader([]byte("photo data")),
+	)
+	require.NoError(t, err)
+	fileReq.Header.Set("Authorization", "Bearer "+bridgeToken)
+
+	fileResp, err := http.DefaultClient.Do(fileReq) //nolint:noctx,gosec // test
+	require.NoError(t, err)
+	defer fileResp.Body.Close() //nolint:errcheck // test
+
+	assert.Equal(t, http.StatusOK, fileResp.StatusCode)
+
+	att, err = s.GetAttachmentByBearID(t.Context(), bearAttID)
+	require.NoError(t, err)
+	require.NotEmpty(t, att.FilePath)
+
+	// Push with permanently_deleted=1.
+	pushReq := models.SyncPushRequest{
+		Attachments: []models.Attachment{
+			{BearID: &bearAttID, NoteID: "note-1", Type: "image", Filename: "photo.jpg", PermanentlyDeleted: 1},
+		},
+	}
+	pushResp := doRequest(t, ts, http.MethodPost, "/api/sync/push", pushReq, bridgeToken, nil)
+	result := readBody(t, pushResp)
+	assert.Equal(t, http.StatusOK, pushResp.StatusCode)
+	assert.Equal(t, "ok", result["status"])
+
+	// Verify file was cleaned up from disk.
+	_, statErr := os.Stat(att.FilePath)
+	assert.True(t, os.IsNotExist(statErr), "attachment file should be removed from disk")
+}
+
+func TestGetAttachment_ServesFile(t *testing.T) {
+	ts, s := setupServer(t)
+
+	require.NoError(t, s.CreateNote(t.Context(), &models.Note{ID: "note-1", Title: "Note"}))
+
+	bearAttID := "bear-att-serve"
+
+	err := s.ProcessSyncPush(t.Context(), models.SyncPushRequest{
+		Attachments: []models.Attachment{
+			{BearID: &bearAttID, NoteID: "note-1", Type: "file", Filename: "readme.txt"},
+		},
+	})
+	require.NoError(t, err)
+
+	att, err := s.GetAttachmentByBearID(t.Context(), bearAttID)
+	require.NoError(t, err)
+	require.NotNil(t, att)
+
+	// Upload file.
+	fileContent := "readme content"
+	uploadReq, err := http.NewRequest( //nolint:noctx // test
+		http.MethodPost,
+		ts.URL+"/api/sync/attachments/"+att.ID,
+		bytes.NewReader([]byte(fileContent)),
+	)
+	require.NoError(t, err)
+	uploadReq.Header.Set("Authorization", "Bearer "+bridgeToken)
+
+	uploadResp, err := http.DefaultClient.Do(uploadReq) //nolint:noctx,gosec // test
+	require.NoError(t, err)
+	defer uploadResp.Body.Close() //nolint:errcheck // test
+
+	assert.Equal(t, http.StatusOK, uploadResp.StatusCode)
+
+	// Now GET the attachment via openclaw API.
+	getResp := doRequest(t, ts, http.MethodGet, "/api/attachments/"+att.ID, nil, openclawToken, nil)
+	defer getResp.Body.Close() //nolint:errcheck // test
+
+	assert.Equal(t, http.StatusOK, getResp.StatusCode)
+
+	body, err := io.ReadAll(getResp.Body)
+	require.NoError(t, err)
+	assert.Equal(t, fileContent, string(body))
+}

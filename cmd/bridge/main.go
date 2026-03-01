@@ -111,7 +111,7 @@ func run(logger *slog.Logger) error {
 		xcall = xc
 	}
 
-	bridge := NewBridge(db, hub, xcall, cfg.bearToken, cfg.statePath, logger)
+	bridge := NewBridge(db, hub, xcall, cfg.bearToken, cfg.statePath, cfg.bearDBDir, logger)
 
 	if err := bridge.Run(ctx); err != nil {
 		return fmt.Errorf("sync: %w", err)
