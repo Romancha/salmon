@@ -61,16 +61,16 @@
 
 ### Task 5: HTTP API хаба (`internal/api`)
 
-- [ ] `server.go` — chi роутер, middleware (auth Bearer token, `http.MaxBytesReader` с лимитами: 50 MB для `sync/push`, 100 MB для `sync/attachments/:id`, 1 MB для остальных openclaw API, request logging через slog, recovery)
-- [ ] Auth middleware: `Authorization: Bearer <token>`, два токена (openclaw + bridge), разные права (bridge: sync/*, openclaw: api/*)
-- [ ] `notes_handler.go` — `GET /api/notes` (список без body, с тегами), `GET /api/notes/search?q=...` (FTS5, static route — chi приоритизирует static над параметризованными автоматически), `GET /api/notes/:id` (полная заметка + теги + backlinks), `POST /api/notes` (create → write_queue), `PUT /api/notes/:id` (update → write_queue), `DELETE /api/notes/:id` (trash → write_queue)
-- [ ] `tags_handler.go` — `GET /api/tags` (все теги с иерархией), `POST /api/notes/:id/tags` (add_tag → write_queue)
-- [ ] `backlinks_handler.go` — `GET /api/notes/:id/backlinks` (заметки, ссылающиеся на данную)
-- [ ] `attachments_handler.go` — `GET /api/attachments/:id` (скачать файл с диска)
-- [ ] `sync_handler.go` — `POST /api/sync/push`, `GET /api/sync/queue` (lease-based), `POST /api/sync/ack` (идемпотентный), `POST /api/sync/attachments/:id` (upload файла), `GET /api/sync/status`
-- [ ] Idempotency: обязательный `Idempotency-Key` header для POST/PUT/DELETE openclaw API. Повторный запрос с тем же ключом → существующий результат
-- [ ] Запрет записи зашифрованных заметок: 403 Forbidden для PUT/DELETE на notes с `encrypted=1`
-- [ ] Unit-тесты API: все эндпоинты через `httptest`, auth (valid/invalid/wrong scope), валидация, пагинация, фильтры, idempotency, 403 на encrypted
+- [x] `server.go` — chi роутер, middleware (auth Bearer token, `http.MaxBytesReader` с лимитами: 50 MB для `sync/push`, 100 MB для `sync/attachments/:id`, 1 MB для остальных openclaw API, request logging через slog, recovery)
+- [x] Auth middleware: `Authorization: Bearer <token>`, два токена (openclaw + bridge), разные права (bridge: sync/*, openclaw: api/*)
+- [x] `notes_handler.go` — `GET /api/notes` (список без body, с тегами), `GET /api/notes/search?q=...` (FTS5, static route — chi приоритизирует static над параметризованными автоматически), `GET /api/notes/:id` (полная заметка + теги + backlinks), `POST /api/notes` (create → write_queue), `PUT /api/notes/:id` (update → write_queue), `DELETE /api/notes/:id` (trash → write_queue)
+- [x] `tags_handler.go` — `GET /api/tags` (все теги с иерархией), `POST /api/notes/:id/tags` (add_tag → write_queue)
+- [x] `backlinks_handler.go` — `GET /api/notes/:id/backlinks` (заметки, ссылающиеся на данную)
+- [x] `attachments_handler.go` — `GET /api/attachments/:id` (скачать файл с диска)
+- [x] `sync_handler.go` — `POST /api/sync/push`, `GET /api/sync/queue` (lease-based), `POST /api/sync/ack` (идемпотентный), `POST /api/sync/attachments/:id` (upload файла), `GET /api/sync/status`
+- [x] Idempotency: обязательный `Idempotency-Key` header для POST/PUT/DELETE openclaw API. Повторный запрос с тем же ключом → существующий результат
+- [x] Запрет записи зашифрованных заметок: 403 Forbidden для PUT/DELETE на notes с `encrypted=1`
+- [x] Unit-тесты API: все эндпоинты через `httptest`, auth (valid/invalid/wrong scope), валидация, пагинация, фильтры, idempotency, 403 на encrypted
 
 ### Task 6: Hub main (`cmd/hub`)
 

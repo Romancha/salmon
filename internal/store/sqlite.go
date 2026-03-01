@@ -586,6 +586,30 @@ func (s *SQLiteStore) ListAttachmentsByNote(
 	return attachments, nil
 }
 
+func (s *SQLiteStore) UpdateAttachment(ctx context.Context, a *models.Attachment) error {
+	query := `UPDATE attachments SET
+		bear_id = ?, note_id = ?, type = ?, filename = ?,
+		normalized_extension = ?, file_size = ?, file_index = ?,
+		width = ?, height = ?, animated = ?, duration = ?,
+		width1 = ?, height1 = ?, downloaded = ?, encrypted = ?,
+		permanently_deleted = ?, skip_sync = ?, unused = ?,
+		uploaded = ?, version = ?, created_at = ?, modified_at = ?,
+		inserted_at = ?, encrypted_at = ?, unused_at = ?,
+		uploaded_at = ?, search_text_at = ?, last_editing_device = ?,
+		encryption_id = ?, search_text = ?, encrypted_data = ?,
+		file_path = ?, bear_raw = ?
+	WHERE id = ?`
+
+	vals := attachmentValues(a)
+	vals = append(vals[1:], vals[0])
+
+	if _, err := s.db.ExecContext(ctx, query, vals...); err != nil {
+		return fmt.Errorf("update attachment: %w", err)
+	}
+
+	return nil
+}
+
 // --- Backlinks ---
 
 func (s *SQLiteStore) ListBacklinksByNote(
@@ -1297,6 +1321,19 @@ func ackApplied(ctx context.Context, tx *sql.Tx, item models.SyncAckItem, now st
 	}
 
 	return nil
+}
+
+func (s *SQLiteStore) PendingQueueCount(ctx context.Context) (int, error) {
+	var count int
+
+	err := s.db.QueryRowContext(ctx,
+		"SELECT COUNT(*) FROM write_queue WHERE status = 'pending' OR status = 'processing'",
+	).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("count pending queue: %w", err)
+	}
+
+	return count, nil
 }
 
 // --- Sync Meta ---

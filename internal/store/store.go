@@ -37,6 +37,7 @@ type Store interface {
 	// Attachments
 	GetAttachment(ctx context.Context, id string) (*models.Attachment, error)
 	ListAttachmentsByNote(ctx context.Context, noteID string) ([]models.Attachment, error)
+	UpdateAttachment(ctx context.Context, attachment *models.Attachment) error
 
 	// Backlinks
 	ListBacklinksByNote(ctx context.Context, noteID string) ([]models.Backlink, error)
@@ -48,6 +49,7 @@ type Store interface {
 	EnqueueWrite(ctx context.Context, idempotencyKey, action, noteID, payload string) (*models.WriteQueueItem, error)
 	LeaseQueueItems(ctx context.Context, processingBy string, leaseDuration time.Duration) ([]models.WriteQueueItem, error)
 	AckQueueItems(ctx context.Context, items []models.SyncAckItem) error
+	PendingQueueCount(ctx context.Context) (int, error)
 
 	// Sync Meta
 	GetSyncMeta(ctx context.Context, key string) (string, error)
