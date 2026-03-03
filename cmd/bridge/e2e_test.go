@@ -78,7 +78,8 @@ func setupE2E(t *testing.T) *e2eEnv {
 	bridgeToken := "test-bridge-token"
 
 	// Create API server.
-	srv := api.NewServer(hubStore, openclawToken, bridgeToken, attachmentsDir)
+	consumerTokens := map[string]string{"openclaw": openclawToken}
+	srv := api.NewServer(hubStore, consumerTokens, bridgeToken, attachmentsDir)
 	ts := httptest.NewServer(srv)
 	t.Cleanup(ts.Close)
 

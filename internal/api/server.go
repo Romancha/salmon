@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"crypto/subtle"
 	"encoding/json"
 	"fmt"
@@ -15,22 +16,32 @@ import (
 	"github.com/romancha/bear-sync/internal/store"
 )
 
+type contextKey string
+
+const consumerIDKey contextKey = "consumer_id"
+
+// ConsumerIDFromContext extracts the consumer ID set by the auth middleware.
+func ConsumerIDFromContext(ctx context.Context) string {
+	v, _ := ctx.Value(consumerIDKey).(string)
+	return v
+}
+
 const syncStatusConflict = "conflict"
 
 // Server holds the HTTP handler and dependencies.
 type Server struct {
 	router         chi.Router
 	store          store.Store
-	openclawToken  string
+	consumerTokens map[string]string // name → token
 	bridgeToken    string
 	attachmentsDir string
 }
 
 // NewServer creates a new API server with all routes configured.
-func NewServer(s store.Store, openclawToken, bridgeToken, attachmentsDir string) *Server {
+func NewServer(s store.Store, consumerTokens map[string]string, bridgeToken, attachmentsDir string) *Server {
 	srv := &Server{
 		store:          s,
-		openclawToken:  openclawToken,
+		consumerTokens: consumerTokens,
 		bridgeToken:    bridgeToken,
 		attachmentsDir: attachmentsDir,
 	}
@@ -46,7 +57,7 @@ func NewServer(s store.Store, openclawToken, bridgeToken, attachmentsDir string)
 
 	r.Route("/api", func(r chi.Router) {
 		r.Route("/notes", func(r chi.Router) {
-			r.Use(srv.authMiddleware("openclaw"))
+			r.Use(srv.authMiddleware("consumer"))
 			r.Use(bodyLimitMiddleware(1 << 20)) // 1 MB
 
 			r.Get("/", srv.listNotes)
@@ -64,14 +75,14 @@ func NewServer(s store.Store, openclawToken, bridgeToken, attachmentsDir string)
 		})
 
 		r.Route("/tags", func(r chi.Router) {
-			r.Use(srv.authMiddleware("openclaw"))
+			r.Use(srv.authMiddleware("consumer"))
 			r.Use(bodyLimitMiddleware(1 << 20))
 
 			r.Get("/", srv.listTags)
 		})
 
 		r.Route("/attachments", func(r chi.Router) {
-			r.Use(srv.authMiddleware("openclaw"))
+			r.Use(srv.authMiddleware("consumer"))
 
 			r.Get("/{id}", srv.getAttachment)
 		})
@@ -131,20 +142,23 @@ func (s *Server) authMiddleware(scope string) func(http.Handler) http.Handler {
 			token = token[7:]
 
 			switch scope {
-			case "openclaw":
-				if subtle.ConstantTimeCompare([]byte(token), []byte(s.openclawToken)) != 1 {
-					writeError(w, http.StatusForbidden, "invalid token for openclaw scope")
+			case "consumer":
+				consumerName := s.matchConsumerToken(token)
+				if consumerName == "" {
+					writeError(w, http.StatusForbidden, "invalid token for consumer scope")
 					return
 				}
+				ctx := context.WithValue(r.Context(), consumerIDKey, consumerName)
+				r = r.WithContext(ctx)
 			case "bridge":
 				if subtle.ConstantTimeCompare([]byte(token), []byte(s.bridgeToken)) != 1 {
 					writeError(w, http.StatusForbidden, "invalid token for bridge scope")
 					return
 				}
 			case "any":
-				validOC := subtle.ConstantTimeCompare([]byte(token), []byte(s.openclawToken))
-				validBR := subtle.ConstantTimeCompare([]byte(token), []byte(s.bridgeToken))
-				if validOC|validBR != 1 {
+				matched := s.matchConsumerToken(token) != ""
+				validBR := subtle.ConstantTimeCompare([]byte(token), []byte(s.bridgeToken)) == 1
+				if !matched && !validBR {
 					writeError(w, http.StatusForbidden, "invalid token")
 					return
 				}
@@ -156,6 +170,16 @@ func (s *Server) authMiddleware(scope string) func(http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+// matchConsumerToken returns the consumer name whose token matches, or "" if none match.
+func (s *Server) matchConsumerToken(token string) string {
+	for name, t := range s.consumerTokens {
+		if subtle.ConstantTimeCompare([]byte(token), []byte(t)) == 1 {
+			return name
+		}
+	}
+	return ""
 }
 
 func bodyLimitMiddleware(maxBytes int64) func(http.Handler) http.Handler {

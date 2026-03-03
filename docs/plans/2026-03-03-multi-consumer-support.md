@@ -78,13 +78,13 @@ Refactor bear-sync hub from being hardcoded to a single external consumer (openc
 - [x] run tests — must pass before next task
 
 ### Task 4: Refactor auth middleware for multi-consumer support
-- [ ] write tests for new auth middleware: valid consumer token → request proceeds with consumer_id in context; invalid token → 403; missing header → 401
-- [ ] write tests: consumer_id is extractable from request context after auth
-- [ ] replace `openclawToken string` field in Server struct with `consumerTokens map[string]string` (name→token mapping)
-- [ ] add context key type and `ConsumerIDFromContext(ctx) string` helper
-- [ ] refactor `authMiddleware` to support scopes: `"consumer"` (matches any consumer token, sets consumer_id in ctx), `"bridge"`, `"any"`
-- [ ] update route setup: replace `authMiddleware("openclaw")` with `authMiddleware("consumer")`
-- [ ] run tests — must pass before next task
+- [x] write tests for new auth middleware: valid consumer token → request proceeds with consumer_id in context; invalid token → 403; missing header → 401
+- [x] write tests: consumer_id is extractable from request context after auth
+- [x] replace `openclawToken string` field in Server struct with `consumerTokens map[string]string` (name→token mapping)
+- [x] add context key type and `ConsumerIDFromContext(ctx) string` helper
+- [x] refactor `authMiddleware` to support scopes: `"consumer"` (matches any consumer token, sets consumer_id in ctx), `"bridge"`, `"any"`
+- [x] update route setup: replace `authMiddleware("openclaw")` with `authMiddleware("consumer")`
+- [x] run tests — must pass before next task
 
 ### Task 5: Update hub main.go — env var migration
 - [ ] write tests for config validation: `HUB_CONSUMER_TOKENS` required, parsed correctly

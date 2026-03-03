@@ -24,6 +24,8 @@ const (
 	bridgeToken   = "test-bridge-token"
 )
 
+var testConsumerTokens = map[string]string{"openclaw": openclawToken}
+
 func setupServer(t *testing.T) (*httptest.Server, *store.SQLiteStore) {
 	t.Helper()
 
@@ -36,7 +38,7 @@ func setupServer(t *testing.T) (*httptest.Server, *store.SQLiteStore) {
 
 	tmpDir := t.TempDir()
 
-	srv := api.NewServer(s, openclawToken, bridgeToken, tmpDir)
+	srv := api.NewServer(s, testConsumerTokens, bridgeToken, tmpDir)
 	ts := httptest.NewServer(srv)
 
 	t.Cleanup(ts.Close)
@@ -161,6 +163,63 @@ func TestAuth_ValidToken(t *testing.T) {
 	defer resp.Body.Close() //nolint:errcheck // test
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
+}
+
+func TestAuth_MultipleConsumers(t *testing.T) {
+	s, err := store.NewSQLiteStore(":memory:")
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, s.Close()) })
+
+	tokens := map[string]string{
+		"openclaw": "token-oc",
+		"myapp":    "token-myapp",
+	}
+	srv := api.NewServer(s, tokens, bridgeToken, t.TempDir())
+	ts := httptest.NewServer(srv)
+	t.Cleanup(ts.Close)
+
+	t.Run("both consumer tokens authenticate on consumer routes", func(t *testing.T) {
+		resp1 := doRequest(t, ts, http.MethodGet, "/api/notes", nil, "token-oc", nil)
+		defer resp1.Body.Close() //nolint:errcheck // test
+		assert.Equal(t, http.StatusOK, resp1.StatusCode)
+
+		resp2 := doRequest(t, ts, http.MethodGet, "/api/notes", nil, "token-myapp", nil)
+		defer resp2.Body.Close() //nolint:errcheck // test
+		assert.Equal(t, http.StatusOK, resp2.StatusCode)
+	})
+
+	t.Run("invalid token rejected", func(t *testing.T) {
+		resp := doRequest(t, ts, http.MethodGet, "/api/notes", nil, "wrong-token", nil)
+		defer resp.Body.Close() //nolint:errcheck // test
+		assert.Equal(t, http.StatusForbidden, resp.StatusCode)
+	})
+
+	t.Run("bridge token rejected on consumer routes", func(t *testing.T) {
+		resp := doRequest(t, ts, http.MethodGet, "/api/notes", nil, bridgeToken, nil)
+		defer resp.Body.Close() //nolint:errcheck // test
+		assert.Equal(t, http.StatusForbidden, resp.StatusCode)
+	})
+
+	t.Run("consumer tokens accepted on any-scope routes", func(t *testing.T) {
+		resp1 := doRequest(t, ts, http.MethodGet, "/api/sync/status", nil, "token-oc", nil)
+		defer resp1.Body.Close() //nolint:errcheck // test
+		assert.Equal(t, http.StatusOK, resp1.StatusCode)
+
+		resp2 := doRequest(t, ts, http.MethodGet, "/api/sync/status", nil, "token-myapp", nil)
+		defer resp2.Body.Close() //nolint:errcheck // test
+		assert.Equal(t, http.StatusOK, resp2.StatusCode)
+	})
+
+	t.Run("bridge token accepted on any-scope routes", func(t *testing.T) {
+		resp := doRequest(t, ts, http.MethodGet, "/api/sync/status", nil, bridgeToken, nil)
+		defer resp.Body.Close() //nolint:errcheck // test
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+	})
+}
+
+func TestAuth_ConsumerIDFromContext_Helper(t *testing.T) {
+	// ConsumerIDFromContext returns empty string when no value is set.
+	assert.Equal(t, "", api.ConsumerIDFromContext(t.Context()))
 }
 
 // --- Notes tests ---
@@ -597,7 +656,7 @@ func TestGetAttachment_FileOnDisk(t *testing.T) {
 	require.NoError(t, os.MkdirAll(attDir, 0o750))
 	require.NoError(t, os.WriteFile(filepath.Join(attDir, "test.txt"), []byte("file content"), 0o600))
 
-	srv := api.NewServer(s, openclawToken, bridgeToken, tmpDir)
+	srv := api.NewServer(s, testConsumerTokens, bridgeToken, tmpDir)
 	ts := httptest.NewServer(srv)
 	defer ts.Close()
 

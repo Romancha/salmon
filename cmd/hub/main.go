@@ -90,7 +90,8 @@ func run() error {
 		}
 	}()
 
-	srv := api.NewServer(s, cfg.openclawToken, cfg.bridgeToken, cfg.attachmentsDir)
+	consumerTokens := map[string]string{"openclaw": cfg.openclawToken}
+	srv := api.NewServer(s, consumerTokens, cfg.bridgeToken, cfg.attachmentsDir)
 
 	addr := net.JoinHostPort(cfg.host, cfg.port)
 
