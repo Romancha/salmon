@@ -48,7 +48,7 @@ type e2eEnv struct {
 	statePath      string
 	attachmentsDir string
 	bearDataDir    string
-	openclawToken  string
+	consumerToken  string
 	bridgeToken    string
 }
 
@@ -74,11 +74,11 @@ func setupE2E(t *testing.T) *e2eEnv {
 	attachmentsDir := filepath.Join(tmpDir, "attachments")
 	require.NoError(t, os.MkdirAll(attachmentsDir, 0o750))
 
-	openclawToken := "test-openclaw-token"
+	consumerToken := "test-consumer-token"
 	bridgeToken := "test-bridge-token"
 
 	// Create API server.
-	consumerTokens := map[string]string{"openclaw": openclawToken}
+	consumerTokens := map[string]string{"testapp": consumerToken}
 	srv := api.NewServer(hubStore, consumerTokens, bridgeToken, attachmentsDir)
 	ts := httptest.NewServer(srv)
 	t.Cleanup(ts.Close)
@@ -104,7 +104,7 @@ func setupE2E(t *testing.T) *e2eEnv {
 		statePath:      statePath,
 		attachmentsDir: attachmentsDir,
 		bearDataDir:    bearDataDir,
-		openclawToken:  openclawToken,
+		consumerToken:  consumerToken,
 		bridgeToken:    bridgeToken,
 	}
 }
@@ -366,19 +366,19 @@ type httpResult struct {
 	Body       []byte
 }
 
-// openclawGet performs an authenticated GET request as openclaw.
-func (e *e2eEnv) openclawGet(path string) httpResult {
+// consumerGet performs an authenticated GET request as a consumer.
+func (e *e2eEnv) consumerGet(path string) httpResult {
 	e.t.Helper()
 
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, e.apiServer.URL+path, http.NoBody)
 	require.NoError(e.t, err)
-	req.Header.Set("Authorization", "Bearer "+e.openclawToken)
+	req.Header.Set("Authorization", "Bearer "+e.consumerToken)
 
 	return e.doHTTP(req)
 }
 
-// openclawDo performs an authenticated request as openclaw.
-func (e *e2eEnv) openclawDo(method, path string, body any, idempotencyKey string) httpResult {
+// consumerDo performs an authenticated request as a consumer.
+func (e *e2eEnv) consumerDo(method, path string, body any, idempotencyKey string) httpResult {
 	e.t.Helper()
 
 	var bodyReader io.Reader
@@ -403,7 +403,7 @@ func (e *e2eEnv) openclawDo(method, path string, body any, idempotencyKey string
 
 func (e *e2eEnv) doHTTP(req *http.Request) httpResult {
 	e.t.Helper()
-	req.Header.Set("Authorization", "Bearer "+e.openclawToken)
+	req.Header.Set("Authorization", "Bearer "+e.consumerToken)
 
 	resp, err := e.apiServer.Client().Do(req) //nolint:gosec // test httptest server
 	require.NoError(e.t, err)
@@ -427,7 +427,7 @@ func decodeJSON[T any](t *testing.T, r httpResult) T {
 // --- E2E Tests ---
 
 // TestE2E_ReadFlow tests the full read path:
-// bridge reads Bear SQLite -> push to hub -> openclaw API reads back.
+// bridge reads Bear SQLite -> push to hub -> consumer API reads back.
 func TestE2E_ReadFlow(t *testing.T) {
 	env := setupE2E(t)
 
@@ -435,8 +435,8 @@ func TestE2E_ReadFlow(t *testing.T) {
 	err := env.bridge.Run(context.Background())
 	require.NoError(t, err)
 
-	// Verify notes via openclaw API.
-	resp := env.openclawGet("/api/notes?limit=50")
+	// Verify notes via consumer API.
+	resp := env.consumerGet("/api/notes?limit=50")
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	notes := decodeJSON[[]models.Note](t, resp)
 	assert.Len(t, notes, 5) // 3 regular + 1 encrypted + 1 trashed
@@ -451,7 +451,7 @@ func TestE2E_ReadFlow(t *testing.T) {
 	}
 	require.NotEmpty(t, noteID, "First Note should exist in hub")
 
-	resp = env.openclawGet("/api/notes/" + noteID)
+	resp = env.consumerGet("/api/notes/" + noteID)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	note := decodeJSON[models.Note](t, resp)
 	assert.Equal(t, firstNoteTitle, note.Title)
@@ -470,13 +470,13 @@ func TestE2E_ReadFlow(t *testing.T) {
 	assert.Contains(t, tagTitles, "work/projects")
 
 	// Verify tags via API.
-	resp = env.openclawGet("/api/tags")
+	resp = env.consumerGet("/api/tags")
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	tags := decodeJSON[[]models.Tag](t, resp)
 	assert.Len(t, tags, 3) // work, work/projects, personal
 
 	// Verify FTS5 search works.
-	resp = env.openclawGet("/api/notes/search?q=" + strings.ReplaceAll(firstNoteTitle, " ", "+"))
+	resp = env.consumerGet("/api/notes/search?q=" + strings.ReplaceAll(firstNoteTitle, " ", "+"))
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	searchResults := decodeJSON[[]models.Note](t, resp)
 	require.GreaterOrEqual(t, len(searchResults), 1)
@@ -492,7 +492,7 @@ func TestE2E_ReadFlow(t *testing.T) {
 	}
 	require.NotEmpty(t, note3ID)
 
-	resp = env.openclawGet(fmt.Sprintf("/api/notes/%s/backlinks", note3ID))
+	resp = env.consumerGet(fmt.Sprintf("/api/notes/%s/backlinks", note3ID))
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	backlinks := decodeJSON[[]models.Backlink](t, resp)
 	assert.Len(t, backlinks, 1)
@@ -532,15 +532,15 @@ func TestE2E_ReadFlow(t *testing.T) {
 }
 
 // TestE2E_WriteFlow tests the full write path:
-// openclaw POST/PUT -> write_queue -> bridge lease -> mock xcall ack -> verify.
+// consumer POST/PUT -> write_queue -> bridge lease -> mock xcall ack -> verify.
 func TestE2E_WriteFlow(t *testing.T) {
 	env := setupE2E(t)
 
 	// First do initial sync to populate hub.
 	require.NoError(t, env.bridge.Run(context.Background()))
 
-	// Create a note via openclaw API.
-	createResp := env.openclawDo(http.MethodPost, "/api/notes", map[string]string{
+	// Create a note via consumer API.
+	createResp := env.consumerDo(http.MethodPost, "/api/notes", map[string]string{
 		"title": "New Note From Openclaw",
 		"body":  "# New Note\nCreated via API",
 	}, "idem-create-1")
@@ -549,8 +549,8 @@ func TestE2E_WriteFlow(t *testing.T) {
 	assert.Equal(t, "New Note From Openclaw", createdNote.Title)
 	assert.Equal(t, "pending_to_bear", createdNote.SyncStatus)
 
-	// Update a note via openclaw API — find an existing note.
-	listResp := env.openclawGet("/api/notes?limit=50")
+	// Update a note via consumer API — find an existing note.
+	listResp := env.consumerGet("/api/notes?limit=50")
 	allNotes := decodeJSON[[]models.Note](t, listResp)
 	var existingNoteID string
 	for _, n := range allNotes {
@@ -561,18 +561,18 @@ func TestE2E_WriteFlow(t *testing.T) {
 	}
 	require.NotEmpty(t, existingNoteID)
 
-	updateResp := env.openclawDo(http.MethodPut, "/api/notes/"+existingNoteID, map[string]string{
-		"body": "# Updated First Note\nUpdated body from openclaw",
+	updateResp := env.consumerDo(http.MethodPut, "/api/notes/"+existingNoteID, map[string]string{
+		"body": "# Updated First Note\nUpdated body from consumer",
 	}, "idem-update-1")
 	assert.Equal(t, http.StatusOK, updateResp.StatusCode)
 
-	// Add tag via openclaw API.
-	addTagResp := env.openclawDo(http.MethodPost,
+	// Add tag via consumer API.
+	addTagResp := env.consumerDo(http.MethodPost,
 		fmt.Sprintf("/api/notes/%s/tags", existingNoteID),
 		map[string]string{"tag": "new-tag"}, "idem-tag-1")
 	assert.Equal(t, http.StatusCreated, addTagResp.StatusCode)
 
-	// Trash a note via openclaw API.
+	// Trash a note via consumer API.
 	var note2ID string
 	for _, n := range allNotes {
 		if n.Title == "Second Note" {
@@ -582,7 +582,7 @@ func TestE2E_WriteFlow(t *testing.T) {
 	}
 	require.NotEmpty(t, note2ID)
 
-	trashResp := env.openclawDo(http.MethodDelete, "/api/notes/"+note2ID, nil, "idem-trash-1")
+	trashResp := env.consumerDo(http.MethodDelete, "/api/notes/"+note2ID, nil, "idem-trash-1")
 	assert.Equal(t, http.StatusOK, trashResp.StatusCode)
 
 	// Lease queue items via hub API (as bridge would).
@@ -637,11 +637,11 @@ func TestE2E_Idempotency(t *testing.T) {
 		"body":  "# Test",
 	}
 
-	resp1 := env.openclawDo(http.MethodPost, "/api/notes", body, "idem-same-key")
+	resp1 := env.consumerDo(http.MethodPost, "/api/notes", body, "idem-same-key")
 	assert.Equal(t, http.StatusCreated, resp1.StatusCode)
 	note1 := decodeJSON[models.Note](t, resp1)
 
-	resp2 := env.openclawDo(http.MethodPost, "/api/notes", body, "idem-same-key")
+	resp2 := env.consumerDo(http.MethodPost, "/api/notes", body, "idem-same-key")
 	// Second request should also succeed (returns existing).
 	assert.Equal(t, http.StatusCreated, resp2.StatusCode)
 
@@ -664,8 +664,8 @@ func TestE2E_CrashRecovery(t *testing.T) {
 	env := setupE2E(t)
 	require.NoError(t, env.bridge.Run(context.Background()))
 
-	// Create a note via openclaw to enqueue a write.
-	resp := env.openclawDo(http.MethodPost, "/api/notes", map[string]string{
+	// Create a note via consumer API to enqueue a write.
+	resp := env.consumerDo(http.MethodPost, "/api/notes", map[string]string{
 		"title": "Crash Recovery Note",
 		"body":  "# Test",
 	}, "idem-crash-1")
@@ -738,11 +738,11 @@ func TestE2E_JunctionTableFullScan(t *testing.T) {
 	assert.Equal(t, 13, updatedState.JunctionFullScanCounter)
 
 	// Verify via API: note-3 should now have 2 tags.
-	allNotesResp := env.openclawGet("/api/notes?limit=50")
+	allNotesResp := env.consumerGet("/api/notes?limit=50")
 	allNotes := decodeJSON[[]models.Note](t, allNotesResp)
 	for _, n := range allNotes {
 		if n.BearID != nil && *n.BearID == "bear-note-3" {
-			resp := env.openclawGet("/api/notes/" + n.ID)
+			resp := env.consumerGet("/api/notes/" + n.ID)
 			note := decodeJSON[models.Note](t, resp)
 			assert.Len(t, note.Tags, 2, "note-3 should have 2 tags after full scan sync")
 			break
@@ -756,7 +756,7 @@ func TestE2E_EncryptedNoteRestrictions(t *testing.T) {
 	require.NoError(t, env.bridge.Run(context.Background()))
 
 	// Find the encrypted note.
-	resp := env.openclawGet("/api/notes?limit=50")
+	resp := env.consumerGet("/api/notes?limit=50")
 	notes := decodeJSON[[]models.Note](t, resp)
 	var encNoteID string
 	for _, n := range notes {
@@ -768,34 +768,34 @@ func TestE2E_EncryptedNoteRestrictions(t *testing.T) {
 	require.NotEmpty(t, encNoteID, "encrypted note should exist")
 
 	// Try to update encrypted note — should be 403.
-	updateResp := env.openclawDo(http.MethodPut, "/api/notes/"+encNoteID, map[string]string{
+	updateResp := env.consumerDo(http.MethodPut, "/api/notes/"+encNoteID, map[string]string{
 		"body": "try to update encrypted",
 	}, "idem-enc-update")
 	assert.Equal(t, http.StatusForbidden, updateResp.StatusCode)
 
 	// Try to delete (trash) encrypted note — should be 403.
-	deleteResp := env.openclawDo(http.MethodDelete, "/api/notes/"+encNoteID, nil, "idem-enc-delete")
+	deleteResp := env.consumerDo(http.MethodDelete, "/api/notes/"+encNoteID, nil, "idem-enc-delete")
 	assert.Equal(t, http.StatusForbidden, deleteResp.StatusCode)
 
 	// Try to add tag to encrypted note — should be 403.
-	tagResp := env.openclawDo(http.MethodPost,
+	tagResp := env.consumerDo(http.MethodPost,
 		fmt.Sprintf("/api/notes/%s/tags", encNoteID),
 		map[string]string{"tag": "new-tag"}, "idem-enc-tag")
 	assert.Equal(t, http.StatusForbidden, tagResp.StatusCode)
 
 	// GET should still work.
-	getResp := env.openclawGet("/api/notes/" + encNoteID)
+	getResp := env.consumerGet("/api/notes/" + encNoteID)
 	assert.Equal(t, http.StatusOK, getResp.StatusCode)
 }
 
-// TestE2E_ConflictDetection tests conflict detection when openclaw updates a note
+// TestE2E_ConflictDetection tests conflict detection when a consumer updates a note
 // and Bear pushes a new modified_at simultaneously.
 func TestE2E_ConflictDetection(t *testing.T) {
 	env := setupE2E(t)
 	require.NoError(t, env.bridge.Run(context.Background()))
 
 	// Find a note to conflict on.
-	resp := env.openclawGet("/api/notes?limit=50")
+	resp := env.consumerGet("/api/notes?limit=50")
 	notes := decodeJSON[[]models.Note](t, resp)
 	var targetNoteID string
 	for _, n := range notes {
@@ -807,8 +807,8 @@ func TestE2E_ConflictDetection(t *testing.T) {
 	require.NotEmpty(t, targetNoteID)
 
 	// Openclaw updates the note — sets sync_status=pending_to_bear.
-	updateResp := env.openclawDo(http.MethodPut, "/api/notes/"+targetNoteID, map[string]string{
-		"body": "# Updated by openclaw",
+	updateResp := env.consumerDo(http.MethodPut, "/api/notes/"+targetNoteID, map[string]string{
+		"body": "# Updated by consumer",
 	}, "idem-conflict-update")
 	assert.Equal(t, http.StatusOK, updateResp.StatusCode)
 
@@ -825,7 +825,7 @@ func TestE2E_ConflictDetection(t *testing.T) {
 				BearID:     strPtr("bear-note-1"),
 				Title:      firstNoteTitle,
 				Body:       "# First Note\nEdited in Bear directly",
-				ModifiedAt: "2025-01-20T10:00:00Z", // Different from what openclaw set
+				ModifiedAt: "2025-01-20T10:00:00Z", // Different from what consumer set
 				Version:    4,
 			},
 		},
@@ -840,7 +840,7 @@ func TestE2E_ConflictDetection(t *testing.T) {
 	assert.Equal(t, "conflict", noteAfterConflict.SyncStatus)
 
 	// Verify sync status endpoint is accessible.
-	_ = env.openclawGet("/api/sync/status")
+	_ = env.consumerGet("/api/sync/status")
 
 	// Check conflict count directly via store.
 	conflictCount, err := env.hubStore.CountConflicts(context.Background())

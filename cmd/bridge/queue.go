@@ -122,14 +122,14 @@ func (b *Bridge) applyQueueItem(ctx context.Context, item *models.WriteQueueItem
 	return ack
 }
 
-// handleConflictItem creates a conflict note in Bear with the openclaw version content.
+// handleConflictItem creates a conflict note in Bear with the consumer version content.
 // The original note in Bear keeps the user's version; a new note "[Conflict] Title" is created
-// with the openclaw content so the user can manually reconcile.
+// with the consumer content so the user can manually reconcile.
 func (b *Bridge) handleConflictItem(ctx context.Context, item *models.WriteQueueItem, ack *models.SyncAckItem) {
 	b.logger.Warn("conflict detected for queue item, creating conflict note",
 		"queue_id", item.ID, "action", item.Action, "note_id", item.NoteID)
 
-	// Extract the openclaw content from the payload.
+	// Extract the consumer content from the payload.
 	title, body := b.extractConflictContent(ctx, item)
 	if title == "" {
 		title = "Untitled"

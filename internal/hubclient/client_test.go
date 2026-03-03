@@ -92,7 +92,7 @@ func TestLeaseQueue_Success(t *testing.T) {
 
 func TestLeaseQueue_ConsumerIDDeserialized(t *testing.T) {
 	items := []models.WriteQueueItem{
-		{ID: 1, Action: "create", NoteID: "note-1", Payload: `{"title":"Test"}`, Status: "processing", ConsumerID: "openclaw"},
+		{ID: 1, Action: "create", NoteID: "note-1", Payload: `{"title":"Test"}`, Status: "processing", ConsumerID: "testapp"},
 		{ID: 2, Action: "update", NoteID: "note-2", Payload: `{"body":"Updated"}`, Status: "processing", ConsumerID: "myapp"},
 	}
 
@@ -106,7 +106,7 @@ func TestLeaseQueue_ConsumerIDDeserialized(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Len(t, result, 2)
-	assert.Equal(t, "openclaw", result[0].ConsumerID)
+	assert.Equal(t, "testapp", result[0].ConsumerID)
 	assert.Equal(t, "myapp", result[1].ConsumerID)
 }
 

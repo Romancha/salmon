@@ -262,7 +262,7 @@ END;
 //nolint:gocritic // intentional value receiver for simple filter struct
 func (s *SQLiteStore) ListNotes(ctx context.Context, filter NoteFilter) ([]models.Note, error) {
 	// Always exclude permanently-deleted and archived notes from the API listing.
-	// These are hidden in Bear's UI and should not be surfaced to openclaw.
+	// These are hidden in Bear's UI and should not be surfaced to consumers.
 	where := []string{"n.permanently_deleted = 0", "n.archived = 0"}
 	var args []any
 
@@ -774,7 +774,7 @@ func updateExistingNote(
 ) error {
 	if existingSyncStatus == "pending_to_bear" {
 		// Conflict detection: if Bear's modified_at changed since our last sync,
-		// the user edited the note while openclaw had pending changes.
+		// the user edited the note while a consumer had pending changes.
 		newSyncStatus := "pending_to_bear"
 		if note.ModifiedAt != "" && existingModifiedAt != "" && note.ModifiedAt != existingModifiedAt {
 			newSyncStatus = syncStatusConflict

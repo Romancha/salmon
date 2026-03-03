@@ -8,7 +8,7 @@ import (
 // ParseConsumerTokens parses a comma-separated string of "name:token" pairs
 // into a map of consumer name to token. The expected format is:
 //
-//	"openclaw:secret1,myapp:secret2,another:secret3"
+//	"app1:secret1,app2:secret2,app3:secret3"
 func ParseConsumerTokens(raw string) (map[string]string, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {

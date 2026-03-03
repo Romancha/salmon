@@ -21,11 +21,11 @@ import (
 )
 
 const (
-	openclawToken = "test-openclaw-token"
+	consumerToken = "test-consumer-token"
 	bridgeToken   = "test-bridge-token"
 )
 
-var testConsumerTokens = map[string]string{"openclaw": openclawToken}
+var testConsumerTokens = map[string]string{"testapp": consumerToken}
 
 func setupServer(t *testing.T) (*httptest.Server, *store.SQLiteStore) {
 	t.Helper()
@@ -134,10 +134,10 @@ func TestAuth_WrongScope_BridgeOnOpenclawRoute(t *testing.T) {
 	assert.Equal(t, http.StatusForbidden, resp.StatusCode)
 }
 
-func TestAuth_WrongScope_OpenclawOnBridgeRoute(t *testing.T) {
+func TestAuth_WrongScope_ConsumerOnBridgeRoute(t *testing.T) {
 	ts, _ := setupServer(t)
 
-	resp := doRequest(t, ts, http.MethodGet, "/api/sync/queue", nil, openclawToken, nil)
+	resp := doRequest(t, ts, http.MethodGet, "/api/sync/queue", nil, consumerToken, nil)
 	defer resp.Body.Close() //nolint:errcheck // test
 
 	assert.Equal(t, http.StatusForbidden, resp.StatusCode)
@@ -146,8 +146,8 @@ func TestAuth_WrongScope_OpenclawOnBridgeRoute(t *testing.T) {
 func TestSyncStatus_AccessibleByBothTokens(t *testing.T) {
 	ts, _ := setupServer(t)
 
-	// openclaw token should access sync/status.
-	resp := doRequest(t, ts, http.MethodGet, "/api/sync/status", nil, openclawToken, nil)
+	// consumer token should access sync/status.
+	resp := doRequest(t, ts, http.MethodGet, "/api/sync/status", nil, consumerToken, nil)
 	defer resp.Body.Close() //nolint:errcheck // test
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -160,7 +160,7 @@ func TestSyncStatus_AccessibleByBothTokens(t *testing.T) {
 func TestAuth_ValidToken(t *testing.T) {
 	ts, _ := setupServer(t)
 
-	resp := doRequest(t, ts, http.MethodGet, "/api/notes", nil, openclawToken, nil)
+	resp := doRequest(t, ts, http.MethodGet, "/api/notes", nil, consumerToken, nil)
 	defer resp.Body.Close() //nolint:errcheck // test
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
@@ -172,15 +172,15 @@ func TestAuth_MultipleConsumers(t *testing.T) {
 	t.Cleanup(func() { require.NoError(t, s.Close()) })
 
 	tokens := map[string]string{
-		"openclaw": "token-oc",
-		"myapp":    "token-myapp",
+		"app1":  "token-app1",
+		"app2":  "token-myapp",
 	}
 	srv := api.NewServer(s, tokens, bridgeToken, t.TempDir())
 	ts := httptest.NewServer(srv)
 	t.Cleanup(ts.Close)
 
 	t.Run("both consumer tokens authenticate on consumer routes", func(t *testing.T) {
-		resp1 := doRequest(t, ts, http.MethodGet, "/api/notes", nil, "token-oc", nil)
+		resp1 := doRequest(t, ts, http.MethodGet, "/api/notes", nil, "token-app1", nil)
 		defer resp1.Body.Close() //nolint:errcheck // test
 		assert.Equal(t, http.StatusOK, resp1.StatusCode)
 
@@ -202,7 +202,7 @@ func TestAuth_MultipleConsumers(t *testing.T) {
 	})
 
 	t.Run("consumer tokens accepted on any-scope routes", func(t *testing.T) {
-		resp1 := doRequest(t, ts, http.MethodGet, "/api/sync/status", nil, "token-oc", nil)
+		resp1 := doRequest(t, ts, http.MethodGet, "/api/sync/status", nil, "token-app1", nil)
 		defer resp1.Body.Close() //nolint:errcheck // test
 		assert.Equal(t, http.StatusOK, resp1.StatusCode)
 
@@ -228,7 +228,7 @@ func TestAuth_ConsumerIDFromContext_Helper(t *testing.T) {
 func TestListNotes_Empty(t *testing.T) {
 	ts, _ := setupServer(t)
 
-	resp := doRequest(t, ts, http.MethodGet, "/api/notes", nil, openclawToken, nil)
+	resp := doRequest(t, ts, http.MethodGet, "/api/notes", nil, consumerToken, nil)
 
 	result := readBodySlice(t, resp)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
@@ -242,7 +242,7 @@ func TestListNotes_WithData(t *testing.T) {
 		ID: "note-1", Title: "Test Note", Body: "body content",
 	}))
 
-	resp := doRequest(t, ts, http.MethodGet, "/api/notes", nil, openclawToken, nil)
+	resp := doRequest(t, ts, http.MethodGet, "/api/notes", nil, consumerToken, nil)
 
 	result := readBodySlice(t, resp)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
@@ -261,7 +261,7 @@ func TestListNotes_Filters(t *testing.T) {
 		ID: "note-2", Title: "Trashed Note", Trashed: 1,
 	}))
 
-	resp := doRequest(t, ts, http.MethodGet, "/api/notes?trashed=false", nil, openclawToken, nil)
+	resp := doRequest(t, ts, http.MethodGet, "/api/notes?trashed=false", nil, consumerToken, nil)
 
 	result := readBodySlice(t, resp)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
@@ -279,7 +279,7 @@ func TestListNotes_Pagination(t *testing.T) {
 		}))
 	}
 
-	resp := doRequest(t, ts, http.MethodGet, "/api/notes?limit=2&offset=0", nil, openclawToken, nil)
+	resp := doRequest(t, ts, http.MethodGet, "/api/notes?limit=2&offset=0", nil, consumerToken, nil)
 
 	result := readBodySlice(t, resp)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
@@ -293,7 +293,7 @@ func TestGetNote(t *testing.T) {
 		ID: "note-1", Title: "Test Note", Body: "full body",
 	}))
 
-	resp := doRequest(t, ts, http.MethodGet, "/api/notes/note-1", nil, openclawToken, nil)
+	resp := doRequest(t, ts, http.MethodGet, "/api/notes/note-1", nil, consumerToken, nil)
 
 	result := readBody(t, resp)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
@@ -304,7 +304,7 @@ func TestGetNote(t *testing.T) {
 func TestGetNote_NotFound(t *testing.T) {
 	ts, _ := setupServer(t)
 
-	resp := doRequest(t, ts, http.MethodGet, "/api/notes/nonexistent", nil, openclawToken, nil)
+	resp := doRequest(t, ts, http.MethodGet, "/api/notes/nonexistent", nil, consumerToken, nil)
 	defer resp.Body.Close() //nolint:errcheck // test
 
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
@@ -320,7 +320,7 @@ func TestSearchNotes(t *testing.T) {
 		ID: "note-2", Title: "Python Guide", Body: "Learn Python programming",
 	}))
 
-	resp := doRequest(t, ts, http.MethodGet, "/api/notes/search?q=golang", nil, openclawToken, nil)
+	resp := doRequest(t, ts, http.MethodGet, "/api/notes/search?q=golang", nil, consumerToken, nil)
 
 	result := readBodySlice(t, resp)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
@@ -331,7 +331,7 @@ func TestSearchNotes(t *testing.T) {
 func TestSearchNotes_MissingQuery(t *testing.T) {
 	ts, _ := setupServer(t)
 
-	resp := doRequest(t, ts, http.MethodGet, "/api/notes/search", nil, openclawToken, nil)
+	resp := doRequest(t, ts, http.MethodGet, "/api/notes/search", nil, consumerToken, nil)
 	defer resp.Body.Close() //nolint:errcheck // test
 
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
@@ -342,7 +342,7 @@ func TestCreateNote(t *testing.T) {
 
 	body := map[string]string{"title": "New Note", "body": "Content"}
 
-	resp := doRequest(t, ts, http.MethodPost, "/api/notes", body, openclawToken,
+	resp := doRequest(t, ts, http.MethodPost, "/api/notes", body, consumerToken,
 		map[string]string{"Idempotency-Key": "key-1"})
 
 	result := readBody(t, resp)
@@ -356,7 +356,7 @@ func TestCreateNote_MissingTitle(t *testing.T) {
 
 	body := map[string]string{"body": "Content"}
 
-	resp := doRequest(t, ts, http.MethodPost, "/api/notes", body, openclawToken,
+	resp := doRequest(t, ts, http.MethodPost, "/api/notes", body, consumerToken,
 		map[string]string{"Idempotency-Key": "key-1"})
 	defer resp.Body.Close() //nolint:errcheck // test
 
@@ -368,7 +368,7 @@ func TestCreateNote_MissingIdempotencyKey(t *testing.T) {
 
 	body := map[string]string{"title": "Test", "body": "Content"}
 
-	resp := doRequest(t, ts, http.MethodPost, "/api/notes", body, openclawToken, nil)
+	resp := doRequest(t, ts, http.MethodPost, "/api/notes", body, consumerToken, nil)
 	defer resp.Body.Close() //nolint:errcheck // test
 
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
@@ -384,7 +384,7 @@ func TestUpdateNote(t *testing.T) {
 
 	body := map[string]string{"title": "New Title", "body": "New body"}
 
-	resp := doRequest(t, ts, http.MethodPut, "/api/notes/note-1", body, openclawToken,
+	resp := doRequest(t, ts, http.MethodPut, "/api/notes/note-1", body, consumerToken,
 		map[string]string{"Idempotency-Key": "key-2"})
 
 	result := readBody(t, resp)
@@ -396,13 +396,13 @@ func TestUpdateNote(t *testing.T) {
 func TestUpdateNote_NoBearID_409(t *testing.T) {
 	ts, s := setupServer(t)
 
-	// Note without bear_id simulates a note created by openclaw but not yet synced to Bear.
+	// Note without bear_id simulates a note created by a consumer but not yet synced to Bear.
 	require.NoError(t, s.CreateNote(t.Context(), &models.Note{
 		ID: "note-pending", Title: "Pending Note", Body: "body", SyncStatus: "pending_to_bear",
 	}))
 
 	body := map[string]string{"body": "Updated body"}
-	resp := doRequest(t, ts, http.MethodPut, "/api/notes/note-pending", body, openclawToken,
+	resp := doRequest(t, ts, http.MethodPut, "/api/notes/note-pending", body, consumerToken,
 		map[string]string{"Idempotency-Key": "key-pending-upd"})
 	defer resp.Body.Close() //nolint:errcheck // test
 
@@ -414,7 +414,7 @@ func TestUpdateNote_NotFound(t *testing.T) {
 
 	body := map[string]string{"title": "New Title", "body": "Some body"}
 
-	resp := doRequest(t, ts, http.MethodPut, "/api/notes/nonexistent", body, openclawToken,
+	resp := doRequest(t, ts, http.MethodPut, "/api/notes/nonexistent", body, consumerToken,
 		map[string]string{"Idempotency-Key": "key-2"})
 	defer resp.Body.Close() //nolint:errcheck // test
 
@@ -430,7 +430,7 @@ func TestUpdateNote_Encrypted403(t *testing.T) {
 
 	body := map[string]string{"title": "Updated", "body": "Some body"}
 
-	resp := doRequest(t, ts, http.MethodPut, "/api/notes/enc-1", body, openclawToken,
+	resp := doRequest(t, ts, http.MethodPut, "/api/notes/enc-1", body, consumerToken,
 		map[string]string{"Idempotency-Key": "key-3"})
 	defer resp.Body.Close() //nolint:errcheck // test
 
@@ -445,7 +445,7 @@ func TestTrashNote(t *testing.T) {
 		ID: "note-1", Title: "To Trash", BearID: &bearID,
 	}))
 
-	resp := doRequest(t, ts, http.MethodDelete, "/api/notes/note-1", nil, openclawToken,
+	resp := doRequest(t, ts, http.MethodDelete, "/api/notes/note-1", nil, consumerToken,
 		map[string]string{"Idempotency-Key": "key-4"})
 
 	result := readBody(t, resp)
@@ -461,7 +461,7 @@ func TestTrashNote_NoBearID_409(t *testing.T) {
 		ID: "note-pending", Title: "Pending Note", SyncStatus: "pending_to_bear",
 	}))
 
-	resp := doRequest(t, ts, http.MethodDelete, "/api/notes/note-pending", nil, openclawToken,
+	resp := doRequest(t, ts, http.MethodDelete, "/api/notes/note-pending", nil, consumerToken,
 		map[string]string{"Idempotency-Key": "key-trash-no-bear"})
 	defer resp.Body.Close() //nolint:errcheck // test
 
@@ -475,7 +475,7 @@ func TestTrashNote_Encrypted403(t *testing.T) {
 		ID: "enc-1", Title: "Encrypted", Encrypted: 1,
 	}))
 
-	resp := doRequest(t, ts, http.MethodDelete, "/api/notes/enc-1", nil, openclawToken,
+	resp := doRequest(t, ts, http.MethodDelete, "/api/notes/enc-1", nil, consumerToken,
 		map[string]string{"Idempotency-Key": "key-5"})
 	defer resp.Body.Close() //nolint:errcheck // test
 
@@ -487,7 +487,7 @@ func TestTrashNote_Encrypted403(t *testing.T) {
 func TestListTags_Empty(t *testing.T) {
 	ts, _ := setupServer(t)
 
-	resp := doRequest(t, ts, http.MethodGet, "/api/tags", nil, openclawToken, nil)
+	resp := doRequest(t, ts, http.MethodGet, "/api/tags", nil, consumerToken, nil)
 
 	result := readBodySlice(t, resp)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
@@ -501,7 +501,7 @@ func TestListTags_WithData(t *testing.T) {
 		ID: "tag-1", Title: "go/programming",
 	}))
 
-	resp := doRequest(t, ts, http.MethodGet, "/api/tags", nil, openclawToken, nil)
+	resp := doRequest(t, ts, http.MethodGet, "/api/tags", nil, consumerToken, nil)
 
 	result := readBodySlice(t, resp)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
@@ -519,7 +519,7 @@ func TestAddTag(t *testing.T) {
 
 	body := map[string]string{"tag": "new-tag"}
 
-	resp := doRequest(t, ts, http.MethodPost, "/api/notes/note-1/tags", body, openclawToken,
+	resp := doRequest(t, ts, http.MethodPost, "/api/notes/note-1/tags", body, consumerToken,
 		map[string]string{"Idempotency-Key": "key-6"})
 	defer resp.Body.Close() //nolint:errcheck // test
 
@@ -531,7 +531,7 @@ func TestAddTag_NoteNotFound(t *testing.T) {
 
 	body := map[string]string{"tag": "new-tag"}
 
-	resp := doRequest(t, ts, http.MethodPost, "/api/notes/nonexistent/tags", body, openclawToken,
+	resp := doRequest(t, ts, http.MethodPost, "/api/notes/nonexistent/tags", body, consumerToken,
 		map[string]string{"Idempotency-Key": "key-7"})
 	defer resp.Body.Close() //nolint:errcheck // test
 
@@ -547,7 +547,7 @@ func TestAddTag_NoBearID_409(t *testing.T) {
 
 	body := map[string]string{"tag": "new-tag"}
 
-	resp := doRequest(t, ts, http.MethodPost, "/api/notes/note-pending/tags", body, openclawToken,
+	resp := doRequest(t, ts, http.MethodPost, "/api/notes/note-pending/tags", body, consumerToken,
 		map[string]string{"Idempotency-Key": "key-tag-no-bear"})
 	defer resp.Body.Close() //nolint:errcheck // test
 
@@ -563,7 +563,7 @@ func TestAddTag_Encrypted403(t *testing.T) {
 
 	body := map[string]string{"tag": "new-tag"}
 
-	resp := doRequest(t, ts, http.MethodPost, "/api/notes/enc-1/tags", body, openclawToken,
+	resp := doRequest(t, ts, http.MethodPost, "/api/notes/enc-1/tags", body, consumerToken,
 		map[string]string{"Idempotency-Key": "key-8"})
 	defer resp.Body.Close() //nolint:errcheck // test
 
@@ -580,7 +580,7 @@ func TestAddTag_MissingTag(t *testing.T) {
 
 	body := map[string]string{}
 
-	resp := doRequest(t, ts, http.MethodPost, "/api/notes/note-1/tags", body, openclawToken,
+	resp := doRequest(t, ts, http.MethodPost, "/api/notes/note-1/tags", body, consumerToken,
 		map[string]string{"Idempotency-Key": "key-9"})
 	defer resp.Body.Close() //nolint:errcheck // test
 
@@ -602,7 +602,7 @@ func TestListBacklinks(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	resp := doRequest(t, ts, http.MethodGet, "/api/notes/note-1/backlinks", nil, openclawToken, nil)
+	resp := doRequest(t, ts, http.MethodGet, "/api/notes/note-1/backlinks", nil, consumerToken, nil)
 
 	result := readBodySlice(t, resp)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
@@ -612,7 +612,7 @@ func TestListBacklinks(t *testing.T) {
 func TestListBacklinks_NoteNotFound(t *testing.T) {
 	ts, _ := setupServer(t)
 
-	resp := doRequest(t, ts, http.MethodGet, "/api/notes/nonexistent/backlinks", nil, openclawToken, nil)
+	resp := doRequest(t, ts, http.MethodGet, "/api/notes/nonexistent/backlinks", nil, consumerToken, nil)
 	defer resp.Body.Close() //nolint:errcheck // test
 
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
@@ -623,7 +623,7 @@ func TestListBacklinks_NoteNotFound(t *testing.T) {
 func TestGetAttachment_NotFound(t *testing.T) {
 	ts, _ := setupServer(t)
 
-	resp := doRequest(t, ts, http.MethodGet, "/api/attachments/nonexistent", nil, openclawToken, nil)
+	resp := doRequest(t, ts, http.MethodGet, "/api/attachments/nonexistent", nil, consumerToken, nil)
 	defer resp.Body.Close() //nolint:errcheck // test
 
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
@@ -661,7 +661,7 @@ func TestGetAttachment_FileOnDisk(t *testing.T) {
 	ts := httptest.NewServer(srv)
 	defer ts.Close()
 
-	resp := doRequest(t, ts, http.MethodGet, "/api/attachments/att-1", nil, openclawToken, nil)
+	resp := doRequest(t, ts, http.MethodGet, "/api/attachments/att-1", nil, consumerToken, nil)
 	defer resp.Body.Close() //nolint:errcheck // test
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
@@ -806,14 +806,14 @@ func TestIdempotency_CreateNoteDuplicate(t *testing.T) {
 	body := map[string]string{"title": "Note", "body": "Content"}
 	headers := map[string]string{"Idempotency-Key": "idem-create-1"}
 
-	resp1 := doRequest(t, ts, http.MethodPost, "/api/notes", body, openclawToken, headers)
+	resp1 := doRequest(t, ts, http.MethodPost, "/api/notes", body, consumerToken, headers)
 	result1 := readBody(t, resp1)
 	assert.Equal(t, http.StatusCreated, resp1.StatusCode)
 
 	noteID := result1["id"].(string)
 
 	// Second request with same idempotency key must return the same note (idempotent).
-	resp2 := doRequest(t, ts, http.MethodPost, "/api/notes", body, openclawToken, headers)
+	resp2 := doRequest(t, ts, http.MethodPost, "/api/notes", body, consumerToken, headers)
 	result2 := readBody(t, resp2)
 	assert.Equal(t, http.StatusCreated, resp2.StatusCode)
 
@@ -970,8 +970,8 @@ func TestGetAttachment_ServesFile(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, uploadResp.StatusCode)
 
-	// Now GET the attachment via openclaw API.
-	getResp := doRequest(t, ts, http.MethodGet, "/api/attachments/"+att.ID, nil, openclawToken, nil)
+	// Now GET the attachment via consumer API.
+	getResp := doRequest(t, ts, http.MethodGet, "/api/attachments/"+att.ID, nil, consumerToken, nil)
 	defer getResp.Body.Close() //nolint:errcheck // test
 
 	assert.Equal(t, http.StatusOK, getResp.StatusCode)
@@ -1010,7 +1010,7 @@ func TestUpdateNote_QueueItemHasConsumerID(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, s.Close()) })
 
-	tokens := map[string]string{"openclaw": "token-oc"}
+	tokens := map[string]string{"updater": "token-upd"}
 	srv := api.NewServer(s, tokens, bridgeToken, t.TempDir())
 	ts := httptest.NewServer(srv)
 	t.Cleanup(ts.Close)
@@ -1021,7 +1021,7 @@ func TestUpdateNote_QueueItemHasConsumerID(t *testing.T) {
 	}))
 
 	body := map[string]string{"title": "New", "body": "New body"}
-	resp := doRequest(t, ts, http.MethodPut, "/api/notes/note-cid-upd", body, "token-oc",
+	resp := doRequest(t, ts, http.MethodPut, "/api/notes/note-cid-upd", body, "token-upd",
 		map[string]string{"Idempotency-Key": "cid-update-1"})
 	defer resp.Body.Close() //nolint:errcheck // test
 	require.Equal(t, http.StatusOK, resp.StatusCode)
@@ -1029,7 +1029,7 @@ func TestUpdateNote_QueueItemHasConsumerID(t *testing.T) {
 	items, err := s.LeaseQueueItems(t.Context(), "test", 5*time.Minute)
 	require.NoError(t, err)
 	require.Len(t, items, 1)
-	assert.Equal(t, "openclaw", items[0].ConsumerID)
+	assert.Equal(t, "updater", items[0].ConsumerID)
 }
 
 func TestTrashNote_QueueItemHasConsumerID(t *testing.T) {

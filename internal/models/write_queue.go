@@ -1,7 +1,7 @@
 package models
 
-// WriteQueueItem represents a pending write operation from openclaw to Bear.
-// Delivery semantics: effectively-once (openclaw->hub via Idempotency-Key),
+// WriteQueueItem represents a pending write operation from an external consumer to Bear.
+// Delivery semantics: effectively-once (consumer->hub via Idempotency-Key),
 // at-least-once (hub->bridge via lease), duplicate-safe (bridge pre-checks Bear state).
 type WriteQueueItem struct {
 	ID             int64  `json:"id"`

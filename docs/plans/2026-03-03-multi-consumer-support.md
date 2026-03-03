@@ -111,10 +111,10 @@ Refactor bear-sync hub from being hardcoded to a single external consumer (openc
 - [x] run tests — must pass before next task
 
 ### Task 8: Rename all openclaw references in code
-- [ ] grep for remaining "openclaw" references in `.go` files (comments, variable names, log messages)
-- [ ] rename to generic terms: "consumer", "client", "external"
-- [ ] update test names and test data that reference "openclaw"
-- [ ] run tests — must pass before next task
+- [x] grep for remaining "openclaw" references in `.go` files (comments, variable names, log messages)
+- [x] rename to generic terms: "consumer", "client", "external"
+- [x] update test names and test data that reference "openclaw"
+- [x] run tests — must pass before next task
 
 ### Task 9: Verify acceptance criteria
 - [ ] verify multiple consumers can authenticate with different tokens

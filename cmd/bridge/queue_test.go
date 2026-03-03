@@ -75,7 +75,7 @@ func TestProcessQueue_CreateAction(t *testing.T) {
 				Action:         "create",
 				NoteID:         "hub-uuid-1",
 				Payload:        `{"title":"New Note","body":"Hello","tags":["tag1"]}`,
-				ConsumerID:     "openclaw",
+				ConsumerID:     "testapp",
 			},
 		},
 	}
@@ -479,7 +479,7 @@ func TestProcessQueue_ConflictCreatesConflictNote(t *testing.T) {
 				IdempotencyKey: "idem-20",
 				Action:         "update",
 				NoteID:         "bear-note-1",
-				Payload:        `{"body":"openclaw body","bear_id":"bear-note-1"}`,
+				Payload:        `{"body":"consumer body","bear_id":"bear-note-1"}`,
 				NoteSyncStatus: "conflict",
 			},
 		},
@@ -494,7 +494,7 @@ func TestProcessQueue_ConflictCreatesConflictNote(t *testing.T) {
 	require.Len(t, xcall.calls, 1)
 	assert.Equal(t, "create", xcall.calls[0].action)
 	assert.Equal(t, "[Conflict] Original Note", xcall.calls[0].title)
-	assert.Equal(t, "openclaw body", xcall.calls[0].body)
+	assert.Equal(t, "consumer body", xcall.calls[0].body)
 
 	// Should have acked as applied.
 	require.Len(t, hub.ackItems, 1)
@@ -511,7 +511,7 @@ func TestProcessQueue_ConflictWithTitleInPayload(t *testing.T) {
 				IdempotencyKey: "idem-21",
 				Action:         "create",
 				NoteID:         "",
-				Payload:        `{"title":"New Note","body":"openclaw body","tags":["tag1"]}`,
+				Payload:        `{"title":"New Note","body":"consumer body","tags":["tag1"]}`,
 				NoteSyncStatus: "conflict",
 			},
 		},
@@ -524,7 +524,7 @@ func TestProcessQueue_ConflictWithTitleInPayload(t *testing.T) {
 
 	require.Len(t, xcall.calls, 1)
 	assert.Equal(t, "[Conflict] New Note", xcall.calls[0].title)
-	assert.Equal(t, "openclaw body", xcall.calls[0].body)
+	assert.Equal(t, "consumer body", xcall.calls[0].body)
 
 	require.Len(t, hub.ackItems, 1)
 	assert.Equal(t, "applied", hub.ackItems[0].Status)
@@ -543,7 +543,7 @@ func TestProcessQueue_ConflictXCallFails(t *testing.T) {
 				IdempotencyKey: "idem-22",
 				Action:         "update",
 				NoteID:         "bear-note-1",
-				Payload:        `{"body":"openclaw body"}`,
+				Payload:        `{"body":"consumer body"}`,
 				NoteSyncStatus: "conflict",
 			},
 		},
@@ -607,7 +607,7 @@ func TestProcessQueue_ConsumerIDDoesNotAffectProcessing(t *testing.T) {
 				Action:         "update",
 				NoteID:         "bear-note-1",
 				Payload:        `{"body":"new body 1"}`,
-				ConsumerID:     "openclaw",
+				ConsumerID:     "testapp",
 			},
 			{
 				ID:             31,

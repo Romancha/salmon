@@ -18,7 +18,7 @@ func TestWriteQueueItem_ConsumerID_JSON(t *testing.T) {
 		NoteID:         "n1",
 		Payload:        `{"title":"Test"}`,
 		Status:         "pending",
-		ConsumerID:     "openclaw",
+		ConsumerID:     "testapp",
 	}
 
 	data, err := json.Marshal(item)
@@ -28,7 +28,7 @@ func TestWriteQueueItem_ConsumerID_JSON(t *testing.T) {
 	err = json.Unmarshal(data, &decoded)
 	require.NoError(t, err)
 
-	assert.Equal(t, "openclaw", decoded.ConsumerID)
+	assert.Equal(t, "testapp", decoded.ConsumerID)
 }
 
 func TestWriteQueueItem_ConsumerID_EmptyOmitted(t *testing.T) {

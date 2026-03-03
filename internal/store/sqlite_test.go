@@ -360,7 +360,7 @@ func TestProcessSyncPush_PendingToBear_PreservesBodyTitle(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()
 
-	// Create a note with pending_to_bear status (openclaw changed it).
+	// Create a note with pending_to_bear status (a consumer changed it).
 	bearID := "bear-uuid-1"
 	require.NoError(t, s.CreateNote(ctx, &models.Note{
 		ID:         "n1",
@@ -643,7 +643,7 @@ func TestWriteQueue_AckApplied_FillsBearID(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()
 
-	// Create a note with pending_to_bear (created by openclaw, no bear_id yet).
+	// Create a note with pending_to_bear (created by a consumer, no bear_id yet).
 	require.NoError(t, s.CreateNote(ctx, &models.Note{
 		ID:         "n-new",
 		Title:      "New Note",
@@ -740,16 +740,16 @@ func TestWriteQueue_EnqueueWithConsumerID(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()
 
-	item, err := s.EnqueueWrite(ctx, "key-consumer", "create", "", `{"title":"Test"}`, "openclaw")
+	item, err := s.EnqueueWrite(ctx, "key-consumer", "create", "", `{"title":"Test"}`, "testapp")
 	require.NoError(t, err)
-	assert.Equal(t, "openclaw", item.ConsumerID)
+	assert.Equal(t, "testapp", item.ConsumerID)
 	assert.Equal(t, "pending", item.Status)
 
 	// Verify via GetQueueItemByIdempotencyKey.
 	got, err := s.GetQueueItemByIdempotencyKey(ctx, "key-consumer")
 	require.NoError(t, err)
 	require.NotNil(t, got)
-	assert.Equal(t, "openclaw", got.ConsumerID)
+	assert.Equal(t, "testapp", got.ConsumerID)
 }
 
 func TestWriteQueue_EnqueueWithEmptyConsumerID(t *testing.T) {
@@ -778,13 +778,13 @@ func TestWriteQueue_IdempotencyReturnsConsumerID(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()
 
-	_, err := s.EnqueueWrite(ctx, "key-idem-cid", "create", "", `{"title":"Test"}`, "openclaw")
+	_, err := s.EnqueueWrite(ctx, "key-idem-cid", "create", "", `{"title":"Test"}`, "testapp")
 	require.NoError(t, err)
 
 	// Second call with same key returns existing item with consumer_id.
-	item, err := s.EnqueueWrite(ctx, "key-idem-cid", "create", "", `{"title":"Test"}`, "openclaw")
+	item, err := s.EnqueueWrite(ctx, "key-idem-cid", "create", "", `{"title":"Test"}`, "testapp")
 	require.NoError(t, err)
-	assert.Equal(t, "openclaw", item.ConsumerID)
+	assert.Equal(t, "testapp", item.ConsumerID)
 }
 
 // --- Sync Meta ---
