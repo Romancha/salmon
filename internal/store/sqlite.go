@@ -1477,9 +1477,10 @@ func ackApplied(ctx context.Context, tx *sql.Tx, item *models.SyncAckItem, now s
 	if err == nil && noteID.Valid && noteID.String != "" {
 		switch {
 		case item.ConflictResolved:
-			// Bridge handled a conflict item: clear conflict status unconditionally.
+			// Bridge handled a conflict item: clear conflict status only if still in conflict
+			// (another consumer may have enqueued a new write, setting pending_to_bear).
 			if _, err := tx.ExecContext(ctx,
-				"UPDATE notes SET sync_status = 'synced' WHERE id = ?",
+				"UPDATE notes SET sync_status = 'synced' WHERE id = ? AND sync_status = 'conflict'",
 				noteID.String,
 			); err != nil {
 				return fmt.Errorf("clear conflict status on ack: %w", err)

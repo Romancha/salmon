@@ -64,6 +64,16 @@ func TestLoadConfig_InvalidConsumerTokensFormat(t *testing.T) {
 	assert.Contains(t, err.Error(), "parse HUB_CONSUMER_TOKENS")
 }
 
+func TestLoadConfig_ConsumerTokenEqualsBridgeToken(t *testing.T) {
+	t.Setenv("HUB_DB_PATH", "/tmp/test.db")
+	t.Setenv("HUB_CONSUMER_TOKENS", "app1:same-secret")
+	t.Setenv("HUB_BRIDGE_TOKEN", "same-secret")
+
+	_, err := loadConfig()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "must not equal HUB_BRIDGE_TOKEN")
+}
+
 func TestLoadConfig_CustomValues(t *testing.T) {
 	t.Setenv("HUB_DB_PATH", "/tmp/hub.db")
 	t.Setenv("HUB_CONSUMER_TOKENS", "app1:oc-test")

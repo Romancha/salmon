@@ -31,7 +31,11 @@ func (s *Server) listNotes(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if v := r.URL.Query().Get("limit"); v != "" {
-		n, _ := strconv.Atoi(v)
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 0 {
+			writeError(w, http.StatusBadRequest, "invalid limit parameter")
+			return
+		}
 		if n > 200 {
 			n = 200
 		}
@@ -39,9 +43,10 @@ func (s *Server) listNotes(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if v := r.URL.Query().Get("offset"); v != "" {
-		n, _ := strconv.Atoi(v)
-		if n < 0 {
-			n = 0
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 0 {
+			writeError(w, http.StatusBadRequest, "invalid offset parameter")
+			return
 		}
 		filter.Offset = n
 	}

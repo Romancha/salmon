@@ -74,6 +74,11 @@ func TestParseConsumerTokens(t *testing.T) {
 			raw:  "app1:tok:en:1",
 			want: map[string]string{"app1": "tok:en:1"},
 		},
+		{
+			name:    "duplicate token value",
+			raw:     "app1:sametoken,app2:sametoken",
+			wantErr: "duplicate token value shared by consumers \"app1\" and \"app2\"",
+		},
 	}
 
 	for _, tt := range tests {

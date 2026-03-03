@@ -71,6 +71,12 @@ func loadConfig() (*config, error) {
 		return nil, fmt.Errorf("HUB_BRIDGE_TOKEN is required")
 	}
 
+	for name, token := range cfg.consumerTokens {
+		if token == cfg.bridgeToken {
+			return nil, fmt.Errorf("consumer %q token must not equal HUB_BRIDGE_TOKEN", name)
+		}
+	}
+
 	if cfg.attachmentsDir == "" {
 		cfg.attachmentsDir = "attachments"
 	}

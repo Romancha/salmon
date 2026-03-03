@@ -541,12 +541,12 @@ func TestE2E_WriteFlow(t *testing.T) {
 
 	// Create a note via consumer API.
 	createResp := env.consumerDo(http.MethodPost, "/api/notes", map[string]string{
-		"title": "New Note From Openclaw",
+		"title": "New Note From Consumer",
 		"body":  "# New Note\nCreated via API",
 	}, "idem-create-1")
 	assert.Equal(t, http.StatusCreated, createResp.StatusCode)
 	createdNote := decodeJSON[models.Note](t, createResp)
-	assert.Equal(t, "New Note From Openclaw", createdNote.Title)
+	assert.Equal(t, "New Note From Consumer", createdNote.Title)
 	assert.Equal(t, "pending_to_bear", createdNote.SyncStatus)
 
 	// Update a note via consumer API — find an existing note.
@@ -806,7 +806,7 @@ func TestE2E_ConflictDetection(t *testing.T) {
 	}
 	require.NotEmpty(t, targetNoteID)
 
-	// Openclaw updates the note — sets sync_status=pending_to_bear.
+	// Consumer updates the note — sets sync_status=pending_to_bear.
 	updateResp := env.consumerDo(http.MethodPut, "/api/notes/"+targetNoteID, map[string]string{
 		"body": "# Updated by consumer",
 	}, "idem-conflict-update")

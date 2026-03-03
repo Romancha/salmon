@@ -125,7 +125,7 @@ func TestAuth_InvalidToken(t *testing.T) {
 	assert.Equal(t, http.StatusForbidden, resp.StatusCode)
 }
 
-func TestAuth_WrongScope_BridgeOnOpenclawRoute(t *testing.T) {
+func TestAuth_WrongScope_BridgeOnConsumerRoute(t *testing.T) {
 	ts, _ := setupServer(t)
 
 	resp := doRequest(t, ts, http.MethodGet, "/api/notes", nil, bridgeToken, nil)

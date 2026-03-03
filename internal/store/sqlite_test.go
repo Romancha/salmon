@@ -365,8 +365,8 @@ func TestProcessSyncPush_PendingToBear_PreservesBodyTitle(t *testing.T) {
 	require.NoError(t, s.CreateNote(ctx, &models.Note{
 		ID:         "n1",
 		BearID:     &bearID,
-		Title:      "OpenClaw Title",
-		Body:       "OpenClaw Body",
+		Title:      "Consumer Title",
+		Body:       "Consumer Body",
 		SyncStatus: "pending_to_bear",
 		Pinned:     0,
 	}))
@@ -381,8 +381,8 @@ func TestProcessSyncPush_PendingToBear_PreservesBodyTitle(t *testing.T) {
 
 	got, err := s.GetNote(ctx, "n1")
 	require.NoError(t, err)
-	assert.Equal(t, "OpenClaw Title", got.Title, "title should be preserved for pending_to_bear")
-	assert.Equal(t, "OpenClaw Body", got.Body, "body should be preserved for pending_to_bear")
+	assert.Equal(t, "Consumer Title", got.Title, "title should be preserved for pending_to_bear")
+	assert.Equal(t, "Consumer Body", got.Body, "body should be preserved for pending_to_bear")
 	assert.Equal(t, 1, got.Pinned, "flags should be updated from Bear")
 }
 
@@ -909,8 +909,8 @@ func TestProcessSyncPush_ConflictDetection(t *testing.T) {
 	require.NoError(t, s.CreateNote(ctx, &models.Note{
 		ID:            "n1",
 		BearID:        &bearID,
-		Title:         "OpenClaw Title",
-		Body:          "OpenClaw Body",
+		Title:         "Consumer Title",
+		Body:          "Consumer Body",
 		SyncStatus:    "pending_to_bear",
 		HubModifiedAt: "2025-01-01T12:00:00Z",
 		ModifiedAt:    "2025-01-01T10:00:00Z",
@@ -933,8 +933,8 @@ func TestProcessSyncPush_ConflictDetection(t *testing.T) {
 	got, err := s.GetNote(ctx, "n1")
 	require.NoError(t, err)
 	assert.Equal(t, "conflict", got.SyncStatus, "sync_status should be conflict")
-	assert.Equal(t, "OpenClaw Title", got.Title, "title should be preserved")
-	assert.Equal(t, "OpenClaw Body", got.Body, "body should be preserved")
+	assert.Equal(t, "Consumer Title", got.Title, "title should be preserved")
+	assert.Equal(t, "Consumer Body", got.Body, "body should be preserved")
 }
 
 func TestProcessSyncPush_NoConflictOnSameModifiedAt(t *testing.T) {
@@ -946,8 +946,8 @@ func TestProcessSyncPush_NoConflictOnSameModifiedAt(t *testing.T) {
 	require.NoError(t, s.CreateNote(ctx, &models.Note{
 		ID:         "n1",
 		BearID:     &bearID,
-		Title:      "OpenClaw Title",
-		Body:       "OpenClaw Body",
+		Title:      "Consumer Title",
+		Body:       "Consumer Body",
 		SyncStatus: "pending_to_bear",
 		ModifiedAt: "2025-01-01T10:00:00Z",
 	}))
@@ -969,7 +969,7 @@ func TestProcessSyncPush_NoConflictOnSameModifiedAt(t *testing.T) {
 	got, err := s.GetNote(ctx, "n1")
 	require.NoError(t, err)
 	assert.Equal(t, "pending_to_bear", got.SyncStatus, "sync_status should stay pending_to_bear")
-	assert.Equal(t, "OpenClaw Title", got.Title, "title should be preserved")
+	assert.Equal(t, "Consumer Title", got.Title, "title should be preserved")
 }
 
 func TestCountConflicts(t *testing.T) {

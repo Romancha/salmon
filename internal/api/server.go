@@ -173,13 +173,15 @@ func (s *Server) authMiddleware(scope string) func(http.Handler) http.Handler {
 }
 
 // matchConsumerToken returns the consumer name whose token matches, or "" if none match.
+// Iterates all entries unconditionally to avoid timing side-channels.
 func (s *Server) matchConsumerToken(token string) string {
+	var matched string
 	for name, t := range s.consumerTokens {
 		if subtle.ConstantTimeCompare([]byte(token), []byte(t)) == 1 {
-			return name
+			matched = name
 		}
 	}
-	return ""
+	return matched
 }
 
 func bodyLimitMiddleware(maxBytes int64) func(http.Handler) http.Handler {

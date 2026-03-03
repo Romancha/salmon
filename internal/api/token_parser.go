@@ -17,6 +17,7 @@ func ParseConsumerTokens(raw string) (map[string]string, error) {
 
 	entries := strings.Split(raw, ",")
 	result := make(map[string]string, len(entries))
+	seenTokens := make(map[string]string, len(entries)) // token -> consumer name
 
 	for _, entry := range entries {
 		entry = strings.TrimSpace(entry)
@@ -36,6 +37,11 @@ func ParseConsumerTokens(raw string) (map[string]string, error) {
 		if _, exists := result[name]; exists {
 			return nil, fmt.Errorf("duplicate consumer name %q", name)
 		}
+
+		if existingName, exists := seenTokens[token]; exists {
+			return nil, fmt.Errorf("duplicate token value shared by consumers %q and %q", existingName, name)
+		}
+		seenTokens[token] = name
 
 		result[name] = token
 	}
