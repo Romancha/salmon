@@ -196,7 +196,7 @@ CREATE TABLE IF NOT EXISTS backlinks (
 );
 CREATE TABLE IF NOT EXISTS write_queue (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    idempotency_key TEXT UNIQUE NOT NULL,
+    idempotency_key TEXT NOT NULL,
     action          TEXT NOT NULL,
     note_id         TEXT,
     payload         TEXT NOT NULL,
@@ -206,7 +206,8 @@ CREATE TABLE IF NOT EXISTS write_queue (
     lease_until     TEXT,
     applied_at      TEXT,
     error           TEXT,
-    consumer_id     TEXT NOT NULL DEFAULT ''
+    consumer_id     TEXT NOT NULL DEFAULT '',
+    UNIQUE(idempotency_key, consumer_id)
 );
 CREATE TABLE IF NOT EXISTS sync_meta (
     key   TEXT PRIMARY KEY,
@@ -252,6 +253,85 @@ END;
 		if _, err := s.db.ExecContext(ctx, ftsDDL); err != nil {
 			return fmt.Errorf("create FTS5: %w", err)
 		}
+	}
+
+	// Migrate existing write_queue tables: add consumer_id column if missing.
+	if err := s.migrateWriteQueueConsumerID(ctx); err != nil {
+		return fmt.Errorf("migrate write_queue consumer_id: %w", err)
+	}
+
+	return nil
+}
+
+// migrateWriteQueueConsumerID adds the consumer_id column to an existing write_queue table
+// and replaces the old idempotency_key UNIQUE index with a compound (idempotency_key, consumer_id) one.
+// SQLite doesn't support DROP CONSTRAINT, so we recreate the table to change the uniqueness semantics.
+//
+// The check inspects the actual table DDL in sqlite_master rather than just column existence,
+// because an intermediate schema version may have added consumer_id without changing the
+// UNIQUE constraint from UNIQUE(idempotency_key) to UNIQUE(idempotency_key, consumer_id).
+func (s *SQLiteStore) migrateWriteQueueConsumerID(ctx context.Context) error {
+	// Check whether the table already has the correct compound unique constraint.
+	// We look for "UNIQUE(idempotency_key, consumer_id)" in the DDL stored in sqlite_master.
+	var ddlSQL sql.NullString
+	if err := s.db.QueryRowContext(ctx,
+		"SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'write_queue'",
+	).Scan(&ddlSQL); err != nil {
+		return fmt.Errorf("read write_queue DDL: %w", err)
+	}
+
+	if ddlSQL.Valid && strings.Contains(ddlSQL.String, "UNIQUE(idempotency_key, consumer_id)") {
+		return nil // already has the correct compound unique constraint
+	}
+
+	// Recreate the table with consumer_id column and compound unique constraint.
+	// Wrapped in an explicit transaction to prevent partial state on crash.
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin write_queue migration tx: %w", err)
+	}
+	defer tx.Rollback() //nolint:errcheck // rollback is a no-op after commit
+
+	// Determine the consumer_id source expression: if the old table already has a consumer_id
+	// column (intermediate schema), preserve existing values; otherwise default to ''.
+	consumerIDExpr := "''"
+	if ddlSQL.Valid && strings.Contains(ddlSQL.String, "consumer_id") {
+		consumerIDExpr = "COALESCE(consumer_id, '')"
+	}
+
+	migrate := fmt.Sprintf(`
+CREATE TABLE write_queue_new (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    idempotency_key TEXT NOT NULL,
+    action          TEXT NOT NULL,
+    note_id         TEXT,
+    payload         TEXT NOT NULL,
+    created_at      TEXT DEFAULT (datetime('now')),
+    status          TEXT DEFAULT 'pending',
+    processing_by   TEXT,
+    lease_until     TEXT,
+    applied_at      TEXT,
+    error           TEXT,
+    consumer_id     TEXT NOT NULL DEFAULT '',
+    UNIQUE(idempotency_key, consumer_id)
+);
+INSERT INTO write_queue_new (id, idempotency_key, action, note_id, payload, created_at, status,
+    processing_by, lease_until, applied_at, error, consumer_id)
+SELECT id, idempotency_key, action, note_id, payload, created_at, status,
+    processing_by, lease_until, applied_at, error, %s
+FROM write_queue;
+DROP TABLE write_queue;
+ALTER TABLE write_queue_new RENAME TO write_queue;
+CREATE INDEX IF NOT EXISTS idx_write_queue_status ON write_queue(status);
+CREATE INDEX IF NOT EXISTS idx_write_queue_lease ON write_queue(status, lease_until);
+`, consumerIDExpr)
+
+	if _, err := tx.ExecContext(ctx, migrate); err != nil {
+		return fmt.Errorf("migrate write_queue uniqueness: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit write_queue migration: %w", err)
 	}
 
 	return nil
@@ -1261,9 +1341,12 @@ func deleteByBearIDs(ctx context.Context, tx *sql.Tx, table string, bearIDs []st
 
 // --- Write Queue ---
 
-func (s *SQLiteStore) GetQueueItemByIdempotencyKey(ctx context.Context, key string) (*models.WriteQueueItem, error) {
+func (s *SQLiteStore) GetQueueItemByIdempotencyKey(
+	ctx context.Context, key, consumerID string,
+) (*models.WriteQueueItem, error) {
 	item, err := scanWriteQueueRow(s.db.QueryRowContext(ctx,
-		"SELECT "+writeQueueColumns()+" FROM write_queue WHERE idempotency_key = ?", key,
+		"SELECT "+writeQueueColumns()+" FROM write_queue WHERE idempotency_key = ? AND consumer_id = ?",
+		key, consumerID,
 	))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -1280,10 +1363,47 @@ func (s *SQLiteStore) EnqueueWrite(
 	idempotencyKey, action, noteID, payload, consumerID string,
 ) (*models.WriteQueueItem, error) {
 	existing, err := scanWriteQueueRow(s.db.QueryRowContext(ctx,
-		"SELECT "+writeQueueColumns()+" FROM write_queue WHERE idempotency_key = ?",
-		idempotencyKey,
+		"SELECT "+writeQueueColumns()+" FROM write_queue WHERE idempotency_key = ? AND consumer_id = ?",
+		idempotencyKey, consumerID,
 	))
 	if err == nil {
+		// If the existing item failed, reset it to pending so it can be retried.
+		// The WHERE clause includes status = 'failed' to prevent a race where two concurrent
+		// retries both observe 'failed' but only one actually resets the item.
+		if existing.Status == "failed" {
+			res, err := s.db.ExecContext(ctx,
+				`UPDATE write_queue SET status = 'pending', action = ?, note_id = ?, payload = ?,
+				processing_by = NULL, lease_until = NULL, applied_at = NULL, error = NULL
+				WHERE id = ? AND status = 'failed'`,
+				action, noteID, payload, existing.ID,
+			)
+			if err != nil {
+				return nil, fmt.Errorf("reset failed queue item: %w", err)
+			}
+
+			rowsAffected, _ := res.RowsAffected() //nolint:errcheck // SQLite always supports RowsAffected
+			if rowsAffected == 0 {
+				// Another goroutine already reset this item; re-read and return as idempotent hit.
+				item, err := scanWriteQueueRow(s.db.QueryRowContext(ctx,
+					"SELECT "+writeQueueColumns()+" FROM write_queue WHERE id = ?", existing.ID,
+				))
+				if err != nil {
+					return nil, fmt.Errorf("read concurrently reset queue item: %w", err)
+				}
+
+				return &item, nil
+			}
+
+			item, err := scanWriteQueueRow(s.db.QueryRowContext(ctx,
+				"SELECT "+writeQueueColumns()+" FROM write_queue WHERE id = ?", existing.ID,
+			))
+			if err != nil {
+				return nil, fmt.Errorf("read reset queue item: %w", err)
+			}
+
+			return &item, nil
+		}
+
 		return &existing, nil
 	}
 
@@ -1404,6 +1524,12 @@ func (s *SQLiteStore) LeaseQueueItems(
 	return items, nil
 }
 
+// AckQueueItems acknowledges leased write-queue items, transitioning them to terminal states.
+//
+// Safety invariant: the single bridge processes queue items sequentially (lease → apply → ack)
+// within one goroutine. Combined with the 60 s HTTP client timeout (well within the 5-minute
+// lease window), stale acks from a previous attempt cannot arrive after a re-lease because the
+// underlying TCP connection is closed on timeout. No lease-version token is therefore required.
 func (s *SQLiteStore) AckQueueItems(ctx context.Context, items []models.SyncAckItem) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -1430,8 +1556,8 @@ func ackSingleItem(ctx context.Context, tx *sql.Tx, item *models.SyncAckItem, no
 	var currentStatus string
 
 	err := tx.QueryRowContext(ctx,
-		"SELECT status FROM write_queue WHERE idempotency_key = ?",
-		item.IdempotencyKey,
+		"SELECT status FROM write_queue WHERE id = ?",
+		item.QueueID,
 	).Scan(&currentStatus)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -1441,7 +1567,10 @@ func ackSingleItem(ctx context.Context, tx *sql.Tx, item *models.SyncAckItem, no
 		return fmt.Errorf("check ack status: %w", err)
 	}
 
-	if currentStatus == "applied" || currentStatus == "failed" {
+	// Only apply acks to items currently being processed. Skip if:
+	// - "pending": item was reset by EnqueueWrite retry; this ack is stale
+	// - "applied"/"failed": already terminal
+	if currentStatus != "processing" {
 		return nil
 	}
 
@@ -1450,8 +1579,8 @@ func ackSingleItem(ctx context.Context, tx *sql.Tx, item *models.SyncAckItem, no
 	}
 
 	if _, err := tx.ExecContext(ctx,
-		"UPDATE write_queue SET status = 'failed', error = ? WHERE idempotency_key = ?",
-		item.Error, item.IdempotencyKey,
+		"UPDATE write_queue SET status = 'failed', error = ? WHERE id = ?",
+		item.Error, item.QueueID,
 	); err != nil {
 		return fmt.Errorf("ack failed: %w", err)
 	}
@@ -1462,8 +1591,8 @@ func ackSingleItem(ctx context.Context, tx *sql.Tx, item *models.SyncAckItem, no
 func ackApplied(ctx context.Context, tx *sql.Tx, item *models.SyncAckItem, now string) error {
 	if _, err := tx.ExecContext(ctx,
 		"UPDATE write_queue SET status = 'applied', applied_at = ?, error = NULL "+
-			"WHERE idempotency_key = ?",
-		now, item.IdempotencyKey,
+			"WHERE id = ?",
+		now, item.QueueID,
 	); err != nil {
 		return fmt.Errorf("ack applied: %w", err)
 	}
@@ -1471,8 +1600,8 @@ func ackApplied(ctx context.Context, tx *sql.Tx, item *models.SyncAckItem, now s
 	var noteID sql.NullString
 
 	err := tx.QueryRowContext(ctx,
-		"SELECT note_id FROM write_queue WHERE idempotency_key = ?",
-		item.IdempotencyKey,
+		"SELECT note_id FROM write_queue WHERE id = ?",
+		item.QueueID,
 	).Scan(&noteID)
 	if err == nil && noteID.Valid && noteID.String != "" {
 		switch {

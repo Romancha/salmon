@@ -48,7 +48,7 @@ type Store interface {
 	ProcessSyncPush(ctx context.Context, req models.SyncPushRequest) error
 
 	// Write Queue
-	GetQueueItemByIdempotencyKey(ctx context.Context, key string) (*models.WriteQueueItem, error)
+	GetQueueItemByIdempotencyKey(ctx context.Context, key, consumerID string) (*models.WriteQueueItem, error)
 	EnqueueWrite(ctx context.Context, idempotencyKey, action, noteID, payload, consumerID string) (*models.WriteQueueItem, error)
 	LeaseQueueItems(ctx context.Context, processingBy string, leaseDuration time.Duration) ([]models.WriteQueueItem, error)
 	AckQueueItems(ctx context.Context, items []models.SyncAckItem) error

@@ -729,6 +729,10 @@ func TestSyncAck(t *testing.T) {
 	_, err := s.EnqueueWrite(t.Context(), "idem-1", "create", "note-1", `{"title":"Note"}`, "")
 	require.NoError(t, err)
 
+	// Lease the item so it transitions to "processing" (acks only apply to processing items).
+	_, err = s.LeaseQueueItems(t.Context(), "bridge-1", 5*time.Minute)
+	require.NoError(t, err)
+
 	ackReq := models.SyncAckRequest{
 		Items: []models.SyncAckItem{
 			{QueueID: 1, IdempotencyKey: "idem-1", Status: "applied", BearID: "bear-uuid-123"},

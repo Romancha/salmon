@@ -2,6 +2,7 @@ package store_test
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -13,6 +14,8 @@ import (
 
 	"github.com/romancha/bear-sync/internal/models"
 	"github.com/romancha/bear-sync/internal/store"
+
+	_ "modernc.org/sqlite"
 )
 
 func newTestStore(t *testing.T) *store.SQLiteStore {
@@ -716,22 +719,25 @@ func TestWriteQueue_FullLifecycle(t *testing.T) {
 
 func TestWriteQueue_SchemaHasConsumerIDColumn(t *testing.T) {
 	s := newTestStore(t)
+	ctx := context.Background()
 
 	var colCount int
-	err := s.DB().QueryRow(
+	err := s.DB().QueryRowContext(ctx,
 		"SELECT count(*) FROM pragma_table_info('write_queue') WHERE name = 'consumer_id'",
 	).Scan(&colCount)
 	require.NoError(t, err)
 	assert.Equal(t, 1, colCount, "write_queue should have consumer_id column")
 
 	// Verify the default value by inserting without consumer_id and reading back.
-	_, err = s.DB().Exec(
+	_, err = s.DB().ExecContext(ctx,
 		"INSERT INTO write_queue (idempotency_key, action, payload) VALUES ('raw-key', 'create', '{}')",
 	)
 	require.NoError(t, err)
 
 	var consumerID string
-	err = s.DB().QueryRow("SELECT consumer_id FROM write_queue WHERE idempotency_key = 'raw-key'").Scan(&consumerID)
+	err = s.DB().QueryRowContext(ctx,
+		"SELECT consumer_id FROM write_queue WHERE idempotency_key = 'raw-key'",
+	).Scan(&consumerID)
 	require.NoError(t, err)
 	assert.Equal(t, "", consumerID, "consumer_id default should be empty string")
 }
@@ -746,7 +752,7 @@ func TestWriteQueue_EnqueueWithConsumerID(t *testing.T) {
 	assert.Equal(t, "pending", item.Status)
 
 	// Verify via GetQueueItemByIdempotencyKey.
-	got, err := s.GetQueueItemByIdempotencyKey(ctx, "key-consumer")
+	got, err := s.GetQueueItemByIdempotencyKey(ctx, "key-consumer", "testapp")
 	require.NoError(t, err)
 	require.NotNil(t, got)
 	assert.Equal(t, "testapp", got.ConsumerID)
@@ -787,6 +793,219 @@ func TestWriteQueue_IdempotencyReturnsConsumerID(t *testing.T) {
 	assert.Equal(t, "testapp", item.ConsumerID)
 }
 
+func TestWriteQueue_IdempotencyIsScopedToConsumer(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	// Two consumers using the same idempotency key should not collide.
+	item1, err := s.EnqueueWrite(ctx, "shared-key", "create", "n1", `{"title":"From A"}`, "consumer-a")
+	require.NoError(t, err)
+	assert.Equal(t, "consumer-a", item1.ConsumerID)
+
+	item2, err := s.EnqueueWrite(ctx, "shared-key", "create", "n2", `{"title":"From B"}`, "consumer-b")
+	require.NoError(t, err)
+	assert.Equal(t, "consumer-b", item2.ConsumerID)
+
+	// They should be different queue items.
+	assert.NotEqual(t, item1.ID, item2.ID)
+
+	// Lookup by key+consumer returns the correct item.
+	got, err := s.GetQueueItemByIdempotencyKey(ctx, "shared-key", "consumer-a")
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	assert.Equal(t, item1.ID, got.ID)
+
+	got2, err := s.GetQueueItemByIdempotencyKey(ctx, "shared-key", "consumer-b")
+	require.NoError(t, err)
+	require.NotNil(t, got2)
+	assert.Equal(t, item2.ID, got2.ID)
+}
+
+func TestWriteQueue_FailedItemRetry(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	// Enqueue, lease, then fail the item.
+	item, err := s.EnqueueWrite(ctx, "retry-key", "create", "n1", `{"title":"Original"}`, "testapp")
+	require.NoError(t, err)
+	assert.Equal(t, "pending", item.Status)
+
+	items, err := s.LeaseQueueItems(ctx, "bridge-1", 5*time.Minute)
+	require.NoError(t, err)
+	require.Len(t, items, 1)
+
+	err = s.AckQueueItems(ctx, []models.SyncAckItem{
+		{QueueID: item.ID, IdempotencyKey: "retry-key", Status: "failed", Error: "Bear not running"},
+	})
+	require.NoError(t, err)
+
+	// Retry with the same idempotency key should reset the item to pending.
+	retried, err := s.EnqueueWrite(ctx, "retry-key", "create", "n1", `{"title":"Retried"}`, "testapp")
+	require.NoError(t, err)
+	assert.Equal(t, item.ID, retried.ID, "should reuse same queue item ID")
+	assert.Equal(t, "pending", retried.Status, "status should be reset to pending")
+	assert.Equal(t, `{"title":"Retried"}`, retried.Payload, "payload should be updated")
+
+	// The item should be leasable again.
+	items, err = s.LeaseQueueItems(ctx, "bridge-1", 5*time.Minute)
+	require.NoError(t, err)
+	require.Len(t, items, 1)
+	assert.Equal(t, retried.ID, items[0].ID)
+}
+
+func TestWriteQueue_StaleAckAfterRetryReset(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	// Enqueue, lease, and fail the item.
+	item, err := s.EnqueueWrite(ctx, "stale-key", "create", "n1", `{"title":"V1"}`, "testapp")
+	require.NoError(t, err)
+
+	_, err = s.LeaseQueueItems(ctx, "bridge-1", 5*time.Minute)
+	require.NoError(t, err)
+
+	err = s.AckQueueItems(ctx, []models.SyncAckItem{
+		{QueueID: item.ID, IdempotencyKey: "stale-key", Status: "failed", Error: "Bear not running"},
+	})
+	require.NoError(t, err)
+
+	// Consumer retries — resets item to pending.
+	retried, err := s.EnqueueWrite(ctx, "stale-key", "create", "n1", `{"title":"V2"}`, "testapp")
+	require.NoError(t, err)
+	assert.Equal(t, "pending", retried.Status)
+
+	// A stale "failed" ack arrives (duplicate from the first attempt).
+	// It must be a no-op because the item was reset to pending.
+	err = s.AckQueueItems(ctx, []models.SyncAckItem{
+		{QueueID: item.ID, IdempotencyKey: "stale-key", Status: "failed", Error: "stale error"},
+	})
+	require.NoError(t, err)
+
+	// Verify item is still pending (not corrupted back to failed).
+	items, err := s.LeaseQueueItems(ctx, "bridge-2", 5*time.Minute)
+	require.NoError(t, err)
+	require.Len(t, items, 1, "item should still be leasable after stale ack")
+	assert.Equal(t, retried.ID, items[0].ID)
+}
+
+func TestWriteQueue_MigrationAddsConsumerIDColumn(t *testing.T) {
+	// Create a store with the old schema (no consumer_id column).
+	dbPath := filepath.Join(t.TempDir(), "test-migration.db")
+
+	ctx := context.Background()
+
+	db, err := sql.Open("sqlite", dbPath)
+	require.NoError(t, err)
+
+	// Create old-schema write_queue without consumer_id.
+	_, err = db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS write_queue (
+		id              INTEGER PRIMARY KEY AUTOINCREMENT,
+		idempotency_key TEXT UNIQUE NOT NULL,
+		action          TEXT NOT NULL,
+		note_id         TEXT,
+		payload         TEXT NOT NULL,
+		created_at      TEXT DEFAULT (datetime('now')),
+		status          TEXT DEFAULT 'pending',
+		processing_by   TEXT,
+		lease_until     TEXT,
+		applied_at      TEXT,
+		error           TEXT
+	)`)
+	require.NoError(t, err)
+
+	// Insert a row with old schema.
+	_, err = db.ExecContext(ctx,
+		"INSERT INTO write_queue (idempotency_key, action, note_id, payload) VALUES (?, ?, ?, ?)",
+		"old-key", "create", "n1", `{"title":"Old"}`,
+	)
+	require.NoError(t, err)
+	require.NoError(t, db.Close())
+
+	// Reopen with NewSQLiteStore — migration should add consumer_id.
+	s, err := store.NewSQLiteStore(dbPath)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, s.Close()) })
+
+	// Verify the old row is readable and has default consumer_id.
+	item, err := s.GetQueueItemByIdempotencyKey(context.Background(), "old-key", "")
+	require.NoError(t, err)
+	require.NotNil(t, item)
+	assert.Equal(t, "", item.ConsumerID)
+	assert.Equal(t, "create", item.Action)
+
+	// Verify new rows can be inserted with consumer_id.
+	newItem, err := s.EnqueueWrite(context.Background(), "new-key", "update", "n2", `{"body":"new"}`, "myapp")
+	require.NoError(t, err)
+	assert.Equal(t, "myapp", newItem.ConsumerID)
+
+	// Verify same idempotency key can be used by different consumers after migration
+	// (old schema had global UNIQUE on idempotency_key; migrated schema has UNIQUE(idempotency_key, consumer_id)).
+	itemA, err := s.EnqueueWrite(context.Background(), "shared-key", "create", "n3", `{"title":"A"}`, "consumer-a")
+	require.NoError(t, err)
+	assert.Equal(t, "consumer-a", itemA.ConsumerID)
+
+	itemB, err := s.EnqueueWrite(context.Background(), "shared-key", "create", "n4", `{"title":"B"}`, "consumer-b")
+	require.NoError(t, err)
+	assert.Equal(t, "consumer-b", itemB.ConsumerID)
+	assert.NotEqual(t, itemA.ID, itemB.ID, "different consumers should get separate queue items")
+}
+
+func TestWriteQueue_MigrationFixesIntermediateSchema(t *testing.T) {
+	// Simulate a DB created by an intermediate schema version: consumer_id column exists,
+	// but UNIQUE constraint is still on idempotency_key alone (not compound).
+	dbPath := filepath.Join(t.TempDir(), "test-intermediate-migration.db")
+
+	ctx := context.Background()
+
+	db, err := sql.Open("sqlite", dbPath)
+	require.NoError(t, err)
+
+	// Create intermediate schema: has consumer_id but old UNIQUE(idempotency_key).
+	_, err = db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS write_queue (
+		id              INTEGER PRIMARY KEY AUTOINCREMENT,
+		idempotency_key TEXT UNIQUE NOT NULL,
+		action          TEXT NOT NULL,
+		note_id         TEXT,
+		payload         TEXT NOT NULL,
+		created_at      TEXT DEFAULT (datetime('now')),
+		status          TEXT DEFAULT 'pending',
+		processing_by   TEXT,
+		lease_until     TEXT,
+		applied_at      TEXT,
+		error           TEXT,
+		consumer_id     TEXT NOT NULL DEFAULT ''
+	)`)
+	require.NoError(t, err)
+
+	// Insert a row.
+	_, err = db.ExecContext(ctx,
+		"INSERT INTO write_queue (idempotency_key, action, note_id, payload, consumer_id) VALUES (?, ?, ?, ?, ?)",
+		"key1", "create", "n1", `{"title":"Test"}`, "consumer-a",
+	)
+	require.NoError(t, err)
+	require.NoError(t, db.Close())
+
+	// Reopen with NewSQLiteStore — migration should detect missing compound unique and rebuild table.
+	s, err := store.NewSQLiteStore(dbPath)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, s.Close()) })
+
+	// Verify the old row survived migration with consumer_id preserved.
+	item, err := s.GetQueueItemByIdempotencyKey(context.Background(), "key1", "consumer-a")
+	require.NoError(t, err)
+	require.NotNil(t, item)
+	assert.Equal(t, "consumer-a", item.ConsumerID, "migration should preserve existing consumer_id")
+
+	// Verify same idempotency key can now be used by different consumers
+	// (this would have failed with the old global UNIQUE constraint).
+	itemA, err := s.EnqueueWrite(context.Background(), "dup-key", "create", "n2", `{"title":"A"}`, "consumer-a")
+	require.NoError(t, err)
+
+	itemB, err := s.EnqueueWrite(context.Background(), "dup-key", "create", "n3", `{"title":"B"}`, "consumer-b")
+	require.NoError(t, err)
+	assert.NotEqual(t, itemA.ID, itemB.ID, "different consumers should get separate queue items")
+}
+
 // --- Sync Meta ---
 
 func TestSyncMeta(t *testing.T) {
@@ -819,22 +1038,25 @@ func TestSyncMeta(t *testing.T) {
 
 func TestNewSQLiteStore_Migration(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "test.db")
+	ctx := context.Background()
 
 	s, err := store.NewSQLiteStore(dbPath)
 	require.NoError(t, err)
 
 	// Verify tables exist.
 	var count int
-	err = s.DB().QueryRow(
-		"SELECT count(*) FROM sqlite_master WHERE type='table' AND " +
-			"name IN ('notes','tags','note_tags','pinned_note_tags'," +
+	err = s.DB().QueryRowContext(ctx,
+		"SELECT count(*) FROM sqlite_master WHERE type='table' AND "+
+			"name IN ('notes','tags','note_tags','pinned_note_tags',"+
 			"'attachments','backlinks','write_queue','sync_meta')",
 	).Scan(&count)
 	require.NoError(t, err)
 	assert.Equal(t, 8, count)
 
 	// Verify FTS5 table.
-	err = s.DB().QueryRow("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='notes_fts'").Scan(&count)
+	err = s.DB().QueryRowContext(ctx,
+		"SELECT count(*) FROM sqlite_master WHERE type='table' AND name='notes_fts'",
+	).Scan(&count)
 	require.NoError(t, err)
 	assert.Equal(t, 1, count)
 

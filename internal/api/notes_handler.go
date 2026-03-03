@@ -139,10 +139,12 @@ func (s *Server) createNote(w http.ResponseWriter, r *http.Request) {
 
 	idempotencyKey := r.Header.Get("Idempotency-Key")
 
+	consumerID := ConsumerIDFromContext(r.Context())
+
 	// Check idempotency before creating the note to prevent duplicate notes on retries.
 	// Skip early return for failed items so the caller can retry a previously failed enqueue.
 	if idempotencyKey != "" {
-		existing, err := s.store.GetQueueItemByIdempotencyKey(r.Context(), idempotencyKey)
+		existing, err := s.store.GetQueueItemByIdempotencyKey(r.Context(), idempotencyKey, consumerID)
 		if isRetryableQueueItem(existing, err) {
 			note, _ := s.store.GetNote(r.Context(), existing.NoteID) //nolint:errcheck // best-effort lookup
 			if note != nil {
@@ -152,6 +154,14 @@ func (s *Server) createNote(w http.ResponseWriter, r *http.Request) {
 				writeJSON(w, http.StatusCreated, map[string]string{"id": existing.NoteID, "status": "accepted"})
 			}
 			return
+		}
+
+		// Clean up the orphaned note from a previously failed "create" to avoid a stuck pending_to_bear record.
+		if existing != nil && existing.Status == "failed" && existing.Action == "create" && existing.NoteID != "" {
+			if delErr := s.store.DeleteNote(r.Context(), existing.NoteID); delErr != nil {
+				slog.Error("failed to delete orphaned note from failed create", //nolint:gosec // G706: note_id is generated UUID
+					"note_id", existing.NoteID, "error", delErr.Error())
+			}
 		}
 	}
 
@@ -174,15 +184,32 @@ func (s *Server) createNote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, err := s.store.EnqueueWrite(
-		r.Context(), idempotencyKey, "create", note.ID, string(payload), ConsumerIDFromContext(r.Context()),
-	); err != nil {
+	queueItem, err := s.store.EnqueueWrite(
+		r.Context(), idempotencyKey, "create", note.ID, string(payload), consumerID,
+	)
+	if err != nil {
 		// Compensate: delete the orphaned note to avoid a stuck pending_to_bear record.
 		if delErr := s.store.DeleteNote(r.Context(), note.ID); delErr != nil {
 			slog.Error("failed to delete orphaned note after enqueue failure", //nolint:gosec // G706: note_id is generated UUID, not user input
 				"note_id", note.ID, "enqueue_error", err.Error(), "delete_error", delErr.Error())
 		}
 		writeError(w, http.StatusInternalServerError, "failed to enqueue write")
+		return
+	}
+
+	// Concurrent retry guard: if EnqueueWrite returned an existing queue item pointing to a different note
+	// (e.g. another concurrent retry already reset the failed item), our note is the orphan — clean it up.
+	if queueItem.NoteID != note.ID {
+		if delErr := s.store.DeleteNote(r.Context(), note.ID); delErr != nil {
+			slog.Error("failed to delete orphaned note from concurrent retry", //nolint:gosec // G706: note_id is generated UUID
+				"note_id", note.ID, "error", delErr.Error())
+		}
+		existingNote, _ := s.store.GetNote(r.Context(), queueItem.NoteID) //nolint:errcheck // best-effort lookup
+		if existingNote != nil {
+			writeJSON(w, http.StatusCreated, existingNote)
+		} else {
+			writeJSON(w, http.StatusCreated, map[string]string{"id": queueItem.NoteID, "status": "accepted"})
+		}
 		return
 	}
 
@@ -235,11 +262,12 @@ func (s *Server) updateNote(w http.ResponseWriter, r *http.Request) {
 	}
 
 	idempotencyKey := r.Header.Get("Idempotency-Key")
+	consumerID := ConsumerIDFromContext(r.Context())
 
 	// Check idempotency before mutating to prevent timestamp re-bumping on retries.
 	// Skip early return for failed items so the caller can retry a previously failed enqueue.
 	if idempotencyKey != "" {
-		existing, err := s.store.GetQueueItemByIdempotencyKey(r.Context(), idempotencyKey)
+		existing, err := s.store.GetQueueItemByIdempotencyKey(r.Context(), idempotencyKey, consumerID)
 		if isRetryableQueueItem(existing, err) {
 			writeJSON(w, http.StatusOK, note)
 			return
@@ -286,7 +314,7 @@ func (s *Server) updateNote(w http.ResponseWriter, r *http.Request) {
 	payload, _ := json.Marshal(payloadMap) //nolint:errcheck // marshaling a simple map cannot fail
 
 	if _, err := s.store.EnqueueWrite(
-		r.Context(), idempotencyKey, "update", note.ID, string(payload), ConsumerIDFromContext(r.Context()),
+		r.Context(), idempotencyKey, "update", note.ID, string(payload), consumerID,
 	); err != nil {
 		// Restore original note state to avoid permanently stuck pending_to_bear.
 		note.Title = oldTitle
@@ -333,11 +361,12 @@ func (s *Server) trashNote(w http.ResponseWriter, r *http.Request) {
 	}
 
 	idempotencyKey := r.Header.Get("Idempotency-Key")
+	consumerID := ConsumerIDFromContext(r.Context())
 
 	// Check idempotency before mutating to prevent timestamp re-bumping on retries.
 	// Skip early return for failed items so the caller can retry a previously failed enqueue.
 	if idempotencyKey != "" {
-		existing, err := s.store.GetQueueItemByIdempotencyKey(r.Context(), idempotencyKey)
+		existing, err := s.store.GetQueueItemByIdempotencyKey(r.Context(), idempotencyKey, consumerID)
 		if isRetryableQueueItem(existing, err) {
 			writeJSON(w, http.StatusOK, note)
 			return
@@ -370,7 +399,7 @@ func (s *Server) trashNote(w http.ResponseWriter, r *http.Request) {
 	payload, _ := json.Marshal(trashPayload) //nolint:errcheck // cannot fail
 
 	if _, err := s.store.EnqueueWrite(
-		r.Context(), idempotencyKey, "trash", note.ID, string(payload), ConsumerIDFromContext(r.Context()),
+		r.Context(), idempotencyKey, "trash", note.ID, string(payload), consumerID,
 	); err != nil {
 		// Restore original note state to avoid permanently stuck pending_to_bear.
 		note.Trashed = oldTrashed
