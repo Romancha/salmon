@@ -105,10 +105,10 @@ Refactor bear-sync hub from being hardcoded to a single external consumer (openc
 - [x] run tests — must pass before next task
 
 ### Task 7: Update bridge queue processing (passthrough)
-- [ ] verify bridge queue processing handles `ConsumerID` field (scan from API response)
-- [ ] write test: bridge ack works regardless of consumer_id value
-- [ ] update bridge queue tests if any mock data needs ConsumerID
-- [ ] run tests — must pass before next task
+- [x] verify bridge queue processing handles `ConsumerID` field (scan from API response)
+- [x] write test: bridge ack works regardless of consumer_id value
+- [x] update bridge queue tests if any mock data needs ConsumerID
+- [x] run tests — must pass before next task
 
 ### Task 8: Rename all openclaw references in code
 - [ ] grep for remaining "openclaw" references in `.go` files (comments, variable names, log messages)

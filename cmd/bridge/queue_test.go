@@ -75,6 +75,7 @@ func TestProcessQueue_CreateAction(t *testing.T) {
 				Action:         "create",
 				NoteID:         "hub-uuid-1",
 				Payload:        `{"title":"New Note","body":"Hello","tags":["tag1"]}`,
+				ConsumerID:     "openclaw",
 			},
 		},
 	}
@@ -233,6 +234,7 @@ func TestProcessQueue_AddTagAction(t *testing.T) {
 				Action:         "add_tag",
 				NoteID:         "bear-note-1",
 				Payload:        `{"tag":"new-tag"}`,
+				ConsumerID:     "myapp",
 			},
 		},
 	}
@@ -587,6 +589,64 @@ func TestProcessQueue_NonConflictProcessedNormally(t *testing.T) {
 
 	require.Len(t, hub.ackItems, 1)
 	assert.Equal(t, "applied", hub.ackItems[0].Status)
+}
+
+func TestProcessQueue_ConsumerIDDoesNotAffectProcessing(t *testing.T) {
+	db := &mockBearDB{
+		notesByUUID: map[string]*beardb.NoteBasicInfo{
+			"bear-note-1": {UUID: "bear-note-1", Title: "Note 1", Body: "old body 1"},
+			"bear-note-2": {UUID: "bear-note-2", Title: "Note 2", Body: "old body 2"},
+			"bear-note-3": {UUID: "bear-note-3", Title: "Note 3", Trashed: 0},
+		},
+	}
+	hub := &mockHubClient{
+		queueItems: []models.WriteQueueItem{
+			{
+				ID:             30,
+				IdempotencyKey: "idem-30",
+				Action:         "update",
+				NoteID:         "bear-note-1",
+				Payload:        `{"body":"new body 1"}`,
+				ConsumerID:     "openclaw",
+			},
+			{
+				ID:             31,
+				IdempotencyKey: "idem-31",
+				Action:         "update",
+				NoteID:         "bear-note-2",
+				Payload:        `{"body":"new body 2"}`,
+				ConsumerID:     "myapp",
+			},
+			{
+				ID:             32,
+				IdempotencyKey: "idem-32",
+				Action:         "trash",
+				NoteID:         "bear-note-3",
+				Payload:        `{"action":"trash"}`,
+				ConsumerID:     "", // empty consumer_id (legacy or bridge-created)
+			},
+		},
+	}
+	xcall := &mockXCallback{}
+	bridge := newQueueBridge(db, hub, xcall, filepath.Join(t.TempDir(), "state.json"))
+
+	err := bridge.processQueue(context.Background())
+	require.NoError(t, err)
+
+	// All items processed regardless of consumer_id value (including empty).
+	require.Len(t, xcall.calls, 3)
+	assert.Equal(t, "update", xcall.calls[0].action)
+	assert.Equal(t, "bear-note-1", xcall.calls[0].bearID)
+	assert.Equal(t, "update", xcall.calls[1].action)
+	assert.Equal(t, "bear-note-2", xcall.calls[1].bearID)
+	assert.Equal(t, "trash", xcall.calls[2].action)
+	assert.Equal(t, "bear-note-3", xcall.calls[2].bearID)
+
+	// All acked as applied.
+	require.Len(t, hub.ackItems, 3)
+	assert.Equal(t, "applied", hub.ackItems[0].Status)
+	assert.Equal(t, "applied", hub.ackItems[1].Status)
+	assert.Equal(t, "applied", hub.ackItems[2].Status)
 }
 
 func TestCountByStatus(t *testing.T) {

@@ -90,6 +90,26 @@ func TestLeaseQueue_Success(t *testing.T) {
 	assert.Equal(t, int64(2), result[1].ID)
 }
 
+func TestLeaseQueue_ConsumerIDDeserialized(t *testing.T) {
+	items := []models.WriteQueueItem{
+		{ID: 1, Action: "create", NoteID: "note-1", Payload: `{"title":"Test"}`, Status: "processing", ConsumerID: "openclaw"},
+		{ID: 2, Action: "update", NoteID: "note-2", Payload: `{"body":"Updated"}`, Status: "processing", ConsumerID: "myapp"},
+	}
+
+	client := newTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		resp, _ := json.Marshal(items)
+		_, _ = w.Write(resp)
+	}))
+
+	result, err := client.LeaseQueue(context.Background(), "bridge")
+	require.NoError(t, err)
+
+	require.Len(t, result, 2)
+	assert.Equal(t, "openclaw", result[0].ConsumerID)
+	assert.Equal(t, "myapp", result[1].ConsumerID)
+}
+
 func TestLeaseQueue_EmptyResponse(t *testing.T) {
 	client := newTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
