@@ -3,8 +3,8 @@ package models
 // Note represents a Bear note synced to the hub.
 // Dual-id: ID is the hub-generated UUID (stable PK), BearID is Bear's ZUNIQUEIDENTIFIER (nullable, filled after sync).
 type Note struct {
-	RowID int64  `json:"-"`
-	ID    string `json:"id"`
+	RowID  int64   `json:"-"`
+	ID     string  `json:"id"`
 	BearID *string `json:"bear_id,omitempty"`
 
 	Title    string `json:"title"`
@@ -12,20 +12,20 @@ type Note struct {
 	Body     string `json:"body,omitempty"`
 
 	// Flags
-	Archived          int `json:"archived"`
-	Encrypted         int `json:"encrypted"`
-	HasFiles          int `json:"has_files"`
-	HasImages         int `json:"has_images"`
-	HasSourceCode     int `json:"has_source_code"`
-	Locked            int `json:"locked"`
-	Pinned            int `json:"pinned"`
-	ShownInToday      int `json:"shown_in_today"`
-	Trashed           int `json:"trashed"`
+	Archived           int `json:"archived"`
+	Encrypted          int `json:"encrypted"`
+	HasFiles           int `json:"has_files"`
+	HasImages          int `json:"has_images"`
+	HasSourceCode      int `json:"has_source_code"`
+	Locked             int `json:"locked"`
+	Pinned             int `json:"pinned"`
+	ShownInToday       int `json:"shown_in_today"`
+	Trashed            int `json:"trashed"`
 	PermanentlyDeleted int `json:"permanently_deleted"`
-	SkipSync          int `json:"skip_sync"`
-	TodoCompleted     int `json:"todo_completed"`
-	TodoIncompleted   int `json:"todo_incompleted"`
-	Version           int `json:"version"`
+	SkipSync           int `json:"skip_sync"`
+	TodoCompleted      int `json:"todo_completed"`
+	TodoIncompleted    int `json:"todo_incompleted"`
+	Version            int `json:"version"`
 
 	// Dates (ISO 8601)
 	CreatedAt      string `json:"created_at,omitempty"`

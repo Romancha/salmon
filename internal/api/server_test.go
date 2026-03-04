@@ -172,8 +172,8 @@ func TestAuth_MultipleConsumers(t *testing.T) {
 	t.Cleanup(func() { require.NoError(t, s.Close()) })
 
 	tokens := map[string]string{
-		"app1":  "token-app1",
-		"app2":  "token-myapp",
+		"app1": "token-app1",
+		"app2": "token-myapp",
 	}
 	srv := api.NewServer(s, tokens, bridgeToken, t.TempDir())
 	ts := httptest.NewServer(srv)

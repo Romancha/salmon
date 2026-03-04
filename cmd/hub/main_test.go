@@ -49,8 +49,8 @@ func TestLoadConfig_MultipleConsumers(t *testing.T) {
 	cfg, err := loadConfig()
 	require.NoError(t, err)
 	assert.Equal(t, map[string]string{
-		"app1": "oc-test",
-		"myapp":    "my-test",
+		"app1":  "oc-test",
+		"myapp": "my-test",
 	}, cfg.consumerTokens)
 }
 

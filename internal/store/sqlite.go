@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	syncStatusConflict     = "conflict"
+	syncStatusConflict      = "conflict"
 	syncStatusPendingToBear = "pending_to_bear"
 )
 
@@ -302,6 +302,7 @@ func (s *SQLiteStore) migrateWriteQueueConsumerID(ctx context.Context) error {
 		consumerIDExpr = "COALESCE(consumer_id, '')"
 	}
 
+	//nolint:gosec // consumerIDExpr is a hardcoded constant, not user input
 	migrate := fmt.Sprintf(`
 CREATE TABLE write_queue_new (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,

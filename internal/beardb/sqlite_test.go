@@ -220,7 +220,7 @@ func insertTestData(t *testing.T, db *sql.DB) { //nolint:thelper // used as test
 	}
 
 	for i, q := range notes {
-		_, err := db.ExecContext(ctx,q, noteArgs[i]...)
+		_, err := db.ExecContext(ctx, q, noteArgs[i]...)
 		require.NoError(t, err)
 	}
 
@@ -239,7 +239,7 @@ func insertTestData(t *testing.T, db *sql.DB) { //nolint:thelper // used as test
 
 	tagDates := []float64{modDateRecent, modDateOld, modDateRecent}
 	for i, q := range tags {
-		_, err := db.ExecContext(ctx,q, tagDates[i])
+		_, err := db.ExecContext(ctx, q, tagDates[i])
 		require.NoError(t, err)
 	}
 
@@ -255,14 +255,14 @@ func insertTestData(t *testing.T, db *sql.DB) { //nolint:thelper // used as test
 		VALUES (2, 8, 'att-uuid-2', 2, 'document.pdf', 'pdf', 51200, 1, ?, ?)`,
 	}
 
-	_, err := db.ExecContext(ctx,attachments[0], createDate, modDateRecent)
+	_, err := db.ExecContext(ctx, attachments[0], createDate, modDateRecent)
 	require.NoError(t, err)
 
-	_, err = db.ExecContext(ctx,attachments[1], createDate, modDateOld)
+	_, err = db.ExecContext(ctx, attachments[1], createDate, modDateOld)
 	require.NoError(t, err)
 
 	// Backlinks: note 2 links to note 1
-	_, err = db.ExecContext(ctx,`INSERT INTO ZSFNOTEBACKLINK (Z_PK, ZUNIQUEIDENTIFIER, ZLINKEDBY, ZLINKINGTO,
+	_, err = db.ExecContext(ctx, `INSERT INTO ZSFNOTEBACKLINK (Z_PK, ZUNIQUEIDENTIFIER, ZLINKEDBY, ZLINKINGTO,
 		ZTITLE, ZLOCATION, ZVERSION, ZMODIFICATIONDATE)
 		VALUES (1, 'bl-uuid-1', 2, 1, 'First Note', 42, 1, ?)`, modDateRecent)
 	require.NoError(t, err)
@@ -276,12 +276,12 @@ func insertTestData(t *testing.T, db *sql.DB) { //nolint:thelper // used as test
 	}
 
 	for _, q := range junctions {
-		_, err := db.ExecContext(ctx,q)
+		_, err := db.ExecContext(ctx, q)
 		require.NoError(t, err)
 	}
 
 	// Pinned junction: note1 pinned in tag1
-	_, err = db.ExecContext(ctx,`INSERT INTO Z_5PINNEDINTAGS (Z_5PINNEDNOTES, Z_13PINNEDINTAGS) VALUES (1, 1)`)
+	_, err = db.ExecContext(ctx, `INSERT INTO Z_5PINNEDINTAGS (Z_5PINNEDNOTES, Z_13PINNEDINTAGS) VALUES (1, 1)`)
 	require.NoError(t, err)
 }
 

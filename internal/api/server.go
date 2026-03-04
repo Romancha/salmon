@@ -93,10 +93,10 @@ func NewServer(s store.Store, consumerTokens map[string]string, bridgeToken, att
 			r.Group(func(r chi.Router) {
 				r.Use(srv.authMiddleware("bridge"))
 
-				r.With(bodyLimitMiddleware(50 << 20)).Post("/push", srv.syncPush)
+				r.With(bodyLimitMiddleware(50<<20)).Post("/push", srv.syncPush)
 				r.Get("/queue", srv.syncQueue)
-				r.With(bodyLimitMiddleware(1 << 20)).Post("/ack", srv.syncAck)
-				r.With(bodyLimitMiddleware(100 << 20)).Post("/attachments/{id}", srv.syncUploadAttachment)
+				r.With(bodyLimitMiddleware(1<<20)).Post("/ack", srv.syncAck)
+				r.With(bodyLimitMiddleware(100<<20)).Post("/attachments/{id}", srv.syncUploadAttachment)
 			})
 		})
 	})

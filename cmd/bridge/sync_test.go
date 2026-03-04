@@ -32,9 +32,9 @@ type mockBearDB struct {
 	blUUIDs     []string
 
 	// Verification data for write queue tests.
-	notesByUUID   map[string]*beardb.NoteBasicInfo
-	tagsByNote    map[string][]string // bearUUID -> tag titles
-	recentNotes   []beardb.NoteBasicInfo
+	notesByUUID map[string]*beardb.NoteBasicInfo
+	tagsByNote  map[string][]string // bearUUID -> tag titles
+	recentNotes []beardb.NoteBasicInfo
 }
 
 func (m *mockBearDB) Notes(_ context.Context, _ float64) ([]mapper.BearNoteRow, error) {
@@ -187,7 +187,7 @@ func (m *mockXCallback) Trash(_ context.Context, _, bearID string) error {
 	return m.trashErr
 }
 
-func strPtr(s string) *string    { return &s }
+func strPtr(s string) *string     { return &s }
 func floatPtr(f float64) *float64 { return &f }
 
 // newTestBridge creates a Bridge for testing with nil xcallback (no queue processing).

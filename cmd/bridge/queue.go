@@ -57,7 +57,7 @@ func (b *Bridge) processQueue(ctx context.Context) error {
 
 	b.logger.Info("processing write queue", "items", len(items))
 
-	var ackItems []models.SyncAckItem
+	ackItems := make([]models.SyncAckItem, 0, len(items))
 
 	for i := range items {
 		ack := b.applyQueueItem(ctx, &items[i])
@@ -418,4 +418,3 @@ func countByStatus(items []models.SyncAckItem, status string) int {
 	}
 	return count
 }
-

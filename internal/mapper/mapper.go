@@ -16,61 +16,61 @@ const CoreDataEpochOffset = 978307200
 
 // BearNoteRow represents a raw row from Bear's ZSFNOTE table.
 type BearNoteRow struct {
-	ZPK                          int64
-	ZUNIQUEIDENTIFIER            *string
-	ZTITLE                       *string
-	ZSUBTITLE                    *string
-	ZTEXT                        *string
-	ZARCHIVED                    *int64
-	ZENCRYPTED                   *int64
-	ZHASFILES                    *int64
-	ZHASIMAGES                   *int64
-	ZHASSOURCECODE               *int64
-	ZLOCKED                      *int64
-	ZPINNED                      *int64
-	ZSHOWNINTODAYWIDGET          *int64
-	ZTRASHED                     *int64
-	ZPERMANENTLYDELETED          *int64
-	ZSKIPSYNC                    *int64
-	ZTODOCOMPLETED               *int64
-	ZTODOINCOMPLETED             *int64
-	ZVERSION                     *int64
-	ZCREATIONDATE                *float64
-	ZMODIFICATIONDATE            *float64
-	ZARCHIVEDDATE                *float64
-	ZENCRYPTIONDATE              *float64
-	ZLOCKEDDATE                  *float64
-	ZPINNEDDATE                  *float64
-	ZTRASHEDDATE                 *float64
-	ZORDERDATE                   *float64
+	ZPK                           int64
+	ZUNIQUEIDENTIFIER             *string
+	ZTITLE                        *string
+	ZSUBTITLE                     *string
+	ZTEXT                         *string
+	ZARCHIVED                     *int64
+	ZENCRYPTED                    *int64
+	ZHASFILES                     *int64
+	ZHASIMAGES                    *int64
+	ZHASSOURCECODE                *int64
+	ZLOCKED                       *int64
+	ZPINNED                       *int64
+	ZSHOWNINTODAYWIDGET           *int64
+	ZTRASHED                      *int64
+	ZPERMANENTLYDELETED           *int64
+	ZSKIPSYNC                     *int64
+	ZTODOCOMPLETED                *int64
+	ZTODOINCOMPLETED              *int64
+	ZVERSION                      *int64
+	ZCREATIONDATE                 *float64
+	ZMODIFICATIONDATE             *float64
+	ZARCHIVEDDATE                 *float64
+	ZENCRYPTIONDATE               *float64
+	ZLOCKEDDATE                   *float64
+	ZPINNEDDATE                   *float64
+	ZTRASHEDDATE                  *float64
+	ZORDERDATE                    *float64
 	ZCONFLICTUNIQUEIDENTIFIERDATE *float64
-	ZLASTEDITINGDEVICE           *string
-	ZCONFLICTUNIQUEIDENTIFIER    *string
-	ZENCRYPTIONUNIQUEIDENTIFIER  *string
-	ZENCRYPTEDDATA               []byte
+	ZLASTEDITINGDEVICE            *string
+	ZCONFLICTUNIQUEIDENTIFIER     *string
+	ZENCRYPTIONUNIQUEIDENTIFIER   *string
+	ZENCRYPTEDDATA                []byte
 }
 
 // BearTagRow represents a raw row from Bear's ZSFNOTETAG table.
 type BearTagRow struct {
-	ZPK                      int64
-	ZUNIQUEIDENTIFIER        *string
-	ZTITLE                   *string
-	ZPINNED                  *int64
-	ZISROOT                  *int64
-	ZHIDESUBTAGSNOTES        *int64
-	ZSORTING                 *int64
-	ZSORTINGDIRECTION        *int64
-	ZENCRYPTED               *int64
-	ZVERSION                 *int64
-	ZMODIFICATIONDATE        *float64
-	ZPINNEDDATE              *float64
-	ZPINNEDNOTESDATE         *float64
-	ZENCRYPTEDDATE           *float64
-	ZHIDESUBTAGSNOTESDATE    *float64
-	ZSORTINGDATE             *float64
-	ZSORTINGDIRECTIONDATE    *float64
-	ZTAGCONDATE              *float64
-	ZTAGCON                  *string
+	ZPK                   int64
+	ZUNIQUEIDENTIFIER     *string
+	ZTITLE                *string
+	ZPINNED               *int64
+	ZISROOT               *int64
+	ZHIDESUBTAGSNOTES     *int64
+	ZSORTING              *int64
+	ZSORTINGDIRECTION     *int64
+	ZENCRYPTED            *int64
+	ZVERSION              *int64
+	ZMODIFICATIONDATE     *float64
+	ZPINNEDDATE           *float64
+	ZPINNEDNOTESDATE      *float64
+	ZENCRYPTEDDATE        *float64
+	ZHIDESUBTAGSNOTESDATE *float64
+	ZSORTINGDATE          *float64
+	ZSORTINGDIRECTIONDATE *float64
+	ZTAGCONDATE           *float64
+	ZTAGCON               *string
 }
 
 // BearAttachmentRow represents a raw row from Bear's ZSFNOTEFILE table.

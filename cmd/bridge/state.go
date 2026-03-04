@@ -8,14 +8,14 @@ import (
 
 // BridgeState holds the persistent state of the bridge between sync cycles.
 type BridgeState struct {
-	LastSyncAt               float64    `json:"last_sync_at"` // Core Data epoch
-	KnownNoteIDs             []string   `json:"known_note_ids"`
-	KnownTagIDs              []string   `json:"known_tag_ids"`
-	KnownAttachmentIDs       []string   `json:"known_attachment_ids"`
-	KnownBacklinkIDs         []string   `json:"known_backlink_ids"`
-	KnownNoteTagPairs        []IDPair   `json:"known_note_tag_pairs"`
-	KnownPinnedNoteTagPairs  []IDPair   `json:"known_pinned_note_tag_pairs"`
-	JunctionFullScanCounter  int        `json:"junction_full_scan_counter"`
+	LastSyncAt              float64  `json:"last_sync_at"` // Core Data epoch
+	KnownNoteIDs            []string `json:"known_note_ids"`
+	KnownTagIDs             []string `json:"known_tag_ids"`
+	KnownAttachmentIDs      []string `json:"known_attachment_ids"`
+	KnownBacklinkIDs        []string `json:"known_backlink_ids"`
+	KnownNoteTagPairs       []IDPair `json:"known_note_tag_pairs"`
+	KnownPinnedNoteTagPairs []IDPair `json:"known_pinned_note_tag_pairs"`
+	JunctionFullScanCounter int      `json:"junction_full_scan_counter"`
 }
 
 // IDPair represents a note-tag UUID pair for junction table state tracking.

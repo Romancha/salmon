@@ -54,8 +54,9 @@ const noteColumns = `Z_PK, ZUNIQUEIDENTIFIER, ZTITLE, ZSUBTITLE, ZTEXT,
 	ZCONFLICTUNIQUEIDENTIFIERDATE, ZLASTEDITINGDEVICE,
 	ZCONFLICTUNIQUEIDENTIFIER, ZENCRYPTIONUNIQUEIDENTIFIER, ZENCRYPTEDDATA`
 
-//nolint:dupl // Notes and Tags share query pattern but scan different schemas
 // Notes returns notes modified since lastSyncAt (Core Data epoch).
+//
+//nolint:dupl // Notes and Tags share query pattern but scan different schemas
 func (s *SQLiteBearDB) Notes(ctx context.Context, lastSyncAt float64) ([]mapper.BearNoteRow, error) {
 	query := "SELECT " + noteColumns + " FROM ZSFNOTE" //nolint:gosec // column list is a constant
 	var args []any
@@ -104,8 +105,9 @@ const tagColumns = `Z_PK, ZUNIQUEIDENTIFIER, ZTITLE, ZPINNED, ZISROOT,
 	ZMODIFICATIONDATE, ZPINNEDDATE, ZPINNEDNOTESDATE, ZENCRYPTEDDATE,
 	ZHIDESUBTAGSNOTESDATE, ZSORTINGDATE, ZSORTINGDIRECTIONDATE, ZTAGCONDATE, ZTAGCON`
 
-//nolint:dupl // Tags and Notes share query pattern but scan different schemas
 // Tags returns tags modified since lastSyncAt (Core Data epoch).
+//
+//nolint:dupl // Tags and Notes share query pattern but scan different schemas
 func (s *SQLiteBearDB) Tags(ctx context.Context, lastSyncAt float64) ([]mapper.BearTagRow, error) {
 	query := "SELECT " + tagColumns + " FROM ZSFNOTETAG" //nolint:gosec // column list is a constant
 	var args []any
@@ -155,8 +157,9 @@ const attachmentColumns = `f.Z_PK, f.Z_ENT, f.ZUNIQUEIDENTIFIER, n.ZUNIQUEIDENTI
 	f.ZUNUSEDDATE, f.ZUPLOADEDDATE, f.ZSEARCHTEXTDATE,
 	f.ZLASTEDITINGDEVICE, f.ZENCRYPTIONUNIQUEIDENTIFIER, f.ZSEARCHTEXT, f.ZENCRYPTEDDATA`
 
-//nolint:dupl // Attachments shares query pattern with Notes/Tags but scans different schema
 // Attachments returns attachments modified since lastSyncAt (Core Data epoch).
+//
+//nolint:dupl // Attachments shares query pattern with Notes/Tags but scans different schema
 func (s *SQLiteBearDB) Attachments(ctx context.Context, lastSyncAt float64) ([]mapper.BearAttachmentRow, error) {
 	//nolint:gosec // column list is a constant, ZNOTE is Bear's FK column name
 	query := "SELECT " + attachmentColumns + " FROM ZSFNOTEFILE f LEFT JOIN ZSFNOTE n ON f.ZNOTE = n.Z_PK"

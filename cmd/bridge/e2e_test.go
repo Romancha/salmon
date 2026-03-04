@@ -236,8 +236,8 @@ func createBearTestDB(t *testing.T, dbPath string) {
 	}
 
 	// Test dates.
-	createDate := coreDataDateE2E(1704024000)    // 2024-01-01
-	modDate := coreDataDateE2E(1705320000)        // 2024-01-15 12:00 UTC
+	createDate := coreDataDateE2E(1704024000) // 2024-01-01
+	modDate := coreDataDateE2E(1705320000)    // 2024-01-15 12:00 UTC
 
 	// Insert notes: 3 regular + 1 encrypted + 1 trashed.
 	noteInserts := []struct {
@@ -871,4 +871,3 @@ func TestGenerateTestdataBearSQLite(t *testing.T) {
 	createBearTestDB(t, dbPath)
 	t.Logf("generated %s", dbPath)
 }
-

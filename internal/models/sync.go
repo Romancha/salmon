@@ -2,12 +2,12 @@ package models
 
 // SyncPushRequest is sent by the bridge to push Bear data to the hub.
 type SyncPushRequest struct {
-	Notes          []Note       `json:"notes,omitempty"`
-	Tags           []Tag        `json:"tags,omitempty"`
+	Notes          []Note        `json:"notes,omitempty"`
+	Tags           []Tag         `json:"tags,omitempty"`
 	NoteTags       []NoteTagPair `json:"note_tags,omitempty"`
 	PinnedNoteTags []NoteTagPair `json:"pinned_note_tags,omitempty"`
 	Attachments    []Attachment  `json:"attachments,omitempty"`
-	Backlinks      []Backlink   `json:"backlinks,omitempty"`
+	Backlinks      []Backlink    `json:"backlinks,omitempty"`
 
 	DeletedNoteIDs       []string `json:"deleted_note_ids,omitempty"`
 	DeletedTagIDs        []string `json:"deleted_tag_ids,omitempty"`

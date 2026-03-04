@@ -53,9 +53,10 @@ func (s *Server) syncPush(w http.ResponseWriter, r *http.Request) {
 
 // collectAttachmentCleanupIDs gathers attachment IDs whose files should be removed from disk.
 // This includes explicitly deleted attachments and those marked as permanently_deleted.
+//
 //nolint:gocritic // req is read-only, no need for pointer
 func (s *Server) collectAttachmentCleanupIDs(ctx context.Context, req models.SyncPushRequest) []string {
-	var ids []string
+	ids := make([]string, 0, len(req.DeletedAttachmentIDs))
 
 	// Attachments in deleted_attachment_ids will be removed from DB — clean their files.
 	for _, bearID := range req.DeletedAttachmentIDs {
@@ -172,8 +173,8 @@ func (s *Server) syncUploadAttachment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if _, err := io.Copy(f, r.Body); err != nil {
-		f.Close()                     //nolint:errcheck,gosec // closing before cleanup
-		os.Remove(filePath)           //nolint:errcheck,gosec // clean up partial file
+		f.Close()           //nolint:errcheck,gosec // closing before cleanup
+		os.Remove(filePath) //nolint:errcheck,gosec // clean up partial file
 		writeError(w, http.StatusInternalServerError, "failed to write file")
 		return
 	}

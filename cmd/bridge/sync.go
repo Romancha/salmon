@@ -23,14 +23,14 @@ const initialSyncBatchSize = 50
 
 // Bridge orchestrates the sync cycle between Bear SQLite and the hub.
 type Bridge struct {
-	db         beardb.BearDB
-	hub        hubclient.HubClient
-	xcall      xcallback.XCallback
-	bearToken  string
-	statePath  string
+	db          beardb.BearDB
+	hub         hubclient.HubClient
+	xcall       xcallback.XCallback
+	bearToken   string
+	statePath   string
 	bearDataDir string // Bear Application Data directory for reading attachment files
-	logger     *slog.Logger
-	sleepFn    func(time.Duration) // injectable sleep for testing
+	logger      *slog.Logger
+	sleepFn     func(time.Duration) // injectable sleep for testing
 }
 
 // NewBridge creates a new Bridge instance.
