@@ -119,14 +119,14 @@ func TestCreate(t *testing.T) {
 		assert.Contains(t, err.Error(), "code=100")
 	})
 
-	t.Run("xcall execution error", func(t *testing.T) {
+	t.Run("bear-xcall execution error", func(t *testing.T) {
 		executor := &mockExecutor{err: fmt.Errorf("exit status 1")}
 		x := newTestXcall(executor)
 
 		_, err := x.Create(context.Background(), "tok", "Title", "Body", nil)
 
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "xcall create")
+		assert.Contains(t, err.Error(), "bear-xcall create")
 	})
 
 	t.Run("invalid JSON response", func(t *testing.T) {
@@ -136,7 +136,7 @@ func TestCreate(t *testing.T) {
 		_, err := x.Create(context.Background(), "tok", "Title", "Body", nil)
 
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "invalid xcall JSON")
+		assert.Contains(t, err.Error(), "invalid bear-xcall JSON")
 	})
 }
 
@@ -367,7 +367,7 @@ func TestParseXcallResult(t *testing.T) {
 	t.Run("invalid JSON", func(t *testing.T) {
 		_, err := parseXcallResult([]byte("not json"))
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "invalid xcall JSON")
+		assert.Contains(t, err.Error(), "invalid bear-xcall JSON")
 	})
 }
 

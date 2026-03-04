@@ -13,7 +13,7 @@ import (
 	"strings"
 )
 
-// XCallback defines the interface for executing Bear x-callback-url actions via xcall CLI.
+// XCallback defines the interface for executing Bear x-callback-url actions via bear-xcall CLI.
 type XCallback interface {
 	// Create creates a new note in Bear and returns the bear_id (UUID) from x-success response.
 	Create(ctx context.Context, token, title, body string, tags []string) (string, error)
@@ -30,7 +30,7 @@ type XCallback interface {
 
 //go:generate moq -out xcallback_mock.go . XCallback
 
-// xcallResult represents the JSON response from xcall CLI.
+// xcallResult represents the JSON response from bear-xcall CLI.
 type xcallResult struct {
 	Identifier string `json:"identifier,omitempty"`
 	Title      string `json:"title,omitempty"`
@@ -47,7 +47,7 @@ type CommandExecutor interface {
 type defaultExecutor struct{}
 
 func (e *defaultExecutor) Run(ctx context.Context, name string, args ...string) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, name, args...) //nolint:gosec // name is xcall path validated at init
+	cmd := exec.CommandContext(ctx, name, args...) //nolint:gosec // name is bear-xcall path validated at init
 	out, err := cmd.Output()
 	if err != nil {
 		// bear-xcall writes structured error JSON to stdout even on non-zero exit.
@@ -69,7 +69,7 @@ func (e *defaultExecutor) Run(ctx context.Context, name string, args ...string) 
 	return out, nil
 }
 
-// Xcall implements XCallback by invoking the xcall CLI tool.
+// Xcall implements XCallback by invoking the bear-xcall CLI tool.
 type Xcall struct {
 	xcallPath string
 	executor  CommandExecutor
@@ -111,7 +111,7 @@ func New(opts ...Option) (*Xcall, error) {
 	}
 	x.xcallPath = path
 
-	x.logger.Info("xcallback initialized", "xcall_path", x.xcallPath)
+	x.logger.Info("xcallback initialized", "bear_xcall_path", x.xcallPath)
 
 	return x, nil
 }
@@ -168,29 +168,29 @@ func (x *Xcall) Create(ctx context.Context, token, title, body string, tags []st
 
 	callURL := "bear://x-callback-url/create?" + params.Encode()
 
-	x.logger.Debug("executing xcall create", "url", MaskToken(callURL))
+	x.logger.Debug("executing bear-xcall create", "url", MaskToken(callURL))
 
 	output, err := x.executor.Run(ctx, x.xcallPath, "-url", callURL)
 	if err != nil {
-		return "", fmt.Errorf("xcall create: %w", err)
+		return "", fmt.Errorf("bear-xcall create: %w", err)
 	}
 
 	result, err := parseXcallResult(output)
 	if err != nil {
-		return "", fmt.Errorf("xcall create parse response: %w", err)
+		return "", fmt.Errorf("bear-xcall create parse response: %w", err)
 	}
 
 	if result.ErrorCode != 0 {
-		return "", fmt.Errorf("xcall create bear error: code=%d msg=%s", result.ErrorCode, result.ErrorMsg)
+		return "", fmt.Errorf("bear-xcall create bear error: code=%d msg=%s", result.ErrorCode, result.ErrorMsg)
 	}
 
 	if result.Identifier == "" {
 		// Return empty ID without error so the caller can attempt fallback verification.
-		x.logger.Warn("xcall create: empty identifier in response")
+		x.logger.Warn("bear-xcall create: empty identifier in response")
 		return "", nil
 	}
 
-	x.logger.Info("xcall create succeeded", "bear_id", result.Identifier)
+	x.logger.Info("bear-xcall create succeeded", "bear_id", result.Identifier)
 
 	return result.Identifier, nil
 }
@@ -206,23 +206,23 @@ func (x *Xcall) Update(ctx context.Context, token, bearID, body string) error {
 
 	callURL := "bear://x-callback-url/add-text?" + params.Encode()
 
-	x.logger.Debug("executing xcall update", "url", MaskToken(callURL), "bear_id", bearID)
+	x.logger.Debug("executing bear-xcall update", "url", MaskToken(callURL), "bear_id", bearID)
 
 	output, err := x.executor.Run(ctx, x.xcallPath, "-url", callURL)
 	if err != nil {
-		return fmt.Errorf("xcall update: %w", err)
+		return fmt.Errorf("bear-xcall update: %w", err)
 	}
 
 	result, err := parseXcallResult(output)
 	if err != nil {
-		return fmt.Errorf("xcall update parse response: %w", err)
+		return fmt.Errorf("bear-xcall update parse response: %w", err)
 	}
 
 	if result.ErrorCode != 0 {
-		return fmt.Errorf("xcall update bear error: code=%d msg=%s", result.ErrorCode, result.ErrorMsg)
+		return fmt.Errorf("bear-xcall update bear error: code=%d msg=%s", result.ErrorCode, result.ErrorMsg)
 	}
 
-	x.logger.Info("xcall update succeeded", "bear_id", bearID)
+	x.logger.Info("bear-xcall update succeeded", "bear_id", bearID)
 
 	return nil
 }
@@ -237,23 +237,23 @@ func (x *Xcall) AddTag(ctx context.Context, token, bearID, tag string) error {
 
 	callURL := "bear://x-callback-url/add-tag?" + params.Encode()
 
-	x.logger.Debug("executing xcall add-tag", "url", MaskToken(callURL), "bear_id", bearID, "tag", tag)
+	x.logger.Debug("executing bear-xcall add-tag", "url", MaskToken(callURL), "bear_id", bearID, "tag", tag)
 
 	output, err := x.executor.Run(ctx, x.xcallPath, "-url", callURL)
 	if err != nil {
-		return fmt.Errorf("xcall add-tag: %w", err)
+		return fmt.Errorf("bear-xcall add-tag: %w", err)
 	}
 
 	result, err := parseXcallResult(output)
 	if err != nil {
-		return fmt.Errorf("xcall add-tag parse response: %w", err)
+		return fmt.Errorf("bear-xcall add-tag parse response: %w", err)
 	}
 
 	if result.ErrorCode != 0 {
-		return fmt.Errorf("xcall add-tag bear error: code=%d msg=%s", result.ErrorCode, result.ErrorMsg)
+		return fmt.Errorf("bear-xcall add-tag bear error: code=%d msg=%s", result.ErrorCode, result.ErrorMsg)
 	}
 
-	x.logger.Info("xcall add-tag succeeded", "bear_id", bearID, "tag", tag)
+	x.logger.Info("bear-xcall add-tag succeeded", "bear_id", bearID, "tag", tag)
 
 	return nil
 }
@@ -266,23 +266,23 @@ func (x *Xcall) Trash(ctx context.Context, token, bearID string) error {
 
 	callURL := "bear://x-callback-url/trash?" + params.Encode()
 
-	x.logger.Debug("executing xcall trash", "url", MaskToken(callURL), "bear_id", bearID)
+	x.logger.Debug("executing bear-xcall trash", "url", MaskToken(callURL), "bear_id", bearID)
 
 	output, err := x.executor.Run(ctx, x.xcallPath, "-url", callURL)
 	if err != nil {
-		return fmt.Errorf("xcall trash: %w", err)
+		return fmt.Errorf("bear-xcall trash: %w", err)
 	}
 
 	result, err := parseXcallResult(output)
 	if err != nil {
-		return fmt.Errorf("xcall trash parse response: %w", err)
+		return fmt.Errorf("bear-xcall trash parse response: %w", err)
 	}
 
 	if result.ErrorCode != 0 {
-		return fmt.Errorf("xcall trash bear error: code=%d msg=%s", result.ErrorCode, result.ErrorMsg)
+		return fmt.Errorf("bear-xcall trash bear error: code=%d msg=%s", result.ErrorCode, result.ErrorMsg)
 	}
 
-	x.logger.Info("xcall trash succeeded", "bear_id", bearID)
+	x.logger.Info("bear-xcall trash succeeded", "bear_id", bearID)
 
 	return nil
 }
@@ -332,7 +332,7 @@ func parseXcallResult(output []byte) (*xcallResult, error) {
 
 	var result xcallResult
 	if err := json.Unmarshal(output, &result); err != nil {
-		return nil, fmt.Errorf("invalid xcall JSON response: %w", err)
+		return nil, fmt.Errorf("invalid bear-xcall JSON response: %w", err)
 	}
 
 	return &result, nil
