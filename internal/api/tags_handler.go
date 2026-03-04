@@ -9,6 +9,17 @@ import (
 	"github.com/romancha/bear-sync/internal/models"
 )
 
+// listTags godoc
+// @Summary List tags
+// @Description Returns all tags synced from Bear.
+// @Tags Tags
+// @Produce json
+// @Success 200 {array} models.Tag
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Security BearerAuth
+// @Router /api/tags [get]
 func (s *Server) listTags(w http.ResponseWriter, r *http.Request) {
 	tags, err := s.store.ListTags(r.Context())
 	if err != nil {
@@ -24,9 +35,27 @@ func (s *Server) listTags(w http.ResponseWriter, r *http.Request) {
 }
 
 type addTagRequest struct {
-	Tag string `json:"tag"`
+	Tag string `json:"tag" example:"work/projects"`
 }
 
+// addTag godoc
+// @Summary Add a tag to a note
+// @Description Adds a tag to an existing note and enqueues the action for sync to Bear. Requires Idempotency-Key header.
+// @Tags Tags
+// @Accept json
+// @Produce json
+// @Param noteID path string true "Note ID"
+// @Param Idempotency-Key header string true "Idempotency key for deduplication"
+// @Param request body addTagRequest true "Tag to add"
+// @Success 201 {object} models.WriteQueueItem
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 409 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Security BearerAuth
+// @Router /api/notes/{noteID}/tags [post]
 func (s *Server) addTag(w http.ResponseWriter, r *http.Request) {
 	noteID := chi.URLParam(r, "noteID")
 
@@ -98,9 +127,26 @@ func (s *Server) addTag(w http.ResponseWriter, r *http.Request) {
 }
 
 type renameTagRequest struct {
-	NewName string `json:"new_name"`
+	NewName string `json:"new_name" example:"work/archived-projects"`
 }
 
+// renameTag godoc
+// @Summary Rename a tag
+// @Description Renames a tag across all notes and enqueues the action for sync to Bear. Requires Idempotency-Key header.
+// @Tags Tags
+// @Accept json
+// @Produce json
+// @Param id path string true "Tag ID"
+// @Param Idempotency-Key header string true "Idempotency key for deduplication"
+// @Param request body renameTagRequest true "New tag name"
+// @Success 202 {object} models.WriteQueueItem
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Security BearerAuth
+// @Router /api/tags/{id} [put]
 func (s *Server) renameTag(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
@@ -151,6 +197,20 @@ func (s *Server) renameTag(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusAccepted, item)
 }
 
+// deleteTag godoc
+// @Summary Delete a tag
+// @Description Deletes a tag from all notes and enqueues the action for sync to Bear. Requires Idempotency-Key header.
+// @Tags Tags
+// @Produce json
+// @Param id path string true "Tag ID"
+// @Param Idempotency-Key header string true "Idempotency key for deduplication"
+// @Success 202 {object} models.WriteQueueItem
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Security BearerAuth
+// @Router /api/tags/{id} [delete]
 func (s *Server) deleteTag(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 

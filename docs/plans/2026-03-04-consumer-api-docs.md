@@ -70,12 +70,12 @@
 - [x] run `make test` — must pass before next task
 
 ### Task 4: Annotate tags_handler.go (4 handlers)
-- [ ] add `example` struct tags to `addTagRequest` and `renameTagRequest`
-- [ ] add swag annotations to `listTags` — `@Router /api/tags [get]`
-- [ ] add swag annotations to `addTag` — path param `{noteID}`, `@Router /api/notes/{noteID}/tags [post]`
-- [ ] add swag annotations to `renameTag` — `@Router /api/tags/{id} [put]`
-- [ ] add swag annotations to `deleteTag` — `@Router /api/tags/{id} [delete]`
-- [ ] run `make test` — must pass before next task
+- [x] add `example` struct tags to `addTagRequest` and `renameTagRequest`
+- [x] add swag annotations to `listTags` — `@Router /api/tags [get]`
+- [x] add swag annotations to `addTag` — path param `{noteID}`, `@Router /api/notes/{noteID}/tags [post]`
+- [x] add swag annotations to `renameTag` — `@Router /api/tags/{id} [put]`
+- [x] add swag annotations to `deleteTag` — `@Router /api/tags/{id} [delete]`
+- [x] run `make test` — must pass before next task
 
 ### Task 5: Annotate backlinks, attachments, and sync handlers
 - [ ] add swag annotations to `listBacklinks` in `backlinks_handler.go` — path param `{noteID}`, `@Router /api/notes/{noteID}/backlinks [get]`
