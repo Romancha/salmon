@@ -61,7 +61,7 @@
 - [x] verify Info.plist copy: `cp tools/bear-xcall/Info.plist bin/bear-xcall.app/Contents/`
 
 ### Task 2: Create Swift manual tests for bear-xcall CLI
-- [ ] create `tools/bear-xcall/BearXcallTests.swift` with XCTest suite:
+- [x] create `tools/bear-xcall/BearXcallTests.swift` with XCTest suite:
   - **CLI interface tests** (no Bear required):
     - test missing `-url` argument → exit code != 0, error message to stderr
     - test invalid URL format (not `bear://`) → exit code != 0, error message
@@ -76,12 +76,12 @@
     - test open non-existent note ID → exit 1, stderr JSON with `errorCode`/`errorMessage`
     - test timeout: use `-timeout 1` with a URL that won't get a callback → exit 2
   - cleanup: trash any test notes created during the run (tag `bear-xcall-test`)
-- [ ] add `test-xcall` target to Makefile:
+- [x] add `test-xcall` target to Makefile:
   - compile test file: `swiftc -o bin/bear-xcall-tests tools/bear-xcall/BearXcallTests.swift -framework XCTest`
   - run: `bin/bear-xcall-tests`
   - add `uname` guard (macOS only)
-- [ ] verify `make test-xcall` runs and CLI interface tests pass (Bear not required for these)
-- [ ] document in Makefile `help` target: `test-xcall — run bear-xcall manual tests (macOS + Bear)`
+- [x] verify `make test-xcall` runs and CLI interface tests pass (Bear not required for these)
+- [x] document in Makefile `help` target: `test-xcall — run bear-xcall manual tests (macOS + Bear)`
 
 ### Task 3: Update Makefile build
 - [ ] add `build-xcall` target that creates `.app` bundle structure, compiles Swift, copies Info.plist

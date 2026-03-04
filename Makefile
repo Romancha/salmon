@@ -1,4 +1,4 @@
-.PHONY: build test test-coverage test-race lint fmt tidy clean generate tools help all
+.PHONY: build test test-coverage test-race test-xcall lint fmt tidy clean generate tools help all
 
 BINARY_HUB=bear-sync-hub
 BINARY_BRIDGE=bear-bridge
@@ -31,6 +31,7 @@ help:
 	@echo "  make tidy           - go mod tidy"
 	@echo "  make clean          - Clean build artifacts"
 	@echo "  make generate       - Run go generate (moq)"
+	@echo "  make test-xcall     - Run bear-xcall manual tests (macOS + Bear)"
 	@echo "  make tools          - Install dev tools"
 
 build:
@@ -51,6 +52,16 @@ test-coverage:
 test-race:
 	@echo "Running tests with race detection..."
 	go test -race -timeout=60s -count 1 ./...
+
+test-xcall:
+ifeq ($(shell uname),Darwin)
+	@echo "Building bear-xcall tests..."
+	swiftc -o bin/bear-xcall-tests tools/bear-xcall/BearXcallTests.swift
+	@echo "Running bear-xcall tests..."
+	bin/bear-xcall-tests
+else
+	@echo "Skipping bear-xcall tests (macOS only)"
+endif
 
 lint:
 	@echo "Running linter..."
