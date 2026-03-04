@@ -57,6 +57,17 @@ type xcallResult struct {
 	ErrorMsg   string `json:"errorMessage,omitempty"`
 }
 
+// BearError represents an error returned by Bear via x-callback-url.
+// The Code field contains Bear's numeric error code.
+type BearError struct {
+	Code int
+	Msg  string
+}
+
+func (e *BearError) Error() string {
+	return fmt.Sprintf("bear error: code=%d msg=%s", e.Code, e.Msg)
+}
+
 // CommandExecutor abstracts os/exec for testing.
 type CommandExecutor interface {
 	Run(ctx context.Context, name string, args ...string) ([]byte, error)
@@ -199,7 +210,7 @@ func (x *Xcall) Create(ctx context.Context, token, title, body string, tags []st
 	}
 
 	if result.ErrorCode != 0 {
-		return "", fmt.Errorf("bear-xcall create bear error: code=%d msg=%s", result.ErrorCode, result.ErrorMsg)
+		return "", fmt.Errorf("bear-xcall create: %w", &BearError{Code: result.ErrorCode, Msg: result.ErrorMsg})
 	}
 
 	if result.Identifier == "" {
@@ -237,7 +248,7 @@ func (x *Xcall) Update(ctx context.Context, token, bearID, body string) error {
 	}
 
 	if result.ErrorCode != 0 {
-		return fmt.Errorf("bear-xcall update bear error: code=%d msg=%s", result.ErrorCode, result.ErrorMsg)
+		return fmt.Errorf("bear-xcall update: %w", &BearError{Code: result.ErrorCode, Msg: result.ErrorMsg})
 	}
 
 	x.logger.Info("bear-xcall update succeeded", "bear_id", bearID)
@@ -268,7 +279,7 @@ func (x *Xcall) AddTag(ctx context.Context, token, bearID, tag string) error {
 	}
 
 	if result.ErrorCode != 0 {
-		return fmt.Errorf("bear-xcall add-tag bear error: code=%d msg=%s", result.ErrorCode, result.ErrorMsg)
+		return fmt.Errorf("bear-xcall add-tag: %w", &BearError{Code: result.ErrorCode, Msg: result.ErrorMsg})
 	}
 
 	x.logger.Info("bear-xcall add-tag succeeded", "bear_id", bearID, "tag", tag)
@@ -286,18 +297,8 @@ func (x *Xcall) Trash(ctx context.Context, token, bearID string) error {
 
 	x.logger.Debug("executing bear-xcall trash", "url", MaskToken(callURL), "bear_id", bearID)
 
-	output, err := x.executor.Run(ctx, x.xcallPath, "-url", callURL)
-	if err != nil {
-		return fmt.Errorf("bear-xcall trash: %w", err)
-	}
-
-	result, err := parseXcallResult(output)
-	if err != nil {
-		return fmt.Errorf("bear-xcall trash parse response: %w", err)
-	}
-
-	if result.ErrorCode != 0 {
-		return fmt.Errorf("bear-xcall trash bear error: code=%d msg=%s", result.ErrorCode, result.ErrorMsg)
+	if err := x.executeAction(ctx, "trash", callURL); err != nil {
+		return err
 	}
 
 	x.logger.Info("bear-xcall trash succeeded", "bear_id", bearID)
@@ -335,7 +336,7 @@ func (x *Xcall) AddFile(ctx context.Context, token, bearID, filename string, fil
 	}
 
 	if result.ErrorCode != 0 {
-		return fmt.Errorf("bear-xcall add-file bear error: code=%d msg=%s", result.ErrorCode, result.ErrorMsg)
+		return fmt.Errorf("bear-xcall add-file: %w", &BearError{Code: result.ErrorCode, Msg: result.ErrorMsg})
 	}
 
 	x.logger.Info("bear-xcall add-file succeeded", "bear_id", bearID, "filename", filename)
@@ -353,18 +354,8 @@ func (x *Xcall) Archive(ctx context.Context, token, bearID string) error {
 
 	x.logger.Debug("executing bear-xcall archive", "url", MaskToken(callURL), "bear_id", bearID)
 
-	output, err := x.executor.Run(ctx, x.xcallPath, "-url", callURL)
-	if err != nil {
-		return fmt.Errorf("bear-xcall archive: %w", err)
-	}
-
-	result, err := parseXcallResult(output)
-	if err != nil {
-		return fmt.Errorf("bear-xcall archive parse response: %w", err)
-	}
-
-	if result.ErrorCode != 0 {
-		return fmt.Errorf("bear-xcall archive bear error: code=%d msg=%s", result.ErrorCode, result.ErrorMsg)
+	if err := x.executeAction(ctx, "archive", callURL); err != nil {
+		return err
 	}
 
 	x.logger.Info("bear-xcall archive succeeded", "bear_id", bearID)
@@ -383,18 +374,8 @@ func (x *Xcall) RenameTag(ctx context.Context, token, oldName, newName string) e
 
 	x.logger.Debug("executing bear-xcall rename-tag", "url", MaskToken(callURL), "old_name", oldName, "new_name", newName)
 
-	output, err := x.executor.Run(ctx, x.xcallPath, "-url", callURL)
-	if err != nil {
-		return fmt.Errorf("bear-xcall rename-tag: %w", err)
-	}
-
-	result, err := parseXcallResult(output)
-	if err != nil {
-		return fmt.Errorf("bear-xcall rename-tag parse response: %w", err)
-	}
-
-	if result.ErrorCode != 0 {
-		return fmt.Errorf("bear-xcall rename-tag bear error: code=%d msg=%s", result.ErrorCode, result.ErrorMsg)
+	if err := x.executeAction(ctx, "rename-tag", callURL); err != nil {
+		return err
 	}
 
 	x.logger.Info("bear-xcall rename-tag succeeded", "old_name", oldName, "new_name", newName)
@@ -412,18 +393,8 @@ func (x *Xcall) DeleteTag(ctx context.Context, token, tagName string) error {
 
 	x.logger.Debug("executing bear-xcall delete-tag", "url", MaskToken(callURL), "tag_name", tagName)
 
-	output, err := x.executor.Run(ctx, x.xcallPath, "-url", callURL)
-	if err != nil {
-		return fmt.Errorf("bear-xcall delete-tag: %w", err)
-	}
-
-	result, err := parseXcallResult(output)
-	if err != nil {
-		return fmt.Errorf("bear-xcall delete-tag parse response: %w", err)
-	}
-
-	if result.ErrorCode != 0 {
-		return fmt.Errorf("bear-xcall delete-tag bear error: code=%d msg=%s", result.ErrorCode, result.ErrorMsg)
+	if err := x.executeAction(ctx, "delete-tag", callURL); err != nil {
+		return err
 	}
 
 	x.logger.Info("bear-xcall delete-tag succeeded", "tag_name", tagName)
@@ -467,6 +438,26 @@ func maskTokenInText(text string) string {
 	rawURL := text[idx:end]
 	masked := MaskToken(rawURL)
 	return text[:idx] + masked + text[end:]
+}
+
+// executeAction runs a bear-xcall action URL, parses the response, and checks for Bear errors.
+// Used by simple actions (trash, archive, delete-tag) that take a single URL and return no data.
+func (x *Xcall) executeAction(ctx context.Context, action, callURL string) error {
+	output, err := x.executor.Run(ctx, x.xcallPath, "-url", callURL)
+	if err != nil {
+		return fmt.Errorf("bear-xcall %s: %w", action, err)
+	}
+
+	result, err := parseXcallResult(output)
+	if err != nil {
+		return fmt.Errorf("bear-xcall %s parse response: %w", action, err)
+	}
+
+	if result.ErrorCode != 0 {
+		return fmt.Errorf("bear-xcall %s: %w", action, &BearError{Code: result.ErrorCode, Msg: result.ErrorMsg})
+	}
+
+	return nil
 }
 
 func parseXcallResult(output []byte) (*xcallResult, error) {

@@ -3,12 +3,14 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/romancha/bear-sync/internal/beardb"
 	"github.com/romancha/bear-sync/internal/models"
+	"github.com/romancha/bear-sync/internal/xcallback"
 )
 
 // verifyDelay is how long to wait before verifying bear-xcall results in Bear SQLite.
@@ -531,7 +533,8 @@ func (b *Bridge) applyDeleteTag(ctx context.Context, item *models.WriteQueueItem
 	}
 
 	if err := b.xcall.DeleteTag(ctx, b.bearToken, payload.Name); err != nil {
-		if strings.Contains(err.Error(), "not found") {
+		var bearErr *xcallback.BearError
+		if errors.As(err, &bearErr) && strings.Contains(bearErr.Msg, "not found") {
 			b.logger.Info("delete_tag skipped: tag not found in Bear", "tag_name", payload.Name)
 			return nil
 		}

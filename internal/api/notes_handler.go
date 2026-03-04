@@ -500,7 +500,7 @@ func (s *Server) archiveNote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusAccepted, note)
+	writeJSON(w, http.StatusOK, note)
 }
 
 func (s *Server) addFile(w http.ResponseWriter, r *http.Request) {

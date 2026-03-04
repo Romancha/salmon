@@ -13,6 +13,7 @@ import (
 
 	"github.com/romancha/bear-sync/internal/beardb"
 	"github.com/romancha/bear-sync/internal/models"
+	"github.com/romancha/bear-sync/internal/xcallback"
 )
 
 // newQueueBridge creates a Bridge configured for queue processing tests.
@@ -1035,7 +1036,7 @@ func TestProcessQueue_DeleteTagNotFound(t *testing.T) {
 		},
 	}
 	// Bear returns "not found" error for non-existent tag — bridge should skip (ack as applied).
-	xcall := &mockXCallback{deleteTagErr: fmt.Errorf("bear error: tag not found")}
+	xcall := &mockXCallback{deleteTagErr: fmt.Errorf("bear-xcall delete-tag: %w", &xcallback.BearError{Code: 1, Msg: "tag not found"})}
 	bridge := newQueueBridge(db, hub, xcall, filepath.Join(t.TempDir(), "state.json"))
 
 	err := bridge.processQueue(context.Background())

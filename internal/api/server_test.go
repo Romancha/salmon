@@ -497,7 +497,7 @@ func TestArchiveNote_Success(t *testing.T) {
 		map[string]string{"Idempotency-Key": "key-arch-1"})
 
 	result := readBody(t, resp)
-	assert.Equal(t, http.StatusAccepted, resp.StatusCode)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Equal(t, "pending_to_bear", result["sync_status"])
 	assert.Equal(t, float64(1), result["archived"])
 
