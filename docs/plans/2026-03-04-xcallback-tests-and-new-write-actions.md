@@ -152,17 +152,17 @@
 - [x] run tests: `make test` — must pass before next task
 
 ### Task 11: Consumer API endpoints — rename & delete tag
-- [ ] add `renameTag` handler in `internal/api/tags_handler.go`: validate tag exists, parse `{new_name}` from body, enqueue `action="rename_tag"` with payload `{name, new_name}`, return 202
-- [ ] add `deleteTag` handler in `internal/api/tags_handler.go`: validate tag exists, enqueue `action="delete_tag"` with payload `{name}`, return 202
-- [ ] register `PUT /tags/{id}` and `DELETE /tags/{id}` routes with `idempotencyRequired` in `internal/api/server.go`
-- [ ] add test: rename success — 202
-- [ ] add test: rename tag not found → 404
-- [ ] add test: rename missing new_name → 400
-- [ ] add test: rename missing idempotency key → 400
-- [ ] add test: delete success — 202
-- [ ] add test: delete tag not found → 404
-- [ ] add test: delete missing idempotency key → 400
-- [ ] run tests: `make test` — must pass before next task
+- [x] add `renameTag` handler in `internal/api/tags_handler.go`: validate tag exists, parse `{new_name}` from body, enqueue `action="rename_tag"` with payload `{name, new_name}`, return 202
+- [x] add `deleteTag` handler in `internal/api/tags_handler.go`: validate tag exists, enqueue `action="delete_tag"` with payload `{name}`, return 202
+- [x] register `PUT /tags/{id}` and `DELETE /tags/{id}` routes with `idempotencyRequired` in `internal/api/server.go`
+- [x] add test: rename success — 202
+- [x] add test: rename tag not found → 404
+- [x] add test: rename missing new_name → 400
+- [x] add test: rename missing idempotency key → 400
+- [x] add test: delete success — 202
+- [x] add test: delete tag not found → 404
+- [x] add test: delete missing idempotency key → 400
+- [x] run tests: `make test` — must pass before next task
 
 ### Task 12: Bridge queue processing — add_file, archive, rename_tag, delete_tag
 - [ ] add `addFilePayload` struct: `{AttachmentID, Filename}`

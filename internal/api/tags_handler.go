@@ -96,3 +96,95 @@ func (s *Server) addTag(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusCreated, item)
 }
+
+type renameTagRequest struct {
+	NewName string `json:"new_name"`
+}
+
+func (s *Server) renameTag(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+
+	tag, err := s.store.GetTag(r.Context(), id)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to get tag")
+		return
+	}
+
+	if tag == nil {
+		writeError(w, http.StatusNotFound, "tag not found")
+		return
+	}
+
+	var req renameTagRequest
+	if err := readJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.NewName == "" {
+		writeError(w, http.StatusBadRequest, "new_name is required")
+		return
+	}
+
+	idempotencyKey := r.Header.Get("Idempotency-Key")
+	consumerID := ConsumerIDFromContext(r.Context())
+
+	if idempotencyKey != "" {
+		existing, err := s.store.GetQueueItemByIdempotencyKey(r.Context(), idempotencyKey, consumerID)
+		if isRetryableQueueItem(existing, err) {
+			writeJSON(w, http.StatusOK, existing)
+			return
+		}
+	}
+
+	payload, _ := json.Marshal(map[string]string{ //nolint:errcheck // cannot fail
+		"name":     tag.Title,
+		"new_name": req.NewName,
+	})
+
+	item, err := s.store.EnqueueWrite(r.Context(), idempotencyKey, "rename_tag", "", string(payload), consumerID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to enqueue write")
+		return
+	}
+
+	writeJSON(w, http.StatusAccepted, item)
+}
+
+func (s *Server) deleteTag(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+
+	tag, err := s.store.GetTag(r.Context(), id)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to get tag")
+		return
+	}
+
+	if tag == nil {
+		writeError(w, http.StatusNotFound, "tag not found")
+		return
+	}
+
+	idempotencyKey := r.Header.Get("Idempotency-Key")
+	consumerID := ConsumerIDFromContext(r.Context())
+
+	if idempotencyKey != "" {
+		existing, err := s.store.GetQueueItemByIdempotencyKey(r.Context(), idempotencyKey, consumerID)
+		if isRetryableQueueItem(existing, err) {
+			writeJSON(w, http.StatusOK, existing)
+			return
+		}
+	}
+
+	payload, _ := json.Marshal(map[string]string{ //nolint:errcheck // cannot fail
+		"name": tag.Title,
+	})
+
+	item, err := s.store.EnqueueWrite(r.Context(), idempotencyKey, "delete_tag", "", string(payload), consumerID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to enqueue write")
+		return
+	}
+
+	writeJSON(w, http.StatusAccepted, item)
+}

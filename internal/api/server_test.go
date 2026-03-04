@@ -663,6 +663,110 @@ func TestAddTag_MissingTag(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
 
+// --- Rename/Delete Tag tests ---
+
+func TestRenameTag_Success(t *testing.T) {
+	ts, s := setupServer(t)
+
+	require.NoError(t, s.CreateTag(t.Context(), &models.Tag{
+		ID: "tag-rename-1", Title: "old/tag",
+	}))
+
+	body := map[string]string{"new_name": "new/tag"}
+
+	resp := doRequest(t, ts, http.MethodPut, "/api/tags/tag-rename-1", body, consumerToken,
+		map[string]string{"Idempotency-Key": "key-rename-1"})
+	defer resp.Body.Close() //nolint:errcheck // test
+
+	assert.Equal(t, http.StatusAccepted, resp.StatusCode)
+
+	result := readBody(t, resp)
+	assert.Equal(t, "rename_tag", result["action"])
+}
+
+func TestRenameTag_NotFound(t *testing.T) {
+	ts, _ := setupServer(t)
+
+	body := map[string]string{"new_name": "new/tag"}
+
+	resp := doRequest(t, ts, http.MethodPut, "/api/tags/nonexistent", body, consumerToken,
+		map[string]string{"Idempotency-Key": "key-rename-2"})
+	defer resp.Body.Close() //nolint:errcheck // test
+
+	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
+}
+
+func TestRenameTag_MissingNewName(t *testing.T) {
+	ts, s := setupServer(t)
+
+	require.NoError(t, s.CreateTag(t.Context(), &models.Tag{
+		ID: "tag-rename-3", Title: "some/tag",
+	}))
+
+	body := map[string]string{}
+
+	resp := doRequest(t, ts, http.MethodPut, "/api/tags/tag-rename-3", body, consumerToken,
+		map[string]string{"Idempotency-Key": "key-rename-3"})
+	defer resp.Body.Close() //nolint:errcheck // test
+
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+}
+
+func TestRenameTag_MissingIdempotencyKey(t *testing.T) {
+	ts, s := setupServer(t)
+
+	require.NoError(t, s.CreateTag(t.Context(), &models.Tag{
+		ID: "tag-rename-4", Title: "another/tag",
+	}))
+
+	body := map[string]string{"new_name": "new/tag"}
+
+	resp := doRequest(t, ts, http.MethodPut, "/api/tags/tag-rename-4", body, consumerToken, nil)
+	defer resp.Body.Close() //nolint:errcheck // test
+
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+}
+
+func TestDeleteTag_Success(t *testing.T) {
+	ts, s := setupServer(t)
+
+	require.NoError(t, s.CreateTag(t.Context(), &models.Tag{
+		ID: "tag-del-1", Title: "delete/me",
+	}))
+
+	resp := doRequest(t, ts, http.MethodDelete, "/api/tags/tag-del-1", nil, consumerToken,
+		map[string]string{"Idempotency-Key": "key-del-1"})
+	defer resp.Body.Close() //nolint:errcheck // test
+
+	assert.Equal(t, http.StatusAccepted, resp.StatusCode)
+
+	result := readBody(t, resp)
+	assert.Equal(t, "delete_tag", result["action"])
+}
+
+func TestDeleteTag_NotFound(t *testing.T) {
+	ts, _ := setupServer(t)
+
+	resp := doRequest(t, ts, http.MethodDelete, "/api/tags/nonexistent", nil, consumerToken,
+		map[string]string{"Idempotency-Key": "key-del-2"})
+	defer resp.Body.Close() //nolint:errcheck // test
+
+	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
+}
+
+func TestDeleteTag_MissingIdempotencyKey(t *testing.T) {
+	ts, s := setupServer(t)
+
+	require.NoError(t, s.CreateTag(t.Context(), &models.Tag{
+		ID: "tag-del-3", Title: "another/delete",
+	}))
+
+	resp := doRequest(t, ts, http.MethodDelete, "/api/tags/tag-del-3", nil, consumerToken, nil)
+	defer resp.Body.Close() //nolint:errcheck // test
+
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+}
+
 // --- Backlinks tests ---
 
 func TestListBacklinks(t *testing.T) {

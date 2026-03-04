@@ -86,6 +86,8 @@ func NewServer(s store.Store, consumerTokens map[string]string, bridgeToken, att
 			r.Use(bodyLimitMiddleware(1 << 20))
 
 			r.Get("/", srv.listTags)
+			r.With(idempotencyRequired).Put("/{id}", srv.renameTag)
+			r.With(idempotencyRequired).Delete("/{id}", srv.deleteTag)
 		})
 
 		r.Route("/attachments", func(r chi.Router) {
