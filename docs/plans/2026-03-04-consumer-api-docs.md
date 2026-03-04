@@ -100,13 +100,13 @@
 - [x] run `make test` — must pass before next task
 
 ### Task 8: Verify acceptance criteria
-- [ ] verify all 15 consumer handlers have swag annotations
-- [ ] verify `make swagger` generates docs without parse errors
-- [ ] run `make fmt`
-- [ ] run `make lint` — all issues must be fixed
-- [ ] run `make test`
-- [ ] run `make test-race`
-- [ ] run `make tidy`
+- [x] verify all 15 consumer handlers have swag annotations
+- [x] verify `make swagger` generates docs without parse errors
+- [x] run `make fmt`
+- [x] run `make lint` — all issues must be fixed
+- [x] run `make test`
+- [x] run `make test-race`
+- [x] run `make tidy`
 
 ### Task 9: [Final] Update documentation
 - [ ] update README.md if needed (mention Swagger UI endpoint)

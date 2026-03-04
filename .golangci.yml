@@ -52,6 +52,10 @@ linters:
           disabled: true
 
   exclusions:
+    rules:
+      - linters:
+          - godot
+        source: "^// @"
     paths:
       - testdata
 
