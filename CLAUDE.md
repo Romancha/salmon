@@ -64,6 +64,7 @@ Run these checks before committing (in order):
 
 - Bear is source-of-truth for user content
 - Hub is read replica + write queue for external consumers
+- Write actions: create, update, add_tag, trash, add_file, archive, rename_tag, delete_tag
 - Write flow: consumer → hub write_queue → bridge lease → bear-xcall to Bear → ack
 - Read flow: Bear → bridge delta export → hub sync/push → consumer API
 - Delivery: effectively-once (consumer→hub), at-least-once (hub→bridge), duplicate-safe (bridge apply)

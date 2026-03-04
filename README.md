@@ -61,6 +61,23 @@ stateDiagram-v2
 
 While a note is `pending_to_bear`, Bear delta pushes do not overwrite `title`/`body` on the hub. If Bear modifies the note before the bridge ACKs, the hub detects a conflict and the bridge creates a `[Conflict] Title` note in Bear instead of overwriting.
 
+### Write Actions
+
+Consumers can enqueue write operations via the hub API. The bridge picks them up and applies them to Bear via x-callback-url.
+
+| Action | Consumer API | Description |
+|---|---|---|
+| `create` | `POST /api/notes` | Create a new note |
+| `update` | `PUT /api/notes/{id}` | Update note title/body |
+| `add_tag` | `POST /api/notes/{id}/tags` | Add a tag to a note |
+| `trash` | `POST /api/notes/{id}/trash` | Move note to trash |
+| `add_file` | `POST /api/notes/{id}/attachments` | Attach a file to a note (multipart, 10 MB limit) |
+| `archive` | `POST /api/notes/{id}/archive` | Archive a note |
+| `rename_tag` | `PUT /api/tags/{id}` | Rename a tag |
+| `delete_tag` | `DELETE /api/tags/{id}` | Delete a tag |
+
+All mutating consumer endpoints require an `Idempotency-Key` header. Encrypted notes are read-only (403).
+
 ## Prerequisites
 
 - Go 1.24+
@@ -175,12 +192,33 @@ The bridge runs once per invocation (no daemon mode). Use launchd to schedule pe
 
 ### Launchd (production)
 
+1. Build and install the binaries:
+
+```
+make build
+sudo cp bin/bear-bridge /usr/local/bin/
+sudo cp -R bin/bear-xcall.app /usr/local/bin/
+```
+
+2. Install the launchd plist:
+
 ```
 cp deploy/com.romancha.bear-bridge.plist ~/Library/LaunchAgents/
+```
+
+3. Edit the plist to set your tokens and hub URL:
+
+```
+nano ~/Library/LaunchAgents/com.romancha.bear-bridge.plist
+```
+
+4. Load the agent:
+
+```
 launchctl load ~/Library/LaunchAgents/com.romancha.bear-bridge.plist
 ```
 
-Edit the plist to set your tokens and hub URL. Default interval: every 5 minutes.
+The bridge runs every 5 minutes. bear-xcall.app must be in the same directory as the bear-bridge binary.
 
 ## Reverse Proxy
 

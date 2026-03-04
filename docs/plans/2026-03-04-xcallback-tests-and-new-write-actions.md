@@ -208,8 +208,8 @@
 - [x] run formatter: `make fmt`
 
 ### Task 15: [Final] Update documentation
-- [ ] update CLAUDE.md to mention new write actions (add_file, archive, rename_tag, delete_tag)
-- [ ] update README.md API section if consumer endpoints are documented
+- [x] update CLAUDE.md to mention new write actions (add_file, archive, rename_tag, delete_tag)
+- [x] update README.md API section if consumer endpoints are documented
 
 ## Technical Details
 
