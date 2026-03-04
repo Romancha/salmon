@@ -812,6 +812,55 @@ func TestDeleteTag_MissingIdempotencyKey(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
 
+func TestRenameTag_DuplicateIdempotencyKey_202(t *testing.T) {
+	ts, s := setupServer(t)
+
+	require.NoError(t, s.CreateTag(t.Context(), &models.Tag{
+		ID: "tag-rename-dup", Title: "dup/rename",
+	}))
+
+	headers := map[string]string{"Idempotency-Key": "idem-rename-dup"}
+	body := map[string]string{"new_name": "dup/renamed"}
+
+	resp1 := doRequest(t, ts, http.MethodPut, "/api/tags/tag-rename-dup", body, consumerToken, headers)
+	result1 := readBody(t, resp1)
+	assert.Equal(t, http.StatusAccepted, resp1.StatusCode)
+
+	resp2 := doRequest(t, ts, http.MethodPut, "/api/tags/tag-rename-dup", body, consumerToken, headers)
+	result2 := readBody(t, resp2)
+	assert.Equal(t, http.StatusAccepted, resp2.StatusCode)
+
+	assert.Equal(t, result1["id"], result2["id"])
+
+	items, err := s.LeaseQueueItems(t.Context(), "test", 5*time.Minute)
+	require.NoError(t, err)
+	assert.Len(t, items, 1)
+}
+
+func TestDeleteTag_DuplicateIdempotencyKey_202(t *testing.T) {
+	ts, s := setupServer(t)
+
+	require.NoError(t, s.CreateTag(t.Context(), &models.Tag{
+		ID: "tag-del-dup", Title: "dup/delete",
+	}))
+
+	headers := map[string]string{"Idempotency-Key": "idem-del-dup"}
+
+	resp1 := doRequest(t, ts, http.MethodDelete, "/api/tags/tag-del-dup", nil, consumerToken, headers)
+	result1 := readBody(t, resp1)
+	assert.Equal(t, http.StatusAccepted, resp1.StatusCode)
+
+	resp2 := doRequest(t, ts, http.MethodDelete, "/api/tags/tag-del-dup", nil, consumerToken, headers)
+	result2 := readBody(t, resp2)
+	assert.Equal(t, http.StatusAccepted, resp2.StatusCode)
+
+	assert.Equal(t, result1["id"], result2["id"])
+
+	items, err := s.LeaseQueueItems(t.Context(), "test", 5*time.Minute)
+	require.NoError(t, err)
+	assert.Len(t, items, 1)
+}
+
 // --- Backlinks tests ---
 
 func TestListBacklinks(t *testing.T) {
