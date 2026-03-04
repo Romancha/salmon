@@ -213,8 +213,7 @@ Returns:
   "last_push_at": "2025-01-15T10:25:00Z",
   "queue_size": 3,
   "initial_sync_complete": "true",
-  "conflict_count": 0,
-  "conflict_note_ids": []
+  "conflict_count": 0
 }
 ```
 

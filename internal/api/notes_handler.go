@@ -689,7 +689,7 @@ func (s *Server) addFile(w http.ResponseWriter, r *http.Request) {
 	if idempotencyKey != "" {
 		existing, err := s.store.GetQueueItemByIdempotencyKey(r.Context(), idempotencyKey, consumerID)
 		if isRetryableQueueItem(existing, err) {
-			writeJSON(w, http.StatusOK, existing)
+			writeJSON(w, http.StatusAccepted, existing)
 			return
 		}
 	}

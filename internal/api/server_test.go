@@ -1394,7 +1394,7 @@ func TestAddFile_MissingFile_400(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
 
-func TestAddFile_DuplicateIdempotencyKey_200(t *testing.T) {
+func TestAddFile_DuplicateIdempotencyKey_202(t *testing.T) {
 	ts, s := setupServer(t)
 
 	bearID := "bear-af-dup"
@@ -1414,7 +1414,7 @@ func TestAddFile_DuplicateIdempotencyKey_200(t *testing.T) {
 	resp2 := doMultipartUpload(t, ts, "/api/notes/note-af-dup/attachments",
 		"photo.jpg", []byte("data"), headers)
 	result2 := readBody(t, resp2)
-	assert.Equal(t, http.StatusOK, resp2.StatusCode)
+	assert.Equal(t, http.StatusAccepted, resp2.StatusCode)
 
 	// Should return the same queue item.
 	assert.Equal(t, result1["id"], result2["id"])
