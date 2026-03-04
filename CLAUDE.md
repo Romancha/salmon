@@ -27,6 +27,18 @@ Monorepo with two Go binaries for syncing Bear notes with external consumers.
 - make tidy — go mod tidy
 - make generate — run go generate (moq)
 
+## After Making Changes
+
+Run these checks before committing (in order):
+
+1. `make fmt` — format code
+2. `make lint` — run linter, fix all warnings
+3. `make test` — ensure all tests pass
+4. `make test-race` — ensure no data races
+5. `make test-coverage` — ensure coverage does not decrease compared to the main branch
+6. `make tidy` — update go.mod/go.sum if dependencies changed
+7. If interfaces changed: `make generate` — regenerate mocks
+
 ## Code Patterns
 
 - Interface-first design for testability (Store, BearDB, HubClient, XCallback)
