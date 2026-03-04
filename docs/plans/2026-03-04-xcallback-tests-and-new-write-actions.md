@@ -122,12 +122,12 @@
 - [x] run tests: `make test` — must pass before next task
 
 ### Task 8: Add bridge-scoped attachment download endpoint
-- [ ] add `GET /sync/attachments/{id}` route under bridge auth group in `internal/api/server.go`
-- [ ] add `syncDownloadAttachment` handler in `internal/api/sync_handler.go` (reuse `getAttachment` logic: lookup attachment, resolve file path, serve file)
-- [ ] add test: success — upload attachment file, then download via bridge endpoint, verify content
-- [ ] add test: attachment not found → 404
-- [ ] add test: missing bridge auth → 401
-- [ ] run tests: `make test` — must pass before next task
+- [x] add `GET /sync/attachments/{id}` route under bridge auth group in `internal/api/server.go`
+- [x] add `syncDownloadAttachment` handler in `internal/api/sync_handler.go` (reuse `getAttachment` logic: lookup attachment, resolve file path, serve file)
+- [x] add test: success — upload attachment file, then download via bridge endpoint, verify content
+- [x] add test: attachment not found → 404
+- [x] add test: missing bridge auth → 401
+- [x] run tests: `make test` — must pass before next task
 
 ### Task 9: Consumer API endpoint — file upload
 - [ ] add `addFile` handler in `internal/api/notes_handler.go`: validate note (exists, has bear_id, not encrypted, not in conflict), parse multipart form, store file to `attachmentsDir/{generatedID}/{filename}`, enqueue `action="add_file"` with payload `{attachment_id, filename}`, return 202

@@ -7,7 +7,11 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+
+	"github.com/romancha/bear-sync/internal/models"
 )
+
+const fallbackFilename = "file"
 
 func (s *Server) getAttachment(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
@@ -18,6 +22,11 @@ func (s *Server) getAttachment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.serveAttachmentFile(w, r, attachment)
+}
+
+// serveAttachmentFile resolves and serves the file for the given attachment.
+func (s *Server) serveAttachmentFile(w http.ResponseWriter, r *http.Request, attachment *models.Attachment) {
 	if attachment == nil {
 		writeError(w, http.StatusNotFound, "attachment not found")
 		return
@@ -25,7 +34,7 @@ func (s *Server) getAttachment(w http.ResponseWriter, r *http.Request) {
 
 	filename := filepath.Base(attachment.Filename)
 	if filename == "" || filename == "." || filename == "/" {
-		filename = "file"
+		filename = fallbackFilename
 	}
 
 	filePath := filepath.Join(s.attachmentsDir, attachment.ID, filename)

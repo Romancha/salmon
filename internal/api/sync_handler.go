@@ -195,6 +195,18 @@ func (s *Server) syncUploadAttachment(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
+func (s *Server) syncDownloadAttachment(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+
+	attachment, err := s.store.GetAttachment(r.Context(), id)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to get attachment")
+		return
+	}
+
+	s.serveAttachmentFile(w, r, attachment)
+}
+
 type syncStatusResponse struct {
 	LastSyncAt          string   `json:"last_sync_at"`
 	LastPushAt          string   `json:"last_push_at"`

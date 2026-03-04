@@ -787,6 +787,76 @@ func TestSyncUploadAttachment(t *testing.T) {
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 }
 
+// uploadTestAttachment creates a note, pushes an attachment record, and uploads file content via bridge.
+// Returns the attachment hub ID and the file content string.
+func uploadTestAttachment(
+	t *testing.T, ts *httptest.Server, s *store.SQLiteStore, bearAttID, filename, content string,
+) string {
+	t.Helper()
+
+	require.NoError(t, s.CreateNote(t.Context(), &models.Note{ID: "note-att-" + bearAttID, Title: "Note"}))
+
+	err := s.ProcessSyncPush(t.Context(), models.SyncPushRequest{
+		Attachments: []models.Attachment{
+			{BearID: &bearAttID, NoteID: "note-att-" + bearAttID, Type: "file", Filename: filename},
+		},
+	})
+	require.NoError(t, err)
+
+	att, err := s.GetAttachmentByBearID(t.Context(), bearAttID)
+	require.NoError(t, err)
+	require.NotNil(t, att)
+
+	uploadReq, err := http.NewRequest( //nolint:noctx // test
+		http.MethodPost,
+		ts.URL+"/api/sync/attachments/"+att.ID,
+		bytes.NewReader([]byte(content)),
+	)
+	require.NoError(t, err)
+	uploadReq.Header.Set("Authorization", "Bearer "+bridgeToken)
+
+	uploadResp, err := http.DefaultClient.Do(uploadReq) //nolint:noctx,gosec // test
+	require.NoError(t, err)
+	defer uploadResp.Body.Close() //nolint:errcheck // test
+	require.Equal(t, http.StatusOK, uploadResp.StatusCode)
+
+	return att.ID
+}
+
+func TestSyncDownloadAttachment_Success(t *testing.T) {
+	ts, s := setupServer(t)
+
+	fileContent := "downloaded file content"
+	attID := uploadTestAttachment(t, ts, s, "bear-att-dl", "download.txt", fileContent)
+
+	dlResp := doRequest(t, ts, http.MethodGet, "/api/sync/attachments/"+attID, nil, bridgeToken, nil)
+	defer dlResp.Body.Close() //nolint:errcheck // test
+
+	assert.Equal(t, http.StatusOK, dlResp.StatusCode)
+
+	body, err := io.ReadAll(dlResp.Body)
+	require.NoError(t, err)
+	assert.Equal(t, fileContent, string(body))
+}
+
+func TestSyncDownloadAttachment_NotFound(t *testing.T) {
+	ts, _ := setupServer(t)
+
+	resp := doRequest(t, ts, http.MethodGet, "/api/sync/attachments/nonexistent", nil, bridgeToken, nil)
+	defer resp.Body.Close() //nolint:errcheck // test
+
+	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
+}
+
+func TestSyncDownloadAttachment_MissingAuth(t *testing.T) {
+	ts, _ := setupServer(t)
+
+	resp := doRequest(t, ts, http.MethodGet, "/api/sync/attachments/some-id", nil, "", nil)
+	defer resp.Body.Close() //nolint:errcheck // test
+
+	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+}
+
 func TestSyncStatus(t *testing.T) {
 	ts, s := setupServer(t)
 
@@ -943,39 +1013,10 @@ func TestSyncPush_CleansUpPermanentlyDeletedAttachmentFiles(t *testing.T) {
 func TestGetAttachment_ServesFile(t *testing.T) {
 	ts, s := setupServer(t)
 
-	require.NoError(t, s.CreateNote(t.Context(), &models.Note{ID: "note-1", Title: "Note"}))
-
-	bearAttID := "bear-att-serve"
-
-	err := s.ProcessSyncPush(t.Context(), models.SyncPushRequest{
-		Attachments: []models.Attachment{
-			{BearID: &bearAttID, NoteID: "note-1", Type: "file", Filename: "readme.txt"},
-		},
-	})
-	require.NoError(t, err)
-
-	att, err := s.GetAttachmentByBearID(t.Context(), bearAttID)
-	require.NoError(t, err)
-	require.NotNil(t, att)
-
-	// Upload file.
 	fileContent := "readme content"
-	uploadReq, err := http.NewRequest( //nolint:noctx // test
-		http.MethodPost,
-		ts.URL+"/api/sync/attachments/"+att.ID,
-		bytes.NewReader([]byte(fileContent)),
-	)
-	require.NoError(t, err)
-	uploadReq.Header.Set("Authorization", "Bearer "+bridgeToken)
+	attID := uploadTestAttachment(t, ts, s, "bear-att-serve", "readme.txt", fileContent)
 
-	uploadResp, err := http.DefaultClient.Do(uploadReq) //nolint:noctx,gosec // test
-	require.NoError(t, err)
-	defer uploadResp.Body.Close() //nolint:errcheck // test
-
-	assert.Equal(t, http.StatusOK, uploadResp.StatusCode)
-
-	// Now GET the attachment via consumer API.
-	getResp := doRequest(t, ts, http.MethodGet, "/api/attachments/"+att.ID, nil, consumerToken, nil)
+	getResp := doRequest(t, ts, http.MethodGet, "/api/attachments/"+attID, nil, consumerToken, nil)
 	defer getResp.Body.Close() //nolint:errcheck // test
 
 	assert.Equal(t, http.StatusOK, getResp.StatusCode)

@@ -97,6 +97,7 @@ func NewServer(s store.Store, consumerTokens map[string]string, bridgeToken, att
 				r.Get("/queue", srv.syncQueue)
 				r.With(bodyLimitMiddleware(1<<20)).Post("/ack", srv.syncAck)
 				r.With(bodyLimitMiddleware(100<<20)).Post("/attachments/{id}", srv.syncUploadAttachment)
+				r.Get("/attachments/{id}", srv.syncDownloadAttachment)
 			})
 		})
 	})
