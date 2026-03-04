@@ -134,6 +134,16 @@ func TestSwaggerUI_WithConsumerAuth(t *testing.T) {
 	assert.Contains(t, resp.Header.Get("Content-Type"), "text/html")
 }
 
+func TestSwaggerUI_DocJSON(t *testing.T) {
+	ts, _ := setupServer(t)
+
+	resp := doRequest(t, ts, http.MethodGet, "/api/docs/doc.json", nil, consumerToken, nil)
+	defer resp.Body.Close() //nolint:errcheck // test
+
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Contains(t, resp.Header.Get("Content-Type"), "application/json")
+}
+
 func TestSwaggerUI_WithoutAuth(t *testing.T) {
 	ts, _ := setupServer(t)
 

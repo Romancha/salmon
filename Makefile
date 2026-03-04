@@ -130,7 +130,7 @@ tools:
 	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.7.2
 	go install mvdan.cc/gofumpt@latest
 	go install golang.org/x/tools/cmd/goimports@latest
-	go install github.com/swaggo/swag/v2/cmd/swag@latest
+	go install github.com/swaggo/swag/cmd/swag@v1.16.6
 
 install-bridge: build
 ifeq ($(shell uname),Darwin)

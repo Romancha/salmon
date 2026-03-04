@@ -58,6 +58,7 @@ linters:
         source: "^// @"
     paths:
       - testdata
+      - internal/api/docs
 
 issues:
   max-issues-per-linter: 0
