@@ -70,6 +70,9 @@ type BearDB interface {
 	// NoteTagTitles returns tag titles for a note identified by Bear UUID.
 	NoteTagTitles(ctx context.Context, bearUUID string) ([]string, error)
 
+	// NoteAttachmentFilenames returns filenames of attachments for a note identified by Bear UUID.
+	NoteAttachmentFilenames(ctx context.Context, bearUUID string) ([]string, error)
+
 	// FindRecentNotesByTitle finds notes by title created after the given Core Data epoch timestamp.
 	FindRecentNotesByTitle(ctx context.Context, title string, createdAfter float64) ([]NoteBasicInfo, error)
 

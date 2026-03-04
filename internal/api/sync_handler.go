@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
@@ -95,6 +96,42 @@ func (s *Server) cleanupAttachmentFiles(attachmentIDs []string) {
 	}
 }
 
+// collectAddFileCleanupIDs gathers attachment IDs from add_file queue items
+// that were successfully acked (now in "applied" status).
+// Must be called AFTER AckQueueItems to avoid TOCTOU races.
+func (s *Server) collectAddFileCleanupIDs(ctx context.Context, items []models.SyncAckItem) []string {
+	ids := make([]string, 0, len(items))
+
+	for i := range items {
+		if items[i].Status != "applied" {
+			continue
+		}
+
+		queueItem, err := s.store.GetQueueItem(ctx, items[i].QueueID)
+		if err != nil || queueItem == nil || queueItem.Action != "add_file" {
+			continue
+		}
+
+		// Only clean up if the ack was actually applied (status is now "applied").
+		// If the ack was a no-op (item was reset to "pending" or already terminal),
+		// the blob must remain for re-lease.
+		if queueItem.Status != "applied" {
+			continue
+		}
+
+		var payload struct {
+			AttachmentID string `json:"attachment_id"`
+		}
+		if err := json.Unmarshal([]byte(queueItem.Payload), &payload); err != nil || payload.AttachmentID == "" {
+			continue
+		}
+
+		ids = append(ids, payload.AttachmentID)
+	}
+
+	return ids
+}
+
 func (s *Server) syncQueue(w http.ResponseWriter, r *http.Request) {
 	processingBy := r.URL.Query().Get("processing_by")
 	if processingBy == "" {
@@ -125,6 +162,13 @@ func (s *Server) syncAck(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to ack queue items")
 		return
 	}
+
+	// Collect cleanup IDs after ack to avoid TOCTOU race: only clean up blobs
+	// for items that were actually transitioned to "applied" by the ack above.
+	// Use a detached context so cleanup isn't skipped if the client disconnects
+	// after the ack commits but before we finish reading queue items.
+	cleanupIDs := s.collectAddFileCleanupIDs(context.Background(), req.Items)
+	s.cleanupAttachmentFiles(cleanupIDs)
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }

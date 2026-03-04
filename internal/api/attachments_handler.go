@@ -52,6 +52,11 @@ func (s *Server) serveAttachmentFile(w http.ResponseWriter, r *http.Request, att
 // serveConsumerUploadedFile serves a file uploaded by a consumer via the addFile endpoint.
 // Consumer-uploaded files are stored on disk at attachmentsDir/{id}/{filename} without a DB record.
 func (s *Server) serveConsumerUploadedFile(w http.ResponseWriter, r *http.Request, id string) {
+	if id == "" || id == "." || id == ".." || strings.ContainsAny(id, `/\`) {
+		writeError(w, http.StatusBadRequest, "invalid attachment id")
+		return
+	}
+
 	dir := filepath.Join(s.attachmentsDir, id)
 
 	entries, err := os.ReadDir(dir)

@@ -572,6 +572,31 @@ func TestPinnedNoteTagsForNotes(t *testing.T) {
 	assert.Empty(t, pairs2)
 }
 
+func TestNoteAttachmentFilenames(t *testing.T) {
+	bearDB := setupTestBearDB(t)
+	ctx := context.Background()
+
+	// Note 1 has attachment "photo.jpg".
+	filenames, err := bearDB.NoteAttachmentFilenames(ctx, "note-uuid-1")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"photo.jpg"}, filenames)
+
+	// Note 2 has attachment "document.pdf".
+	filenames2, err := bearDB.NoteAttachmentFilenames(ctx, "note-uuid-2")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"document.pdf"}, filenames2)
+
+	// Note 3 has no attachments.
+	filenames3, err := bearDB.NoteAttachmentFilenames(ctx, "note-uuid-3")
+	require.NoError(t, err)
+	assert.Empty(t, filenames3)
+
+	// Non-existent note.
+	filenames4, err := bearDB.NoteAttachmentFilenames(ctx, "non-existent")
+	require.NoError(t, err)
+	assert.Empty(t, filenames4)
+}
+
 func TestAllNoteUUIDs(t *testing.T) {
 	bearDB := setupTestBearDB(t)
 	ctx := context.Background()

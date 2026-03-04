@@ -433,6 +433,22 @@ func (b *Bridge) applyAddFile(ctx context.Context, item *models.WriteQueueItem) 
 		return fmt.Errorf("find bear note: %w", err)
 	}
 
+	// Duplicate-safe: check if note already has an attachment with the same filename.
+	// Note: this is filename-only; distinct uploads with the same filename to the same note
+	// will be treated as already applied. This is an acceptable trade-off for at-least-once
+	// delivery idempotency — Bear's DB doesn't store hub attachment IDs for a more precise check.
+	existingFiles, err := b.db.NoteAttachmentFilenames(ctx, note.UUID)
+	if err != nil {
+		b.logger.Warn("add_file duplicate check failed, proceeding", "bear_id", note.UUID, "error", err)
+	} else {
+		for _, f := range existingFiles {
+			if f == payload.Filename {
+				b.logger.Info("add_file already applied (filename exists)", "bear_id", note.UUID, "filename", payload.Filename)
+				return nil
+			}
+		}
+	}
+
 	fileData, err := b.hub.DownloadAttachment(ctx, payload.AttachmentID)
 	if err != nil {
 		return fmt.Errorf("download attachment %s: %w", payload.AttachmentID, err)

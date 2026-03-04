@@ -1345,6 +1345,20 @@ func deleteByBearIDs(ctx context.Context, tx *sql.Tx, table string, bearIDs []st
 
 // --- Write Queue ---
 
+func (s *SQLiteStore) GetQueueItem(ctx context.Context, id int64) (*models.WriteQueueItem, error) {
+	item, err := scanWriteQueueRow(s.db.QueryRowContext(ctx,
+		"SELECT "+writeQueueColumns()+" FROM write_queue WHERE id = ?", id,
+	))
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("get queue item: %w", err)
+	}
+
+	return &item, nil
+}
+
 func (s *SQLiteStore) GetQueueItemByIdempotencyKey(
 	ctx context.Context, key, consumerID string,
 ) (*models.WriteQueueItem, error) {

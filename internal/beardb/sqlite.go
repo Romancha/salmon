@@ -405,6 +405,35 @@ func (s *SQLiteBearDB) NoteTagTitles(ctx context.Context, bearUUID string) ([]st
 	return result, nil
 }
 
+// NoteAttachmentFilenames returns filenames of attachments for a note identified by Bear UUID.
+func (s *SQLiteBearDB) NoteAttachmentFilenames(ctx context.Context, bearUUID string) ([]string, error) {
+	rows, err := s.db.QueryContext(ctx,
+		"SELECT f.ZFILENAME FROM ZSFNOTEFILE f"+
+			" JOIN ZSFNOTE n ON f.ZNOTE = n.Z_PK"+
+			" WHERE n.ZUNIQUEIDENTIFIER = ? AND f.ZFILENAME IS NOT NULL AND COALESCE(f.ZPERMANENTLYDELETED, 0) = 0",
+		bearUUID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("query note attachment filenames: %w", err)
+	}
+	defer rows.Close() //nolint:errcheck // read-only query
+
+	var result []string
+	for rows.Next() {
+		var filename string
+		if err := rows.Scan(&filename); err != nil {
+			return nil, fmt.Errorf("scan attachment filename: %w", err)
+		}
+		result = append(result, filename)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate attachment filenames: %w", err)
+	}
+
+	return result, nil
+}
+
 // FindRecentNotesByTitle finds notes by title created after the given Core Data epoch timestamp.
 func (s *SQLiteBearDB) FindRecentNotesByTitle(
 	ctx context.Context, title string, createdAfter float64,

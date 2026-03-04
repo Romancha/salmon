@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -563,30 +564,9 @@ func (s *Server) addFile(w http.ResponseWriter, r *http.Request) {
 	attachmentID := generateID()
 
 	dir := filepath.Join(s.attachmentsDir, attachmentID)
-	if err := os.MkdirAll(dir, 0o750); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to create attachment directory")
-		return
-	}
 
-	filePath := filepath.Join(dir, filename)
-
-	f, err := os.Create(filePath) //nolint:gosec // path from internal generated ID + sanitized filename
-	if err != nil {
-		os.RemoveAll(dir) //nolint:errcheck,gosec // cleanup
-		writeError(w, http.StatusInternalServerError, "failed to create file")
-		return
-	}
-
-	if _, err := io.Copy(f, file); err != nil {
-		f.Close()         //nolint:errcheck,gosec // closing before cleanup
-		os.RemoveAll(dir) //nolint:errcheck,gosec // cleanup
-		writeError(w, http.StatusInternalServerError, "failed to write file")
-		return
-	}
-
-	if err := f.Close(); err != nil {
-		os.RemoveAll(dir) //nolint:errcheck,gosec // cleanup
-		writeError(w, http.StatusInternalServerError, "failed to finalize file")
+	if err := writeUploadedFile(dir, filename, file); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -605,7 +585,45 @@ func (s *Server) addFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// If EnqueueWrite returned an existing item (concurrent idempotent request won the race),
+	// clean up our orphaned file directory since the winning request's file is already on disk.
+	var existingPayload struct {
+		AttachmentID string `json:"attachment_id"`
+	}
+	if json.Unmarshal([]byte(item.Payload), &existingPayload) == nil && existingPayload.AttachmentID != attachmentID {
+		os.RemoveAll(dir) //nolint:errcheck,gosec // cleanup orphaned file from lost race
+	}
+
 	writeJSON(w, http.StatusAccepted, item)
+}
+
+// writeUploadedFile creates the directory and writes the uploaded file to disk.
+// On error, it cleans up and returns an error suitable for the HTTP response.
+func writeUploadedFile(dir, filename string, file io.Reader) error {
+	if err := os.MkdirAll(dir, 0o750); err != nil {
+		return fmt.Errorf("failed to create attachment directory")
+	}
+
+	filePath := filepath.Join(dir, filename)
+
+	f, err := os.Create(filePath) //nolint:gosec // path from internal generated ID + sanitized filename
+	if err != nil {
+		os.RemoveAll(dir) //nolint:errcheck,gosec // cleanup
+		return fmt.Errorf("failed to create file")
+	}
+
+	if _, err := io.Copy(f, file); err != nil {
+		f.Close()         //nolint:errcheck,gosec // closing before cleanup
+		os.RemoveAll(dir) //nolint:errcheck,gosec // cleanup
+		return fmt.Errorf("failed to write file")
+	}
+
+	if err := f.Close(); err != nil {
+		os.RemoveAll(dir) //nolint:errcheck,gosec // cleanup
+		return fmt.Errorf("failed to finalize file")
+	}
+
+	return nil
 }
 
 // isRetryableQueueItem returns true if an existing queue item for this idempotency key

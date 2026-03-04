@@ -805,6 +805,39 @@ func TestProcessQueue_AddFileTooLarge(t *testing.T) {
 	assert.Empty(t, xcall.calls) // xcall should NOT be called.
 }
 
+func TestProcessQueue_AddFileAlreadyApplied(t *testing.T) {
+	db := &mockBearDB{
+		notesByUUID: map[string]*beardb.NoteBasicInfo{
+			"bear-note-1": {UUID: "bear-note-1", Title: "Note"},
+		},
+		filesByNote: map[string][]string{
+			"bear-note-1": {"photo.jpg"},
+		},
+	}
+	hub := &mockHubClient{
+		queueItems: []models.WriteQueueItem{
+			{
+				ID:             45,
+				IdempotencyKey: "idem-45",
+				Action:         "add_file",
+				NoteID:         "bear-note-1",
+				Payload:        `{"attachment_id":"att-1","filename":"photo.jpg","bear_id":"bear-note-1"}`,
+			},
+		},
+	}
+	xcall := &mockXCallback{}
+	bridge := newQueueBridge(db, hub, xcall, filepath.Join(t.TempDir(), "state.json"))
+
+	err := bridge.processQueue(context.Background())
+	require.NoError(t, err)
+
+	// xcall should NOT be called — file already exists on note.
+	assert.Empty(t, xcall.calls)
+
+	require.Len(t, hub.ackItems, 1)
+	assert.Equal(t, "applied", hub.ackItems[0].Status)
+}
+
 // --- archive tests ---
 
 func TestProcessQueue_ArchiveAction(t *testing.T) { //nolint:dupl // archive test mirrors trash test by design
