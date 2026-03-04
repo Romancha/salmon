@@ -44,7 +44,7 @@ func (m *mockExecutor) Run(_ context.Context, name string, args ...string) ([]by
 }
 
 func newTestXcall(executor *mockExecutor) *Xcall {
-	return NewWithPath("/usr/local/bin/xcall", WithExecutor(executor))
+	return NewWithPath("/usr/local/bin/bear-xcall", WithExecutor(executor))
 }
 
 func TestCreate(t *testing.T) {
@@ -61,7 +61,7 @@ func TestCreate(t *testing.T) {
 		require.Len(t, executor.calls, 1)
 
 		call := executor.calls[0]
-		assert.Equal(t, "/usr/local/bin/xcall", call.Name)
+		assert.Equal(t, "/usr/local/bin/bear-xcall", call.Name)
 		assert.Equal(t, "-url", call.Args[0])
 
 		callURL := call.Args[1]
@@ -368,6 +368,28 @@ func TestParseXcallResult(t *testing.T) {
 		_, err := parseXcallResult([]byte("not json"))
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "invalid xcall JSON")
+	})
+}
+
+func TestNewWithPathAppBundle(t *testing.T) {
+	t.Run("resolves .app bundle to binary inside Contents/MacOS", func(t *testing.T) {
+		executor := &mockExecutor{output: []byte(`{}`)}
+		x := NewWithPath("/path/to/bear-xcall.app", WithExecutor(executor))
+
+		_ = x.Trash(context.Background(), "tok", "ID")
+
+		require.Len(t, executor.calls, 1)
+		assert.Equal(t, "/path/to/bear-xcall.app/Contents/MacOS/bear-xcall", executor.calls[0].Name)
+	})
+
+	t.Run("plain binary path used as-is", func(t *testing.T) {
+		executor := &mockExecutor{output: []byte(`{}`)}
+		x := NewWithPath("/usr/local/bin/bear-xcall", WithExecutor(executor))
+
+		_ = x.Trash(context.Background(), "tok", "ID")
+
+		require.Len(t, executor.calls, 1)
+		assert.Equal(t, "/usr/local/bin/bear-xcall", executor.calls[0].Name)
 	})
 }
 

@@ -92,11 +92,11 @@
 - [x] verify `make clean` removes `bin/bear-xcall.app/`
 
 ### Task 4: Update Go xcallback to use bear-xcall
-- [ ] update `xcallback.New()` in `internal/xcallback/xcallback.go`: change `LookPath("xcall")` to resolve `bear-xcall.app` bundle path
-- [ ] update `NewWithPath()` to accept `.app` bundle path
-- [ ] update `defaultExecutor.Run()` to call binary inside `.app/Contents/MacOS/`
-- [ ] update tests in `internal/xcallback/xcallback_test.go` to reflect new binary name
-- [ ] run tests: `make test` — must pass before next task
+- [x] update `xcallback.New()` in `internal/xcallback/xcallback.go`: change `LookPath("xcall")` to resolve `bear-xcall.app` bundle path
+- [x] update `NewWithPath()` to accept `.app` bundle path
+- [x] update `defaultExecutor.Run()` to call binary inside `.app/Contents/MacOS/`
+- [x] update tests in `internal/xcallback/xcallback_test.go` to reflect new binary name
+- [x] run tests: `make test` — must pass before next task
 
 ### Task 5: Update bridge initialization
 - [ ] update `cmd/bridge/main.go` log messages from "xcall" to "bear-xcall"

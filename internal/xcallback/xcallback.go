@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"log/slog"
 	"net/url"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 )
 
@@ -76,7 +78,8 @@ func WithLogger(l *slog.Logger) Option {
 	}
 }
 
-// New creates a new Xcall instance. It verifies that xcall CLI is available on the system.
+// New creates a new Xcall instance. It resolves the bear-xcall.app bundle path
+// by looking next to the running executable, then falling back to PATH.
 func New(opts ...Option) (*Xcall, error) {
 	x := &Xcall{
 		executor: &defaultExecutor{},
@@ -87,9 +90,9 @@ func New(opts ...Option) (*Xcall, error) {
 		opt(x)
 	}
 
-	path, err := exec.LookPath("xcall")
+	path, err := resolveBearXcallPath()
 	if err != nil {
-		return nil, fmt.Errorf("xcall not found in PATH: %w", err)
+		return nil, fmt.Errorf("bear-xcall not found: %w", err)
 	}
 	x.xcallPath = path
 
@@ -98,10 +101,37 @@ func New(opts ...Option) (*Xcall, error) {
 	return x, nil
 }
 
-// NewWithPath creates a new Xcall instance with an explicit xcall path (skips LookPath).
+// resolveBearXcallPath finds the bear-xcall binary inside the .app bundle.
+// It first checks next to the running executable, then falls back to PATH.
+func resolveBearXcallPath() (string, error) {
+	// Try next to the running executable (e.g., bin/bear-xcall.app/Contents/MacOS/bear-xcall).
+	exe, err := os.Executable()
+	if err == nil {
+		binDir := filepath.Dir(exe)
+		appBinary := filepath.Join(binDir, "bear-xcall.app", "Contents", "MacOS", "bear-xcall")
+		if _, err := os.Stat(appBinary); err == nil {
+			return appBinary, nil
+		}
+	}
+
+	// Fallback: look for bear-xcall in PATH.
+	path, err := exec.LookPath("bear-xcall")
+	if err != nil {
+		return "", fmt.Errorf("bear-xcall.app not found next to executable and not in PATH: %w", err)
+	}
+	return path, nil
+}
+
+// NewWithPath creates a new Xcall instance with an explicit path (skips LookPath).
+// If the path ends with ".app", it resolves to the binary inside Contents/MacOS/.
 func NewWithPath(xcallPath string, opts ...Option) *Xcall {
+	resolved := xcallPath
+	if strings.HasSuffix(xcallPath, ".app") {
+		resolved = filepath.Join(xcallPath, "Contents", "MacOS", "bear-xcall")
+	}
+
 	x := &Xcall{
-		xcallPath: xcallPath,
+		xcallPath: resolved,
 		executor:  &defaultExecutor{},
 		logger:    slog.Default(),
 	}
