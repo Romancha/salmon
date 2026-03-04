@@ -47,9 +47,9 @@
 ## Implementation Steps
 
 ### Task 1: Add dependencies and create ErrorResponse type
-- [ ] run `go get github.com/swaggo/http-swagger/v2` to add http-swagger dependency
-- [ ] create `internal/api/swagger_types.go` with `ErrorResponse` struct (`Error string` with `json:"error"` and `example` tags)
-- [ ] run `make test` — must pass before next task
+- [x] run `go get github.com/swaggo/http-swagger/v2` to add http-swagger dependency
+- [x] create `internal/api/swagger_types.go` with `ErrorResponse` struct (`Error string` with `json:"error"` and `example` tags)
+- [x] run `make test` — must pass before next task
 
 ### Task 2: Add API info annotations and extract healthCheck
 - [ ] add general API annotations above `main()` in `cmd/hub/main.go` (`@title`, `@version`, `@description`, `@BasePath`, `@securityDefinitions.apikey BearerAuth`)
