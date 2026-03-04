@@ -58,19 +58,19 @@
 - [x] Verify workflow syntax with `actionlint` or similar
 
 ### Task 3: Add code signing and notarization to release workflow
-- [ ] Add GitHub secrets documentation/checklist:
+- [x] Add GitHub secrets documentation/checklist:
   - `APPLE_CERTIFICATE` — base64-encoded Developer ID Application .p12
   - `APPLE_CERTIFICATE_PASSWORD` — .p12 password
   - `APPLE_TEAM_ID` — Apple Team ID
   - `APPLE_ID` — Apple ID email for notarization
   - `APPLE_ID_PASSWORD` — app-specific password for notarytool
-- [ ] Add workflow step: import certificate into temporary keychain
-- [ ] Add workflow step: sign `bear-bridge` binary with Developer ID (`codesign --sign "Developer ID Application: ..." --options runtime`)
-- [ ] Add workflow step: sign `bear-xcall.app` with Developer ID + entitlements (same as Makefile install-bridge)
-- [ ] Add workflow step: create zip for notarization, submit via `xcrun notarytool submit --wait`
-- [ ] Add workflow step: staple notarization ticket via `xcrun stapler staple`
-- [ ] Add workflow step: verify signatures with `codesign --verify --deep --strict`
-- [ ] Run tests — must pass before next task
+- [x] Add workflow step: import certificate into temporary keychain
+- [x] Add workflow step: sign `bear-bridge` binary with Developer ID (`codesign --sign "Developer ID Application: ..." --options runtime`)
+- [x] Add workflow step: sign `bear-xcall.app` with Developer ID + entitlements (same as Makefile install-bridge)
+- [x] Add workflow step: create zip for notarization, submit via `xcrun notarytool submit --wait`
+- [x] Add workflow step: staple notarization ticket via `xcrun stapler staple`
+- [x] Add workflow step: verify signatures with `codesign --verify --deep --strict`
+- [x] Run tests — must pass before next task
 
 ### Task 4: Add GitHub Release publishing step
 - [ ] Add workflow step: create final archive after signing/notarization

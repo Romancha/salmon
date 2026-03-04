@@ -1,3 +1,18 @@
+# Release Bridge workflow — builds, signs, and notarizes bear-bridge + bear-xcall.app
+#
+# Required GitHub Secrets:
+#   APPLE_CERTIFICATE          — Base64-encoded Developer ID Application .p12 certificate
+#   APPLE_CERTIFICATE_PASSWORD — Password for the .p12 certificate
+#   APPLE_TEAM_ID              — Apple Developer Team ID (e.g., "XXXXXXXXXX")
+#   APPLE_ID                   — Apple ID email for notarytool authentication
+#   APPLE_ID_PASSWORD          — App-specific password for notarytool (generate at appleid.apple.com)
+#
+# Setup checklist:
+#   1. Export Developer ID Application certificate as .p12 from Keychain Access
+#   2. Base64-encode it: base64 -i cert.p12 | pbcopy
+#   3. Create an app-specific password at https://appleid.apple.com/account/manage
+#   4. Add all five secrets in GitHub repo → Settings → Secrets and variables → Actions
+
 name: Release Bridge
 
 on:
@@ -30,6 +45,96 @@ jobs:
           swiftc -o bin/bear-xcall.app/Contents/MacOS/bear-xcall tools/bear-xcall/main.swift
           cp tools/bear-xcall/Info.plist bin/bear-xcall.app/Contents/
 
+      - name: Import code signing certificate
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -hex 32)"
+
+          # Create temporary keychain
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          # Import certificate
+          CERT_PATH="$RUNNER_TEMP/certificate.p12"
+          echo "$APPLE_CERTIFICATE" | base64 --decode > "$CERT_PATH"
+          security import "$CERT_PATH" \
+            -P "$APPLE_CERTIFICATE_PASSWORD" \
+            -A \
+            -t cert \
+            -f pkcs12 \
+            -k "$KEYCHAIN_PATH"
+          rm -f "$CERT_PATH"
+
+          # Allow codesign to access the keychain without prompts
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          # Add temporary keychain to search list (word splitting intentional)
+          EXISTING_KEYCHAINS="$(security list-keychains -d user | tr -d '"' | tr '\n' ' ')"
+          # shellcheck disable=SC2086
+          security list-keychains -d user -s "$KEYCHAIN_PATH" $EXISTING_KEYCHAINS
+
+          echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
+
+      - name: Sign bear-bridge binary
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          codesign --force --sign "Developer ID Application: ($APPLE_TEAM_ID)" \
+            --options runtime \
+            --timestamp \
+            bin/bear-bridge
+
+      - name: Sign bear-xcall.app
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          codesign --force --deep --sign "Developer ID Application: ($APPLE_TEAM_ID)" \
+            --entitlements tools/bear-xcall/entitlements.plist \
+            --options runtime \
+            --timestamp \
+            bin/bear-xcall.app
+
+      - name: Notarize binaries
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          # Create a zip containing both signed artifacts for notarization
+          NOTARIZE_ZIP="$RUNNER_TEMP/notarize.zip"
+          ditto -c -k --keepParent bin/bear-bridge "$RUNNER_TEMP/bear-bridge.zip"
+          ditto -c -k --keepParent bin/bear-xcall.app "$RUNNER_TEMP/bear-xcall.zip"
+
+          # Combine into a single zip for submission
+          mkdir -p "$RUNNER_TEMP/notarize-payload"
+          cp bin/bear-bridge "$RUNNER_TEMP/notarize-payload/"
+          cp -R bin/bear-xcall.app "$RUNNER_TEMP/notarize-payload/"
+          ditto -c -k "$RUNNER_TEMP/notarize-payload" "$NOTARIZE_ZIP"
+
+          # Submit for notarization and wait
+          xcrun notarytool submit "$NOTARIZE_ZIP" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_ID_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+
+      - name: Staple notarization ticket
+        run: |
+          # Stapling only works on .app bundles and disk images, not standalone binaries
+          xcrun stapler staple bin/bear-xcall.app
+
+      - name: Verify signatures
+        run: |
+          echo "Verifying bear-bridge signature..."
+          codesign --verify --deep --strict --verbose=2 bin/bear-bridge
+
+          echo "Verifying bear-xcall.app signature..."
+          codesign --verify --deep --strict --verbose=2 bin/bear-xcall.app
+
       - name: Create release archive
         run: |
           VERSION=${{ steps.version.outputs.version }}
@@ -49,3 +154,10 @@ jobs:
           name: bridge-darwin-arm64
           path: ${{ env.ARCHIVE_NAME }}
           retention-days: 5
+
+      - name: Cleanup keychain
+        if: always()
+        run: |
+          if [ -f "$KEYCHAIN_PATH" ]; then
+            security delete-keychain "$KEYCHAIN_PATH"
+          fi
