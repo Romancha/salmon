@@ -483,6 +483,81 @@ func TestTrashNote_Encrypted403(t *testing.T) {
 	assert.Equal(t, http.StatusForbidden, resp.StatusCode)
 }
 
+// --- Archive tests ---
+
+func TestArchiveNote_Success(t *testing.T) {
+	ts, s := setupServer(t)
+
+	bearID := "bear-archive-abc"
+	require.NoError(t, s.CreateNote(t.Context(), &models.Note{
+		ID: "note-arch", Title: "To Archive", BearID: &bearID,
+	}))
+
+	resp := doRequest(t, ts, http.MethodPost, "/api/notes/note-arch/archive", nil, consumerToken,
+		map[string]string{"Idempotency-Key": "key-arch-1"})
+
+	result := readBody(t, resp)
+	assert.Equal(t, http.StatusAccepted, resp.StatusCode)
+	assert.Equal(t, "pending_to_bear", result["sync_status"])
+}
+
+func TestArchiveNote_Encrypted403(t *testing.T) {
+	ts, s := setupServer(t)
+
+	require.NoError(t, s.CreateNote(t.Context(), &models.Note{
+		ID: "enc-arch", Title: "Encrypted", Encrypted: 1,
+	}))
+
+	resp := doRequest(t, ts, http.MethodPost, "/api/notes/enc-arch/archive", nil, consumerToken,
+		map[string]string{"Idempotency-Key": "key-arch-enc"})
+	defer resp.Body.Close() //nolint:errcheck // test
+
+	assert.Equal(t, http.StatusForbidden, resp.StatusCode)
+}
+
+func TestArchiveNote_NoBearID_409(t *testing.T) {
+	ts, s := setupServer(t)
+
+	require.NoError(t, s.CreateNote(t.Context(), &models.Note{
+		ID: "note-arch-nobear", Title: "Pending Note", SyncStatus: "pending_to_bear",
+	}))
+
+	resp := doRequest(t, ts, http.MethodPost, "/api/notes/note-arch-nobear/archive", nil, consumerToken,
+		map[string]string{"Idempotency-Key": "key-arch-nobear"})
+	defer resp.Body.Close() //nolint:errcheck // test
+
+	assert.Equal(t, http.StatusConflict, resp.StatusCode)
+}
+
+func TestArchiveNote_ConflictState_409(t *testing.T) {
+	ts, s := setupServer(t)
+
+	bearID := "bear-arch-conflict"
+	require.NoError(t, s.CreateNote(t.Context(), &models.Note{
+		ID: "note-arch-conflict", Title: "Conflict Note", BearID: &bearID, SyncStatus: "conflict",
+	}))
+
+	resp := doRequest(t, ts, http.MethodPost, "/api/notes/note-arch-conflict/archive", nil, consumerToken,
+		map[string]string{"Idempotency-Key": "key-arch-conflict"})
+	defer resp.Body.Close() //nolint:errcheck // test
+
+	assert.Equal(t, http.StatusConflict, resp.StatusCode)
+}
+
+func TestArchiveNote_MissingIdempotencyKey_400(t *testing.T) {
+	ts, s := setupServer(t)
+
+	bearID := "bear-arch-nokey"
+	require.NoError(t, s.CreateNote(t.Context(), &models.Note{
+		ID: "note-arch-nokey", Title: "Note", BearID: &bearID,
+	}))
+
+	resp := doRequest(t, ts, http.MethodPost, "/api/notes/note-arch-nokey/archive", nil, consumerToken, nil)
+	defer resp.Body.Close() //nolint:errcheck // test
+
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+}
+
 // --- Tags tests ---
 
 func TestListTags_Empty(t *testing.T) {

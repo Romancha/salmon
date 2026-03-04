@@ -176,7 +176,7 @@ func (s *Server) createNote(w http.ResponseWriter, r *http.Request) {
 		ID:            generateID(),
 		Title:         req.Title,
 		Body:          req.Body,
-		SyncStatus:    "pending_to_bear",
+		SyncStatus:    syncStatusPendingToBear,
 		HubModifiedAt: now,
 		CreatedAt:     now,
 		ModifiedAt:    now,
@@ -293,7 +293,7 @@ func (s *Server) updateNote(w http.ResponseWriter, r *http.Request) {
 		note.Body = req.Body
 	}
 
-	note.SyncStatus = "pending_to_bear"
+	note.SyncStatus = syncStatusPendingToBear
 	note.HubModifiedAt = now
 	// Do NOT overwrite ModifiedAt here — it must retain the Bear-sourced value
 	// so that conflict detection in updateExistingNote can compare correctly.
@@ -386,7 +386,7 @@ func (s *Server) trashNote(w http.ResponseWriter, r *http.Request) {
 
 	note.Trashed = 1
 	note.TrashedAt = now
-	note.SyncStatus = "pending_to_bear"
+	note.SyncStatus = syncStatusPendingToBear
 	note.HubModifiedAt = now
 
 	if err := s.store.UpdateNote(r.Context(), note); err != nil {
@@ -417,6 +417,77 @@ func (s *Server) trashNote(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, note)
+}
+
+func (s *Server) archiveNote(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+
+	note, err := s.store.GetNote(r.Context(), id)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to get note")
+		return
+	}
+
+	if note == nil {
+		writeError(w, http.StatusNotFound, "note not found")
+		return
+	}
+
+	if note.Encrypted == 1 {
+		writeError(w, http.StatusForbidden, "encrypted notes are read-only")
+		return
+	}
+
+	if note.BearID == nil || *note.BearID == "" {
+		writeError(w, http.StatusConflict, "note not yet synced to Bear; retry after initial sync completes")
+		return
+	}
+
+	if note.SyncStatus == syncStatusConflict {
+		writeError(w, http.StatusConflict, "note has unresolved conflicts; resolve conflicts before archiving")
+		return
+	}
+
+	idempotencyKey := r.Header.Get("Idempotency-Key")
+	consumerID := ConsumerIDFromContext(r.Context())
+
+	if idempotencyKey != "" {
+		existing, err := s.store.GetQueueItemByIdempotencyKey(r.Context(), idempotencyKey, consumerID)
+		if isRetryableQueueItem(existing, err) {
+			writeJSON(w, http.StatusOK, note)
+			return
+		}
+	}
+
+	now := time.Now().UTC().Format(time.RFC3339)
+
+	oldSyncStatus := note.SyncStatus
+	oldHubModifiedAt := note.HubModifiedAt
+
+	note.SyncStatus = syncStatusPendingToBear
+	note.HubModifiedAt = now
+
+	if err := s.store.UpdateNote(r.Context(), note); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to update note")
+		return
+	}
+
+	archivePayload := map[string]string{"bear_id": *note.BearID}
+	payload, _ := json.Marshal(archivePayload) //nolint:errcheck // cannot fail
+
+	if _, err := s.store.EnqueueWrite(
+		r.Context(), idempotencyKey, "archive", note.ID, string(payload), consumerID,
+	); err != nil {
+		note.SyncStatus = oldSyncStatus
+		note.HubModifiedAt = oldHubModifiedAt
+		if restoreErr := s.store.UpdateNote(r.Context(), note); restoreErr != nil {
+			logNoteRestoreError(note.ID, err, restoreErr)
+		}
+		writeError(w, http.StatusInternalServerError, "failed to enqueue write")
+		return
+	}
+
+	writeJSON(w, http.StatusAccepted, note)
 }
 
 func (s *Server) addFile(w http.ResponseWriter, r *http.Request) {

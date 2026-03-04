@@ -27,6 +27,7 @@ func ConsumerIDFromContext(ctx context.Context) string {
 }
 
 const syncStatusConflict = "conflict"
+const syncStatusPendingToBear = "pending_to_bear"
 
 // Server holds the HTTP handler and dependencies.
 type Server struct {
@@ -70,6 +71,8 @@ func NewServer(s store.Store, consumerTokens map[string]string, bridgeToken, att
 			r.Route("/{noteID}/tags", func(r chi.Router) {
 				r.With(idempotencyRequired).Post("/", srv.addTag)
 			})
+
+			r.With(idempotencyRequired).Post("/{id}/archive", srv.archiveNote)
 
 			r.Route("/{noteID}/attachments", func(r chi.Router) {
 				r.With(idempotencyRequired, bodyLimitMiddleware(10<<20)).Post("/", srv.addFile)

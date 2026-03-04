@@ -142,14 +142,14 @@
 - [x] run tests: `make test` — must pass before next task
 
 ### Task 10: Consumer API endpoint — archive note
-- [ ] add `archiveNote` handler in `internal/api/notes_handler.go` (same pattern as `trashNote`): validate note, set `sync_status="pending_to_bear"`, enqueue `action="archive"` with payload `{bear_id}`, return 202
-- [ ] register `POST /notes/{noteID}/archive` route with `idempotencyRequired` in `internal/api/server.go`
-- [ ] add test: success — 202
-- [ ] add test: encrypted note → 403
-- [ ] add test: no bear_id → 409
-- [ ] add test: conflict state → 409
-- [ ] add test: missing idempotency key → 400
-- [ ] run tests: `make test` — must pass before next task
+- [x] add `archiveNote` handler in `internal/api/notes_handler.go` (same pattern as `trashNote`): validate note, set `sync_status="pending_to_bear"`, enqueue `action="archive"` with payload `{bear_id}`, return 202
+- [x] register `POST /notes/{noteID}/archive` route with `idempotencyRequired` in `internal/api/server.go`
+- [x] add test: success — 202
+- [x] add test: encrypted note → 403
+- [x] add test: no bear_id → 409
+- [x] add test: conflict state → 409
+- [x] add test: missing idempotency key → 400
+- [x] run tests: `make test` — must pass before next task
 
 ### Task 11: Consumer API endpoints — rename & delete tag
 - [ ] add `renameTag` handler in `internal/api/tags_handler.go`: validate tag exists, parse `{new_name}` from body, enqueue `action="rename_tag"` with payload `{name, new_name}`, return 202
