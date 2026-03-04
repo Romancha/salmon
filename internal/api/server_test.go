@@ -121,6 +121,27 @@ func TestHealthCheck(t *testing.T) {
 	assert.Equal(t, "ok", body["status"])
 }
 
+// --- Swagger UI tests ---
+
+func TestSwaggerUI_WithConsumerAuth(t *testing.T) {
+	ts, _ := setupServer(t)
+
+	resp := doRequest(t, ts, http.MethodGet, "/api/docs/index.html", nil, consumerToken, nil)
+	defer resp.Body.Close() //nolint:errcheck // test
+
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Contains(t, resp.Header.Get("Content-Type"), "text/html")
+}
+
+func TestSwaggerUI_WithoutAuth(t *testing.T) {
+	ts, _ := setupServer(t)
+
+	resp := doRequest(t, ts, http.MethodGet, "/api/docs/index.html", nil, "", nil)
+	defer resp.Body.Close() //nolint:errcheck // test
+
+	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+}
+
 // --- Auth tests ---
 
 func TestAuth_MissingHeader(t *testing.T) {

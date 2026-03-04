@@ -11,7 +11,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	httpSwagger "github.com/swaggo/http-swagger/v2"
 
+	_ "github.com/romancha/bear-sync/internal/api/docs"
 	"github.com/romancha/bear-sync/internal/mapper"
 	"github.com/romancha/bear-sync/internal/store"
 )
@@ -108,6 +110,13 @@ func NewServer(s store.Store, consumerTokens map[string]string, bridgeToken, att
 				r.With(bodyLimitMiddleware(100<<20)).Post("/attachments/{id}", srv.syncUploadAttachment)
 				r.Get("/attachments/{id}", srv.syncDownloadAttachment)
 			})
+		})
+
+		r.Route("/docs", func(r chi.Router) {
+			r.Use(srv.authMiddleware("consumer"))
+			r.Get("/*", httpSwagger.Handler(
+				httpSwagger.URL("/api/docs/doc.json"),
+			))
 		})
 	})
 

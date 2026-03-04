@@ -84,16 +84,16 @@
 - [x] run `make test` — must pass before next task
 
 ### Task 6: Mount Swagger UI and update Makefile
-- [ ] add `httpSwagger "github.com/swaggo/http-swagger/v2"` and `_ "github.com/romancha/bear-sync/internal/api/docs"` imports to `server.go`
-- [ ] mount Swagger UI route inside `r.Route("/api", ...)` block after `/sync` route: `r.Route("/docs", ...)` with `srv.authMiddleware("consumer")` and `httpSwagger.Handler(httpSwagger.URL("/api/docs/doc.json"))`
-- [ ] add `SWAG=$(GOBIN)/swag` to Makefile tool binaries
-- [ ] add `swagger` target: `$(SWAG) init -g cmd/hub/main.go --output internal/api/docs --parseInternal`
-- [ ] add `go install github.com/swaggo/swag/v2/cmd/swag@latest` to `tools` target
-- [ ] add `swagger` to `.PHONY` and `help`
-- [ ] run `make tools` to install swag CLI
-- [ ] run `make swagger` to generate `internal/api/docs/{docs.go,swagger.json,swagger.yaml}`
-- [ ] write test for Swagger UI route (returns 200 with consumer auth)
-- [ ] run `make test` — must pass before next task
+- [x] add `httpSwagger "github.com/swaggo/http-swagger/v2"` and `_ "github.com/romancha/bear-sync/internal/api/docs"` imports to `server.go`
+- [x] mount Swagger UI route inside `r.Route("/api", ...)` block after `/sync` route: `r.Route("/docs", ...)` with `srv.authMiddleware("consumer")` and `httpSwagger.Handler(httpSwagger.URL("/api/docs/doc.json"))`
+- [x] add `SWAG=$(GOBIN)/swag` to Makefile tool binaries
+- [x] add `swagger` target: `$(SWAG) init -g cmd/hub/main.go --output internal/api/docs --parseInternal`
+- [x] add `go install github.com/swaggo/swag/v2/cmd/swag@latest` to `tools` target
+- [x] add `swagger` to `.PHONY` and `help`
+- [x] run `make tools` to install swag CLI
+- [x] run `make swagger` to generate `internal/api/docs/{docs.go,swagger.json,swagger.yaml}`
+- [x] write test for Swagger UI route (returns 200 with consumer auth)
+- [x] run `make test` — must pass before next task
 
 ### Task 7: Create quick start guide
 - [ ] create `docs/consumer-api.md` with: auth header format, base URL, idempotency requirement, curl examples (list notes, get note, create note, search notes, sync status), write flow explanation, error codes table, link to Swagger UI

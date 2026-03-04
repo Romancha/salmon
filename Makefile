@@ -1,4 +1,4 @@
-.PHONY: build build-xcall test test-coverage test-race test-xcall lint fmt tidy clean generate tools help all install-bridge uninstall-bridge
+.PHONY: build build-xcall test test-coverage test-race test-xcall lint fmt tidy clean generate tools swagger help all install-bridge uninstall-bridge
 
 BINARY_HUB=bear-sync-hub
 BINARY_BRIDGE=bear-bridge
@@ -26,6 +26,7 @@ GOLANGCI_LINT=$(GOBIN)/golangci-lint
 GOFUMPT=$(GOBIN)/gofumpt
 GOIMPORTS=$(GOBIN)/goimports
 MOQ=$(GOBIN)/moq
+SWAG=$(GOBIN)/swag
 
 # Default target
 all: test build
@@ -52,6 +53,7 @@ help:
 	@echo "    make tidy           - go mod tidy"
 	@echo "    make clean          - Clean build artifacts"
 	@echo "    make generate       - Run go generate (moq)"
+	@echo "    make swagger        - Generate Swagger docs (swag init)"
 	@echo "    make tools          - Install dev tools"
 
 build: build-xcall
@@ -117,6 +119,10 @@ generate:
 	@echo "Generating mocks..."
 	go generate ./...
 
+swagger:
+	@echo "Generating Swagger docs..."
+	$(SWAG) init -g cmd/hub/main.go --output internal/api/docs --parseInternal
+
 # Install dev tools
 tools:
 	@echo "Installing dev tools..."
@@ -124,6 +130,7 @@ tools:
 	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.7.2
 	go install mvdan.cc/gofumpt@latest
 	go install golang.org/x/tools/cmd/goimports@latest
+	go install github.com/swaggo/swag/v2/cmd/swag@latest
 
 install-bridge: build
 ifeq ($(shell uname),Darwin)

@@ -1,0 +1,978 @@
+basePath: /
+definitions:
+  api.ErrorResponse:
+    properties:
+      error:
+        example: descriptive error message
+        type: string
+    type: object
+  api.addTagRequest:
+    properties:
+      tag:
+        example: work/projects
+        type: string
+    type: object
+  api.createNoteRequest:
+    properties:
+      body:
+        example: |-
+          # Meeting Notes
+          Discussed project roadmap.
+        type: string
+      tags:
+        example:
+        - work
+        - meetings
+        items:
+          type: string
+        type: array
+      title:
+        example: Meeting Notes
+        type: string
+    type: object
+  api.renameTagRequest:
+    properties:
+      new_name:
+        example: work/archived-projects
+        type: string
+    type: object
+  api.syncStatusResponse:
+    properties:
+      conflict_count:
+        example: 0
+        type: integer
+      conflict_note_ids:
+        items:
+          type: string
+        type: array
+      initial_sync_complete:
+        example: "true"
+        type: string
+      last_push_at:
+        example: "2025-01-15T10:25:00Z"
+        type: string
+      last_sync_at:
+        example: "2025-01-15T10:30:00Z"
+        type: string
+      queue_size:
+        example: 3
+        type: integer
+    type: object
+  api.updateNoteRequest:
+    properties:
+      body:
+        example: |-
+          # Updated Content
+          New body text.
+        type: string
+      title:
+        example: Updated Title
+        type: string
+    type: object
+  models.Backlink:
+    properties:
+      bear_id:
+        type: string
+      bear_raw:
+        type: string
+      id:
+        type: string
+      linked_by_id:
+        description: note that contains the link
+        type: string
+      linking_to_id:
+        description: note being linked to
+        type: string
+      location:
+        type: integer
+      modified_at:
+        type: string
+      title:
+        type: string
+      version:
+        type: integer
+    type: object
+  models.Note:
+    properties:
+      archived:
+        description: Flags
+        type: integer
+      archived_at:
+        type: string
+      backlinks:
+        items:
+          $ref: '#/definitions/models.Backlink'
+        type: array
+      bear_id:
+        type: string
+      bear_raw:
+        type: string
+      body:
+        type: string
+      conflict_id:
+        type: string
+      conflict_id_date:
+        type: string
+      created_at:
+        description: Dates (ISO 8601)
+        type: string
+      encrypted:
+        type: integer
+      encrypted_at:
+        type: string
+      encrypted_data:
+        items:
+          type: integer
+        type: array
+      encryption_id:
+        type: string
+      has_files:
+        type: integer
+      has_images:
+        type: integer
+      has_source_code:
+        type: integer
+      hub_modified_at:
+        type: string
+      id:
+        type: string
+      last_editing_device:
+        description: Metadata
+        type: string
+      locked:
+        type: integer
+      locked_at:
+        type: string
+      modified_at:
+        type: string
+      order_date:
+        type: string
+      permanently_deleted:
+        type: integer
+      pinned:
+        type: integer
+      pinned_at:
+        type: string
+      shown_in_today:
+        type: integer
+      skip_sync:
+        type: integer
+      subtitle:
+        type: string
+      sync_status:
+        description: Hub-only fields
+        type: string
+      tags:
+        description: Joined data (populated by queries, not stored directly)
+        items:
+          $ref: '#/definitions/models.Tag'
+        type: array
+      title:
+        type: string
+      todo_completed:
+        type: integer
+      todo_incompleted:
+        type: integer
+      trashed:
+        type: integer
+      trashed_at:
+        type: string
+      version:
+        type: integer
+    type: object
+  models.Tag:
+    properties:
+      bear_id:
+        type: string
+      bear_raw:
+        type: string
+      encrypted:
+        type: integer
+      encrypted_at:
+        type: string
+      hide_subtags_notes:
+        type: integer
+      hide_subtags_notes_at:
+        type: string
+      id:
+        type: string
+      is_root:
+        type: integer
+      modified_at:
+        description: Dates (ISO 8601)
+        type: string
+      pinned:
+        type: integer
+      pinned_at:
+        type: string
+      pinned_notes_at:
+        type: string
+      sorting:
+        type: integer
+      sorting_at:
+        type: string
+      sorting_direction:
+        type: integer
+      sorting_direction_at:
+        type: string
+      tag_con:
+        type: string
+      tag_con_date:
+        type: string
+      title:
+        type: string
+      version:
+        type: integer
+    type: object
+  models.WriteQueueItem:
+    properties:
+      action:
+        description: create | update | add_tag | trash | add_file | archive | rename_tag
+          | delete_tag
+        type: string
+      applied_at:
+        type: string
+      consumer_id:
+        type: string
+      created_at:
+        type: string
+      error:
+        type: string
+      id:
+        type: integer
+      idempotency_key:
+        type: string
+      lease_until:
+        type: string
+      note_id:
+        type: string
+      note_sync_status:
+        description: |-
+          NoteSyncStatus is populated during lease to indicate the associated note's sync_status.
+          Not stored in DB — filled by JOIN during LeaseQueueItems.
+        type: string
+      payload:
+        description: JSON with operation data
+        type: string
+      processing_by:
+        type: string
+      status:
+        description: pending | processing | applied | failed
+        type: string
+    type: object
+info:
+  contact: {}
+  description: API for reading and writing Bear notes via the hub.
+  title: Bear Sync Hub API
+  version: "1.0"
+paths:
+  /api/attachments/{id}:
+    get:
+      description: Downloads the attachment file by ID. Returns the file with Content-Disposition
+        header.
+      parameters:
+      - description: Attachment ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/octet-stream
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get an attachment
+      tags:
+      - Attachments
+  /api/notes:
+    get:
+      description: Returns a list of notes with optional filtering. Body field is
+        stripped from list responses.
+      parameters:
+      - description: Filter by tag name
+        in: query
+        name: tag
+        type: string
+      - description: Sort column
+        enum:
+        - modified_at
+        - created_at
+        - title
+        in: query
+        name: sort
+        type: string
+      - description: Sort order
+        enum:
+        - asc
+        - desc
+        in: query
+        name: order
+        type: string
+      - description: Filter by trashed status
+        in: query
+        name: trashed
+        type: boolean
+      - description: Filter by encrypted status
+        in: query
+        name: encrypted
+        type: boolean
+      - description: Max results (max 200)
+        in: query
+        name: limit
+        type: integer
+      - description: Offset for pagination
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.Note'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List notes
+      tags:
+      - Notes
+    post:
+      consumes:
+      - application/json
+      description: Creates a new note and enqueues it for sync to Bear. Requires Idempotency-Key
+        header.
+      parameters:
+      - description: Idempotency key for deduplication
+        in: header
+        name: Idempotency-Key
+        required: true
+        type: string
+      - description: Note to create
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.createNoteRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.Note'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create a note
+      tags:
+      - Notes
+  /api/notes/{id}:
+    delete:
+      description: Moves a note to trash. Requires Idempotency-Key header.
+      parameters:
+      - description: Note ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Idempotency key for deduplication
+        in: header
+        name: Idempotency-Key
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Note'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Trash a note
+      tags:
+      - Notes
+    get:
+      description: Returns a single note by ID, including body, tags, and backlinks.
+      parameters:
+      - description: Note ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Note'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get a note
+      tags:
+      - Notes
+    put:
+      consumes:
+      - application/json
+      description: Updates an existing note's title and/or body. Body is required.
+        Requires Idempotency-Key header.
+      parameters:
+      - description: Note ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Idempotency key for deduplication
+        in: header
+        name: Idempotency-Key
+        required: true
+        type: string
+      - description: Fields to update
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.updateNoteRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Note'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update a note
+      tags:
+      - Notes
+  /api/notes/{id}/archive:
+    post:
+      description: Archives a note. Requires Idempotency-Key header.
+      parameters:
+      - description: Note ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Idempotency key for deduplication
+        in: header
+        name: Idempotency-Key
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Note'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Archive a note
+      tags:
+      - Notes
+  /api/notes/{noteID}/attachments:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Uploads a file and attaches it to a note. Max file size is 5 MB.
+        Requires Idempotency-Key header.
+      parameters:
+      - description: Note ID
+        in: path
+        name: noteID
+        required: true
+        type: string
+      - description: Idempotency key for deduplication
+        in: header
+        name: Idempotency-Key
+        required: true
+        type: string
+      - description: File to attach
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/models.WriteQueueItem'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "413":
+          description: Request Entity Too Large
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Attach a file to a note
+      tags:
+      - Notes
+  /api/notes/{noteID}/backlinks:
+    get:
+      description: Returns all notes that link to the specified note.
+      parameters:
+      - description: Note ID
+        in: path
+        name: noteID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.Backlink'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List backlinks for a note
+      tags:
+      - Backlinks
+  /api/notes/{noteID}/tags:
+    post:
+      consumes:
+      - application/json
+      description: Adds a tag to an existing note and enqueues the action for sync
+        to Bear. Requires Idempotency-Key header.
+      parameters:
+      - description: Note ID
+        in: path
+        name: noteID
+        required: true
+        type: string
+      - description: Idempotency key for deduplication
+        in: header
+        name: Idempotency-Key
+        required: true
+        type: string
+      - description: Tag to add
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.addTagRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.WriteQueueItem'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Add a tag to a note
+      tags:
+      - Tags
+  /api/notes/search:
+    get:
+      description: Full-text search across note titles and bodies using FTS5.
+      parameters:
+      - description: Search query
+        in: query
+        name: q
+        required: true
+        type: string
+      - description: Filter by tag name
+        in: query
+        name: tag
+        type: string
+      - description: Max results (default 20, max 200)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.Note'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Search notes
+      tags:
+      - Notes
+  /api/sync/status:
+    get:
+      description: Returns the current sync status including last sync times, queue
+        size, and conflict info.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.syncStatusResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get sync status
+      tags:
+      - Sync
+  /api/tags:
+    get:
+      description: Returns all tags synced from Bear.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.Tag'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List tags
+      tags:
+      - Tags
+  /api/tags/{id}:
+    delete:
+      description: Deletes a tag from all notes and enqueues the action for sync to
+        Bear. Requires Idempotency-Key header.
+      parameters:
+      - description: Tag ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Idempotency key for deduplication
+        in: header
+        name: Idempotency-Key
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/models.WriteQueueItem'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete a tag
+      tags:
+      - Tags
+    put:
+      consumes:
+      - application/json
+      description: Renames a tag across all notes and enqueues the action for sync
+        to Bear. Requires Idempotency-Key header.
+      parameters:
+      - description: Tag ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Idempotency key for deduplication
+        in: header
+        name: Idempotency-Key
+        required: true
+        type: string
+      - description: New tag name
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.renameTagRequest'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/models.WriteQueueItem'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Rename a tag
+      tags:
+      - Tags
+  /healthz:
+    get:
+      description: Returns health status of the hub server
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Health check
+      tags:
+      - System
+securityDefinitions:
+  BearerAuth:
+    description: 'Consumer Bearer token. Format: "Bearer {token}"'
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
