@@ -254,7 +254,7 @@ func runBearTests() {
     print("\n--- Bear Operation Tests (requires Bear running + .app bundle) ---")
 
     guard canRunBearTests() else {
-        testsSkipped += 4
+        testsSkipped += 8
         return
     }
 
@@ -306,7 +306,24 @@ func runBearTests() {
         }
         let r = try runBearXcallApp([
             "-url",
-            "bear://x-callback-url/add-tag?id=\(noteID)&tags=bear-xcall-test-tag&show_window=no",
+            "bear://x-callback-url/add-text?id=\(noteID)&tags=bear-xcall-test-tag&show_window=no",
+            "-timeout", "10",
+        ])
+        guard r.exitCode == 0 else {
+            return .failed("exit code \(r.exitCode), stderr: \(r.stderr)")
+        }
+        return .passed
+    }
+
+    runTest("add file to note") {
+        guard let noteID = createdNoteID else {
+            return .skipped("no note ID from create test")
+        }
+        let fileContent = "Hello from bear-xcall test"
+        let base64Data = Data(fileContent.utf8).base64EncodedString()
+        let r = try runBearXcallApp([
+            "-url",
+            "bear://x-callback-url/add-file?id=\(noteID)&filename=test-attachment.txt&file=\(base64Data)&show_window=no&open_note=no",
             "-timeout", "10",
         ])
         guard r.exitCode == 0 else {
@@ -322,6 +339,81 @@ func runBearTests() {
         let r = try runBearXcallApp([
             "-url",
             "bear://x-callback-url/trash?id=\(noteID)&show_window=no",
+            "-timeout", "10",
+        ])
+        guard r.exitCode == 0 else {
+            return .failed("exit code \(r.exitCode), stderr: \(r.stderr)")
+        }
+        return .passed
+    }
+
+    // Archive test: create a separate note, then archive it.
+    var archiveNoteID: String?
+
+    runTest("archive note") {
+        // Create a note specifically for archiving.
+        let createResult = try runBearXcallApp([
+            "-url",
+            "bear://x-callback-url/create?title=BearXcallArchiveTest&text=Archive%20test&tags=bear-xcall-test&show_window=no",
+            "-timeout", "10",
+        ])
+        guard createResult.exitCode == 0,
+              let json = parseJSON(createResult.stdout),
+              let id = json["identifier"] as? String, !id.isEmpty
+        else {
+            return .failed("failed to create note for archive test: exit \(createResult.exitCode), stderr: \(createResult.stderr)")
+        }
+        archiveNoteID = id
+
+        let r = try runBearXcallApp([
+            "-url",
+            "bear://x-callback-url/archive?id=\(id)&show_window=no",
+            "-timeout", "10",
+        ])
+        guard r.exitCode == 0 else {
+            return .failed("exit code \(r.exitCode), stderr: \(r.stderr)")
+        }
+        return .passed
+    }
+
+    runTest("rename tag") {
+        // Rename the test tag, then rename it back.
+        let r = try runBearXcallApp([
+            "-url",
+            "bear://x-callback-url/rename-tag?name=bear-xcall-test-tag&new_name=bear-xcall-test-tag-renamed&show_window=no",
+            "-timeout", "10",
+        ])
+        guard r.exitCode == 0 else {
+            return .failed("exit code \(r.exitCode), stderr: \(r.stderr)")
+        }
+        // Rename back to original.
+        let r2 = try runBearXcallApp([
+            "-url",
+            "bear://x-callback-url/rename-tag?name=bear-xcall-test-tag-renamed&new_name=bear-xcall-test-tag&show_window=no",
+            "-timeout", "10",
+        ])
+        guard r2.exitCode == 0 else {
+            return .failed("rename-back exit code \(r2.exitCode), stderr: \(r2.stderr)")
+        }
+        return .passed
+    }
+
+    runTest("delete tag") {
+        // Create a disposable tag on the archived note, then delete it.
+        if let id = archiveNoteID {
+            let addTag = try runBearXcallApp([
+                "-url",
+                "bear://x-callback-url/add-text?id=\(id)&tags=bear-xcall-test-delete&show_window=no",
+                "-timeout", "10",
+            ])
+            guard addTag.exitCode == 0 else {
+                return .failed("failed to add disposable tag: exit \(addTag.exitCode)")
+            }
+        }
+
+        let r = try runBearXcallApp([
+            "-url",
+            "bear://x-callback-url/delete-tag?name=bear-xcall-test-delete&show_window=no",
             "-timeout", "10",
         ])
         guard r.exitCode == 0 else {

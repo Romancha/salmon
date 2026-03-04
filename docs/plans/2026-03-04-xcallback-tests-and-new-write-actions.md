@@ -192,12 +192,12 @@
 - [x] run tests: `make test` — must pass before next task
 
 ### Task 13: Swift integration tests
-- [ ] add `add-file` test in `runBearTests()`: base64 encode small text → call `/add-file` with created note ID → verify exit 0
-- [ ] add `archive` test in `runBearTests()`: create note → archive via `/archive` → verify exit 0
-- [ ] add `rename-tag` test: rename `bear-xcall-test` → `bear-xcall-test-renamed` → verify exit 0 → rename back
-- [ ] add `delete-tag` test: create tag → delete via `/delete-tag` → verify exit 0
-- [ ] update `testsSkipped` count for Bear operation tests section
-- [ ] run tests: `BEAR_XCALL_BEAR_TESTS=1 make test-xcall` — must pass before next task
+- [x] add `add-file` test in `runBearTests()`: base64 encode small text → call `/add-file` with created note ID → verify exit 0
+- [x] add `archive` test in `runBearTests()`: create note → archive via `/archive` → verify exit 0
+- [x] add `rename-tag` test: rename `bear-xcall-test` → `bear-xcall-test-renamed` → verify exit 0 → rename back
+- [x] add `delete-tag` test: create tag → delete via `/delete-tag` → verify exit 0
+- [x] update `testsSkipped` count for Bear operation tests section
+- [x] run tests: `BEAR_XCALL_BEAR_TESTS=1 make test-xcall` — must pass before next task
 
 ### Task 14: Verify acceptance criteria
 - [ ] verify all 4 new actions implemented end-to-end (consumer API → hub queue → bridge apply → Bear)
