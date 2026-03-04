@@ -11,7 +11,8 @@ Monorepo with two Go binaries for syncing Bear notes with external consumers.
 - internal/beardb/ — Bear SQLite reader (bridge only)
 - internal/hubclient/ — HTTP client for hub API (bridge only)
 - internal/store/ — SQLite store for hub (hub only)
-- internal/api/ — HTTP handlers with chi router (hub only)
+- internal/api/ — HTTP handlers with chi router (hub only); Swagger UI at /api/docs/
+- internal/api/docs/ — generated OpenAPI spec (swag init, committed to repo)
 - internal/xcallback/ — Bear x-callback-url executor via bear-xcall CLI (bridge only)
 - tools/bear-xcall/ — Swift CLI source for bear-xcall .app bundle (macOS only, bridge dependency)
 - deploy/ — deployment configs (systemd unit, launchd plist, Caddyfile)
@@ -28,6 +29,7 @@ Monorepo with two Go binaries for syncing Bear notes with external consumers.
 - make tidy — go mod tidy
 - make build-xcall — build bear-xcall Swift CLI .app bundle (macOS only)
 - make generate — run go generate (moq)
+- make swagger — generate Swagger docs (swag init)
 - make test-xcall — run bear-xcall manual tests (macOS + Bear required)
 
 ## After Making Changes

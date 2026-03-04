@@ -252,6 +252,18 @@ The sample Caddyfile uses rate limiting, which requires the [caddy-ratelimit](ht
 xcaddy build --with github.com/mholt/caddy-ratelimit
 ```
 
+## API Documentation
+
+The hub serves interactive API documentation via Swagger UI at `/api/docs/` (requires consumer auth).
+
+To regenerate the OpenAPI spec after changing handler annotations:
+
+```
+make swagger
+```
+
+For a quick start guide with curl examples and integration details, see [docs/consumer-api.md](docs/consumer-api.md).
+
 ## Development
 
 ```
@@ -262,6 +274,7 @@ make build-xcall   # build bear-xcall .app bundle (macOS only)
 make lint          # run golangci-lint
 make fmt           # format code
 make tidy          # go mod tidy
+make swagger       # generate Swagger docs (swag init)
 ```
 
 ## CI/CD

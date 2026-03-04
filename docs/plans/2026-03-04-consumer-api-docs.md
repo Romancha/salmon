@@ -109,8 +109,8 @@
 - [x] run `make tidy`
 
 ### Task 9: [Final] Update documentation
-- [ ] update README.md if needed (mention Swagger UI endpoint)
-- [ ] update project knowledge docs if new patterns discovered
+- [x] update README.md if needed (mention Swagger UI endpoint)
+- [x] update project knowledge docs if new patterns discovered
 
 ## Technical Details
 
