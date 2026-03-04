@@ -70,9 +70,10 @@ test-race:
 	@echo "Running tests with race detection..."
 	go test -race -timeout=60s -count 1 ./...
 
-test-xcall:
+test-xcall: build-xcall
 ifeq ($(shell uname),Darwin)
 	@echo "Building bear-xcall tests..."
+	@mkdir -p bin
 	swiftc -o bin/bear-xcall-tests tools/bear-xcall/BearXcallTests.swift
 	@echo "Running bear-xcall tests..."
 	bin/bear-xcall-tests

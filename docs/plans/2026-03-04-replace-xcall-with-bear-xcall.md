@@ -104,13 +104,13 @@
 - [x] run tests: `make test` — must pass before next task
 
 ### Task 6: Verify acceptance criteria
-- [ ] verify all requirements from Overview are implemented
-- [ ] verify edge cases are handled (timeout, missing Bear, invalid URL)
-- [ ] run full test suite: `make test`
-- [ ] run tests with race detector: `make test-race`
-- [ ] run manual CLI tests: `make test-xcall` — all tests must pass
-- [ ] run linter: `make lint` — all issues must be fixed
-- [ ] run formatter: `make fmt`
+- [x] verify all requirements from Overview are implemented
+- [x] verify edge cases are handled (timeout, missing Bear, invalid URL)
+- [x] run full test suite: `make test`
+- [x] run tests with race detector: `make test-race`
+- [x] run manual CLI tests: `make test-xcall` — all tests must pass
+- [x] run linter: `make lint` — all issues must be fixed
+- [x] run formatter: `make fmt`
 
 ### Task 7: [Final] Update documentation
 - [ ] update CLAUDE.md to mention bear-xcall instead of xcall
