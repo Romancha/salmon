@@ -177,6 +177,26 @@ func TestUpdate(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "bear error")
 	})
+
+	t.Run("exec error", func(t *testing.T) {
+		executor := &mockExecutor{err: fmt.Errorf("exit status 1")}
+		x := newTestXcall(executor)
+
+		err := x.Update(context.Background(), "tok", "ID", "body")
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "bear-xcall update")
+	})
+
+	t.Run("invalid JSON response", func(t *testing.T) {
+		executor := &mockExecutor{output: []byte("not json")}
+		x := newTestXcall(executor)
+
+		err := x.Update(context.Background(), "tok", "ID", "body")
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid bear-xcall JSON")
+	})
 }
 
 func TestAddTag(t *testing.T) {
@@ -192,7 +212,7 @@ func TestAddTag(t *testing.T) {
 		require.Len(t, executor.calls, 1)
 
 		callURL := executor.calls[0].Args[1]
-		assert.True(t, strings.HasPrefix(callURL, "bear://x-callback-url/add-tag?"))
+		assert.True(t, strings.HasPrefix(callURL, "bear://x-callback-url/add-text?"))
 
 		parsed, err := url.Parse(callURL)
 		require.NoError(t, err)
@@ -201,6 +221,38 @@ func TestAddTag(t *testing.T) {
 		assert.Equal(t, "BEAR-UUID", q.Get("id"))
 		assert.Equal(t, "work/project", q.Get("tags"))
 		assert.Equal(t, "no", q.Get("show_window"))
+	})
+
+	t.Run("bear error", func(t *testing.T) {
+		resp := xcallResult{ErrorCode: 1, ErrorMsg: "not found"}
+		respJSON, _ := json.Marshal(resp)
+		executor := &mockExecutor{output: respJSON}
+		x := newTestXcall(executor)
+
+		err := x.AddTag(context.Background(), "tok", "ID", "tag")
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "bear error")
+	})
+
+	t.Run("exec error", func(t *testing.T) {
+		executor := &mockExecutor{err: fmt.Errorf("exit status 1")}
+		x := newTestXcall(executor)
+
+		err := x.AddTag(context.Background(), "tok", "ID", "tag")
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "bear-xcall add-tag")
+	})
+
+	t.Run("invalid JSON response", func(t *testing.T) {
+		executor := &mockExecutor{output: []byte("not json")}
+		x := newTestXcall(executor)
+
+		err := x.AddTag(context.Background(), "tok", "ID", "tag")
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid bear-xcall JSON")
 	})
 
 	t.Run("special characters in tag", func(t *testing.T) {
@@ -252,6 +304,26 @@ func TestTrash(t *testing.T) {
 
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "bear error")
+	})
+
+	t.Run("exec error", func(t *testing.T) {
+		executor := &mockExecutor{err: fmt.Errorf("exit status 1")}
+		x := newTestXcall(executor)
+
+		err := x.Trash(context.Background(), "tok", "ID")
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "bear-xcall trash")
+	})
+
+	t.Run("invalid JSON response", func(t *testing.T) {
+		executor := &mockExecutor{output: []byte("not json")}
+		x := newTestXcall(executor)
+
+		err := x.Trash(context.Background(), "tok", "ID")
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid bear-xcall JSON")
 	})
 }
 
