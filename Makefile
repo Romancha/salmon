@@ -1,4 +1,4 @@
-.PHONY: build build-xcall test test-coverage test-race test-xcall lint fmt tidy clean generate tools swagger help all install-bridge uninstall-bridge
+.PHONY: build build-xcall test test-coverage test-race test-xcall lint fmt tidy clean generate tools swagger help all install-bridge uninstall-bridge verify-bridge
 
 BINARY_HUB=bear-sync-hub
 BINARY_BRIDGE=bear-bridge
@@ -11,11 +11,32 @@ CODESIGN_IDENTITY ?= -
 
 # Bridge install paths
 PLIST_LABEL=com.romancha.bear-bridge
-PLIST_SRC=deploy/$(PLIST_LABEL).plist
 PLIST_DST=$(HOME)/Library/LaunchAgents/$(PLIST_LABEL).plist
 BRIDGE_BIN_DIR=$(HOME)/bin
 BRIDGE_LOG_DIR=$(HOME)/Library/Logs/bear-bridge
 BRIDGE_CONFIG_DIR=$(HOME)/.config/bear-bridge
+
+# Detect release archive vs repository context.
+# In a release archive there is no go.mod — binaries and configs are at the root.
+ifneq ($(wildcard go.mod),)
+# Repository context — build from source
+INSTALL_BRIDGE_DEPS = build
+BRIDGE_SRC_BIN = bin/$(BINARY_BRIDGE)
+XCALL_SRC_APP = bin/bear-xcall.app
+PLIST_SRC = deploy/$(PLIST_LABEL).plist
+WRAPPER_SRC = deploy/bear-bridge-wrapper.sh
+ENV_EXAMPLE_SRC = deploy/.env.bridge.example
+IS_RELEASE_ARCHIVE = 0
+else
+# Release archive context — pre-built signed binaries
+INSTALL_BRIDGE_DEPS =
+BRIDGE_SRC_BIN = $(BINARY_BRIDGE)
+XCALL_SRC_APP = bear-xcall.app
+PLIST_SRC = $(PLIST_LABEL).plist
+WRAPPER_SRC = bear-bridge-wrapper.sh
+ENV_EXAMPLE_SRC = .env.bridge.example
+IS_RELEASE_ARCHIVE = 1
+endif
 
 # Go tools path
 ifeq (,$(shell go env GOBIN))
@@ -43,6 +64,7 @@ help:
 	@echo "    make build-xcall    - Build bear-xcall Swift CLI .app bundle (macOS only)"
 	@echo "    make install-bridge - Install bridge + launchd agent to ~/bin/ (macOS only)"
 	@echo "    make uninstall-bridge - Uninstall bridge + launchd agent (macOS only)"
+	@echo "    make verify-bridge  - Verify installed bridge code signatures (macOS only)"
 	@echo ""
 	@echo "  Test:"
 	@echo "    make test           - Run all Go tests"
@@ -135,20 +157,29 @@ tools:
 	go install golang.org/x/tools/cmd/goimports@latest
 	go install github.com/swaggo/swag/cmd/swag@v1.16.6
 
-install-bridge: build
+install-bridge: $(INSTALL_BRIDGE_DEPS)
 ifeq ($(shell uname),Darwin)
 	@echo "Installing bear-bridge to $(BRIDGE_BIN_DIR)..."
 	@launchctl bootout gui/$$(id -u)/$(PLIST_LABEL) 2>/dev/null || true
 	@mkdir -p $(BRIDGE_BIN_DIR)
 	@mkdir -p $(BRIDGE_LOG_DIR)
 	@mkdir -p $(BRIDGE_CONFIG_DIR)
-	cp bin/$(BINARY_BRIDGE) $(BRIDGE_BIN_DIR)/
-	cp -R bin/bear-xcall.app $(BRIDGE_BIN_DIR)/
+	cp $(BRIDGE_SRC_BIN) $(BRIDGE_BIN_DIR)/
+	cp -R $(XCALL_SRC_APP) $(BRIDGE_BIN_DIR)/
+ifeq ($(IS_RELEASE_ARCHIVE),1)
+	@if codesign --verify --quiet $(BRIDGE_BIN_DIR)/bear-xcall.app 2>/dev/null; then \
+		echo "bear-xcall.app already signed, skipping re-sign"; \
+	else \
+		echo "Signing bear-xcall.app with identity $(CODESIGN_IDENTITY)..."; \
+		codesign --force --deep --sign "$(CODESIGN_IDENTITY)" --options runtime $(BRIDGE_BIN_DIR)/bear-xcall.app; \
+	fi
+else
 	codesign --force --deep --sign "$(CODESIGN_IDENTITY)" --entitlements tools/bear-xcall/entitlements.plist --options runtime $(BRIDGE_BIN_DIR)/bear-xcall.app
-	cp deploy/bear-bridge-wrapper.sh $(BRIDGE_BIN_DIR)/
+endif
+	cp $(WRAPPER_SRC) $(BRIDGE_BIN_DIR)/bear-bridge-wrapper.sh
 	chmod +x $(BRIDGE_BIN_DIR)/bear-bridge-wrapper.sh
 	@if [ ! -f $(BRIDGE_CONFIG_DIR)/.env.bridge ]; then \
-		cp deploy/.env.bridge.example $(BRIDGE_CONFIG_DIR)/.env.bridge; \
+		cp $(ENV_EXAMPLE_SRC) $(BRIDGE_CONFIG_DIR)/.env.bridge; \
 		echo "Created $(BRIDGE_CONFIG_DIR)/.env.bridge from template"; \
 	else \
 		echo "$(BRIDGE_CONFIG_DIR)/.env.bridge already exists, skipping"; \
@@ -186,5 +217,19 @@ ifeq ($(shell uname),Darwin)
 	@echo "  $(BRIDGE_LOG_DIR)/"
 else
 	@echo "uninstall-bridge is macOS only"
+	@exit 1
+endif
+
+verify-bridge:
+ifeq ($(shell uname),Darwin)
+	@echo "Verifying bear-bridge signature..."
+	codesign --verify --deep --strict --verbose=2 $(BRIDGE_BIN_DIR)/$(BINARY_BRIDGE)
+	@echo ""
+	@echo "Verifying bear-xcall.app signature..."
+	codesign --verify --deep --strict --verbose=2 $(BRIDGE_BIN_DIR)/bear-xcall.app
+	@echo ""
+	@echo "All signatures valid."
+else
+	@echo "verify-bridge is macOS only"
 	@exit 1
 endif

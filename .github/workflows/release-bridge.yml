@@ -154,6 +154,7 @@ jobs:
           cp -R bin/bear-xcall.app "${ARCHIVE_DIR}/"
           cp deploy/com.romancha.bear-bridge.plist "${ARCHIVE_DIR}/"
           cp deploy/bear-bridge-wrapper.sh "${ARCHIVE_DIR}/"
+          cp deploy/.env.bridge.example "${ARCHIVE_DIR}/"
           cp Makefile "${ARCHIVE_DIR}/"
           tar -czf "${ARCHIVE_NAME}" "${ARCHIVE_DIR}"
           echo "ARCHIVE_NAME=${ARCHIVE_NAME}" >> "$GITHUB_ENV"

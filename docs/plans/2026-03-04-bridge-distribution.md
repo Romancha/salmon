@@ -83,12 +83,12 @@
 - [x] Test with a pre-release tag (e.g., `v0.0.1-rc.1`) to validate full pipeline
 
 ### Task 5: Update Makefile install-bridge for downloaded releases
-- [ ] Ensure `make install-bridge` works from extracted archive (not just from repo root)
-- [ ] Update `CODESIGN_IDENTITY` default — skip re-signing for already-signed releases (detect existing signature)
-- [ ] Add `make verify-bridge` target to check signatures are valid
-- [ ] Update documentation in deploy/.env.bridge.example if needed
-- [ ] Write tests for any new Makefile logic
-- [ ] Run tests — must pass before next task
+- [x] Ensure `make install-bridge` works from extracted archive (not just from repo root)
+- [x] Update `CODESIGN_IDENTITY` default — skip re-signing for already-signed releases (detect existing signature)
+- [x] Add `make verify-bridge` target to check signatures are valid
+- [x] Update documentation in deploy/.env.bridge.example if needed
+- [x] Write tests for any new Makefile logic
+- [x] Run tests — must pass before next task
 
 ### Task 6: Verify acceptance criteria
 - [ ] Verify: `git tag v0.x.x && git push --tags` triggers full pipeline
