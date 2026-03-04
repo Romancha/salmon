@@ -14,10 +14,11 @@ type NoteTagPair struct {
 
 // NoteBasicInfo contains minimal note data for write queue verification.
 type NoteBasicInfo struct {
-	UUID    string
-	Title   string
-	Body    string
-	Trashed int64
+	UUID     string
+	Title    string
+	Body     string
+	Trashed  int64
+	Archived int64
 }
 
 // BearDB defines the read-only interface for accessing Bear's SQLite database.

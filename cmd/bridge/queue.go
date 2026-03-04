@@ -38,6 +38,23 @@ type addTagPayload struct {
 	Tag string `json:"tag"`
 }
 
+// addFilePayload is the JSON structure for "add_file" action payloads.
+type addFilePayload struct {
+	AttachmentID string `json:"attachment_id"`
+	Filename     string `json:"filename"`
+}
+
+// renameTagPayload is the JSON structure for "rename_tag" action payloads.
+type renameTagPayload struct {
+	Name    string `json:"name"`
+	NewName string `json:"new_name"`
+}
+
+// deleteTagPayload is the JSON structure for "delete_tag" action payloads.
+type deleteTagPayload struct {
+	Name string `json:"name"`
+}
+
 // processQueue leases write queue items from the hub and applies them to Bear via bear-xcall.
 func (b *Bridge) processQueue(ctx context.Context) error {
 	if b.xcall == nil {
@@ -100,6 +117,14 @@ func (b *Bridge) applyQueueItem(ctx context.Context, item *models.WriteQueueItem
 		err = b.applyAddTag(ctx, item)
 	case "trash":
 		err = b.applyTrash(ctx, item)
+	case "add_file":
+		err = b.applyAddFile(ctx, item)
+	case "archive":
+		err = b.applyArchive(ctx, item)
+	case "rename_tag":
+		err = b.applyRenameTag(ctx, item)
+	case "delete_tag":
+		err = b.applyDeleteTag(ctx, item)
 	default:
 		err = fmt.Errorf("unknown action: %s", item.Action)
 	}
@@ -340,35 +365,12 @@ func (b *Bridge) applyAddTag(ctx context.Context, item *models.WriteQueueItem) e
 
 // applyTrash moves a note to trash in Bear via bear-xcall.
 func (b *Bridge) applyTrash(ctx context.Context, item *models.WriteQueueItem) error {
-	note, err := b.findBearNoteForItem(ctx, item)
-	if err != nil {
-		return fmt.Errorf("find bear note: %w", err)
-	}
-
-	// Duplicate-safe: check if note is already trashed.
-	if note.Trashed == 1 {
-		b.logger.Info("trash already applied (note is trashed)", "bear_id", note.UUID)
-		return nil
-	}
-
-	if err := b.xcall.Trash(ctx, b.bearToken, note.UUID); err != nil {
-		return fmt.Errorf("bear-xcall trash: %w", err)
-	}
-
-	// Verify trash.
-	b.sleepFn(verifyDelay)
-
-	updated, err := b.db.NoteByUUID(ctx, note.UUID)
-	if err != nil {
-		b.logger.Warn("trash verification query failed", "bear_id", note.UUID, "error", err)
-		return nil
-	}
-
-	if updated != nil && updated.Trashed != 1 {
-		b.logger.Warn("trash verification: note not trashed after bear-xcall", "bear_id", note.UUID)
-	}
-
-	return nil
+	return b.applyNoteStateChange(ctx, item, noteStateChange{
+		name:       "trash",
+		isApplied:  func(n *beardb.NoteBasicInfo) bool { return n.Trashed == 1 },
+		execute:    func(ctx context.Context, bearID string) error { return b.xcall.Trash(ctx, b.bearToken, bearID) },
+		isVerified: func(n *beardb.NoteBasicInfo) bool { return n.Trashed == 1 },
+	})
 }
 
 // findBearNoteForItem resolves the Bear UUID for a write queue item.
@@ -406,6 +408,134 @@ func (b *Bridge) findBearNoteForItem(ctx context.Context, item *models.WriteQueu
 	}
 
 	return nil, fmt.Errorf("cannot resolve bear UUID for queue item %d (note_id=%s)", item.ID, item.NoteID)
+}
+
+// maxBridgeAddFileSize is the maximum raw file size the bridge will pass to bear-xcall AddFile (5 MB).
+// Matches xcallback.maxAddFileSize — validated here before the xcall invocation.
+const maxBridgeAddFileSize = 5 * 1024 * 1024
+
+// applyAddFile downloads an attachment from the hub and attaches it to a note in Bear via bear-xcall.
+func (b *Bridge) applyAddFile(ctx context.Context, item *models.WriteQueueItem) error {
+	var payload addFilePayload
+	if err := json.Unmarshal([]byte(item.Payload), &payload); err != nil {
+		return fmt.Errorf("parse add_file payload: %w", err)
+	}
+
+	if payload.AttachmentID == "" || payload.Filename == "" {
+		return fmt.Errorf("add_file payload missing attachment_id or filename")
+	}
+
+	note, err := b.findBearNoteForItem(ctx, item)
+	if err != nil {
+		return fmt.Errorf("find bear note: %w", err)
+	}
+
+	fileData, err := b.hub.DownloadAttachment(ctx, payload.AttachmentID)
+	if err != nil {
+		return fmt.Errorf("download attachment %s: %w", payload.AttachmentID, err)
+	}
+
+	if len(fileData) > maxBridgeAddFileSize {
+		return fmt.Errorf("attachment %s too large (%d bytes, limit %d)", payload.AttachmentID, len(fileData), maxBridgeAddFileSize)
+	}
+
+	if err := b.xcall.AddFile(ctx, b.bearToken, note.UUID, payload.Filename, fileData); err != nil {
+		return fmt.Errorf("bear-xcall add-file: %w", err)
+	}
+
+	b.logger.Info("bear-xcall add-file succeeded", "bear_id", note.UUID, "filename", payload.Filename)
+
+	return nil
+}
+
+// applyArchive archives a note in Bear via bear-xcall.
+func (b *Bridge) applyArchive(ctx context.Context, item *models.WriteQueueItem) error {
+	return b.applyNoteStateChange(ctx, item, noteStateChange{
+		name:       "archive",
+		isApplied:  func(n *beardb.NoteBasicInfo) bool { return n.Archived == 1 },
+		execute:    func(ctx context.Context, bearID string) error { return b.xcall.Archive(ctx, b.bearToken, bearID) },
+		isVerified: func(n *beardb.NoteBasicInfo) bool { return n.Archived == 1 },
+	})
+}
+
+// noteStateChange describes a note state mutation (trash, archive) for the shared apply helper.
+type noteStateChange struct {
+	name       string
+	isApplied  func(*beardb.NoteBasicInfo) bool
+	execute    func(ctx context.Context, bearID string) error
+	isVerified func(*beardb.NoteBasicInfo) bool
+}
+
+// applyNoteStateChange is a shared helper for trash/archive — both follow the same pattern:
+// find note → duplicate check → execute xcall → verify.
+func (b *Bridge) applyNoteStateChange(ctx context.Context, item *models.WriteQueueItem, sc noteStateChange) error {
+	note, err := b.findBearNoteForItem(ctx, item)
+	if err != nil {
+		return fmt.Errorf("find bear note: %w", err)
+	}
+
+	if sc.isApplied(note) {
+		b.logger.Info(sc.name+" already applied", "bear_id", note.UUID)
+		return nil
+	}
+
+	if err := sc.execute(ctx, note.UUID); err != nil {
+		return fmt.Errorf("bear-xcall %s: %w", sc.name, err)
+	}
+
+	b.sleepFn(verifyDelay)
+
+	updated, err := b.db.NoteByUUID(ctx, note.UUID)
+	if err != nil {
+		b.logger.Warn(sc.name+" verification query failed", "bear_id", note.UUID, "error", err)
+		return nil
+	}
+
+	if updated != nil && !sc.isVerified(updated) {
+		b.logger.Warn(sc.name+" verification: state not changed after bear-xcall", "bear_id", note.UUID)
+	}
+
+	return nil
+}
+
+// applyRenameTag renames a tag in Bear via bear-xcall.
+func (b *Bridge) applyRenameTag(ctx context.Context, item *models.WriteQueueItem) error {
+	var payload renameTagPayload
+	if err := json.Unmarshal([]byte(item.Payload), &payload); err != nil {
+		return fmt.Errorf("parse rename_tag payload: %w", err)
+	}
+
+	if payload.Name == "" || payload.NewName == "" {
+		return fmt.Errorf("rename_tag payload missing name or new_name")
+	}
+
+	if err := b.xcall.RenameTag(ctx, b.bearToken, payload.Name, payload.NewName); err != nil {
+		return fmt.Errorf("bear-xcall rename-tag: %w", err)
+	}
+
+	b.logger.Info("bear-xcall rename-tag succeeded", "old_name", payload.Name, "new_name", payload.NewName)
+
+	return nil
+}
+
+// applyDeleteTag deletes a tag from all notes in Bear via bear-xcall.
+func (b *Bridge) applyDeleteTag(ctx context.Context, item *models.WriteQueueItem) error {
+	var payload deleteTagPayload
+	if err := json.Unmarshal([]byte(item.Payload), &payload); err != nil {
+		return fmt.Errorf("parse delete_tag payload: %w", err)
+	}
+
+	if payload.Name == "" {
+		return fmt.Errorf("delete_tag payload missing name")
+	}
+
+	if err := b.xcall.DeleteTag(ctx, b.bearToken, payload.Name); err != nil {
+		return fmt.Errorf("bear-xcall delete-tag: %w", err)
+	}
+
+	b.logger.Info("bear-xcall delete-tag succeeded", "tag_name", payload.Name)
+
+	return nil
 }
 
 // countByStatus counts ack items with the given status.

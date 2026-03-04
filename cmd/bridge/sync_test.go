@@ -180,12 +180,17 @@ type mockXCallback struct {
 }
 
 type xcallCall struct {
-	action string
-	bearID string
-	title  string
-	body   string
-	tags   []string
-	tag    string
+	action   string
+	bearID   string
+	title    string
+	body     string
+	tags     []string
+	tag      string
+	filename string
+	fileData []byte
+	oldName  string
+	newName  string
+	tagName  string
 }
 
 func (m *mockXCallback) Create(_ context.Context, _, title, body string, tags []string) (string, error) {
@@ -208,8 +213,8 @@ func (m *mockXCallback) Trash(_ context.Context, _, bearID string) error {
 	return m.trashErr
 }
 
-func (m *mockXCallback) AddFile(_ context.Context, _, bearID, _ string, _ []byte) error {
-	m.calls = append(m.calls, xcallCall{action: "add_file", bearID: bearID})
+func (m *mockXCallback) AddFile(_ context.Context, _, bearID, filename string, fileData []byte) error {
+	m.calls = append(m.calls, xcallCall{action: "add_file", bearID: bearID, filename: filename, fileData: fileData})
 	return m.addFileErr
 }
 
@@ -218,13 +223,13 @@ func (m *mockXCallback) Archive(_ context.Context, _, bearID string) error {
 	return m.archiveErr
 }
 
-func (m *mockXCallback) RenameTag(_ context.Context, _, _, _ string) error {
-	m.calls = append(m.calls, xcallCall{action: "rename_tag"})
+func (m *mockXCallback) RenameTag(_ context.Context, _, oldName, newName string) error {
+	m.calls = append(m.calls, xcallCall{action: "rename_tag", oldName: oldName, newName: newName})
 	return m.renameTagErr
 }
 
-func (m *mockXCallback) DeleteTag(_ context.Context, _, _ string) error {
-	m.calls = append(m.calls, xcallCall{action: "delete_tag"})
+func (m *mockXCallback) DeleteTag(_ context.Context, _, tagName string) error {
+	m.calls = append(m.calls, xcallCall{action: "delete_tag", tagName: tagName})
 	return m.deleteTagErr
 }
 

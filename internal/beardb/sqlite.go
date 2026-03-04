@@ -346,12 +346,12 @@ func (s *SQLiteBearDB) AllBacklinkUUIDs(ctx context.Context) ([]string, error) {
 func (s *SQLiteBearDB) NoteByUUID(ctx context.Context, bearUUID string) (*NoteBasicInfo, error) {
 	var info NoteBasicInfo
 	var title, body sql.NullString
-	var trashed sql.NullInt64
+	var trashed, archived sql.NullInt64
 
 	err := s.db.QueryRowContext(ctx,
-		"SELECT ZUNIQUEIDENTIFIER, ZTITLE, ZTEXT, ZTRASHED FROM ZSFNOTE WHERE ZUNIQUEIDENTIFIER = ?",
+		"SELECT ZUNIQUEIDENTIFIER, ZTITLE, ZTEXT, ZTRASHED, ZARCHIVED FROM ZSFNOTE WHERE ZUNIQUEIDENTIFIER = ?",
 		bearUUID,
-	).Scan(&info.UUID, &title, &body, &trashed)
+	).Scan(&info.UUID, &title, &body, &trashed, &archived)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
@@ -367,6 +367,9 @@ func (s *SQLiteBearDB) NoteByUUID(ctx context.Context, bearUUID string) (*NoteBa
 	}
 	if trashed.Valid {
 		info.Trashed = trashed.Int64
+	}
+	if archived.Valid {
+		info.Archived = archived.Int64
 	}
 
 	return &info, nil

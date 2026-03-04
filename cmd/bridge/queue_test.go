@@ -286,7 +286,7 @@ func TestProcessQueue_AddTagDuplicateSafe(t *testing.T) {
 	assert.Equal(t, "applied", hub.ackItems[0].Status)
 }
 
-func TestProcessQueue_TrashAction(t *testing.T) {
+func TestProcessQueue_TrashAction(t *testing.T) { //nolint:dupl // trash test mirrors archive test by design
 	db := &mockBearDB{
 		notesByUUID: map[string]*beardb.NoteBasicInfo{
 			"bear-note-1": {UUID: "bear-note-1", Title: "Note", Trashed: 0},
@@ -647,6 +647,449 @@ func TestProcessQueue_ConsumerIDDoesNotAffectProcessing(t *testing.T) {
 	assert.Equal(t, "applied", hub.ackItems[0].Status)
 	assert.Equal(t, "applied", hub.ackItems[1].Status)
 	assert.Equal(t, "applied", hub.ackItems[2].Status)
+}
+
+// --- add_file tests ---
+
+func TestProcessQueue_AddFileAction(t *testing.T) {
+	db := &mockBearDB{
+		notesByUUID: map[string]*beardb.NoteBasicInfo{
+			"bear-note-1": {UUID: "bear-note-1", Title: "Note"},
+		},
+	}
+	hub := &mockHubClient{
+		queueItems: []models.WriteQueueItem{
+			{
+				ID:             40,
+				IdempotencyKey: "idem-40",
+				Action:         "add_file",
+				NoteID:         "bear-note-1",
+				Payload:        `{"attachment_id":"att-1","filename":"photo.jpg","bear_id":"bear-note-1"}`,
+			},
+		},
+		downloadData: map[string][]byte{
+			"att-1": []byte("image-data-here"),
+		},
+	}
+	xcall := &mockXCallback{}
+	bridge := newQueueBridge(db, hub, xcall, filepath.Join(t.TempDir(), "state.json"))
+
+	err := bridge.processQueue(context.Background())
+	require.NoError(t, err)
+
+	require.Len(t, xcall.calls, 1)
+	assert.Equal(t, "add_file", xcall.calls[0].action)
+	assert.Equal(t, "bear-note-1", xcall.calls[0].bearID)
+	assert.Equal(t, "photo.jpg", xcall.calls[0].filename)
+	assert.Equal(t, []byte("image-data-here"), xcall.calls[0].fileData)
+
+	require.Len(t, hub.ackItems, 1)
+	assert.Equal(t, "applied", hub.ackItems[0].Status)
+}
+
+func TestProcessQueue_AddFileDownloadError(t *testing.T) {
+	db := &mockBearDB{
+		notesByUUID: map[string]*beardb.NoteBasicInfo{
+			"bear-note-1": {UUID: "bear-note-1", Title: "Note"},
+		},
+	}
+	hub := &mockHubClient{
+		queueItems: []models.WriteQueueItem{
+			{
+				ID:             41,
+				IdempotencyKey: "idem-41",
+				Action:         "add_file",
+				NoteID:         "bear-note-1",
+				Payload:        `{"attachment_id":"att-missing","filename":"photo.jpg","bear_id":"bear-note-1"}`,
+			},
+		},
+		downloadErr: fmt.Errorf("hub unavailable"),
+	}
+	xcall := &mockXCallback{}
+	bridge := newQueueBridge(db, hub, xcall, filepath.Join(t.TempDir(), "state.json"))
+
+	err := bridge.processQueue(context.Background())
+	require.NoError(t, err)
+
+	require.Len(t, hub.ackItems, 1)
+	assert.Equal(t, "failed", hub.ackItems[0].Status)
+	assert.Contains(t, hub.ackItems[0].Error, "download attachment")
+}
+
+func TestProcessQueue_AddFileXCallError(t *testing.T) {
+	db := &mockBearDB{
+		notesByUUID: map[string]*beardb.NoteBasicInfo{
+			"bear-note-1": {UUID: "bear-note-1", Title: "Note"},
+		},
+	}
+	hub := &mockHubClient{
+		queueItems: []models.WriteQueueItem{
+			{
+				ID:             42,
+				IdempotencyKey: "idem-42",
+				Action:         "add_file",
+				NoteID:         "bear-note-1",
+				Payload:        `{"attachment_id":"att-1","filename":"photo.jpg","bear_id":"bear-note-1"}`,
+			},
+		},
+		downloadData: map[string][]byte{
+			"att-1": []byte("image-data"),
+		},
+	}
+	xcall := &mockXCallback{addFileErr: fmt.Errorf("bear-xcall add-file failed")}
+	bridge := newQueueBridge(db, hub, xcall, filepath.Join(t.TempDir(), "state.json"))
+
+	err := bridge.processQueue(context.Background())
+	require.NoError(t, err)
+
+	require.Len(t, hub.ackItems, 1)
+	assert.Equal(t, "failed", hub.ackItems[0].Status)
+	assert.Contains(t, hub.ackItems[0].Error, "bear-xcall add-file")
+}
+
+func TestProcessQueue_AddFileInvalidPayload(t *testing.T) {
+	db := &mockBearDB{}
+	hub := &mockHubClient{
+		queueItems: []models.WriteQueueItem{
+			{
+				ID:             43,
+				IdempotencyKey: "idem-43",
+				Action:         "add_file",
+				Payload:        `{invalid json`,
+			},
+		},
+	}
+	xcall := &mockXCallback{}
+	bridge := newQueueBridge(db, hub, xcall, filepath.Join(t.TempDir(), "state.json"))
+
+	err := bridge.processQueue(context.Background())
+	require.NoError(t, err)
+
+	require.Len(t, hub.ackItems, 1)
+	assert.Equal(t, "failed", hub.ackItems[0].Status)
+	assert.Contains(t, hub.ackItems[0].Error, "parse add_file payload")
+}
+
+func TestProcessQueue_AddFileTooLarge(t *testing.T) {
+	db := &mockBearDB{
+		notesByUUID: map[string]*beardb.NoteBasicInfo{
+			"bear-note-1": {UUID: "bear-note-1", Title: "Note"},
+		},
+	}
+	// 6 MB data — exceeds 5 MB limit.
+	bigData := make([]byte, 6*1024*1024)
+	hub := &mockHubClient{
+		queueItems: []models.WriteQueueItem{
+			{
+				ID:             44,
+				IdempotencyKey: "idem-44",
+				Action:         "add_file",
+				NoteID:         "bear-note-1",
+				Payload:        `{"attachment_id":"att-big","filename":"huge.bin","bear_id":"bear-note-1"}`,
+			},
+		},
+		downloadData: map[string][]byte{
+			"att-big": bigData,
+		},
+	}
+	xcall := &mockXCallback{}
+	bridge := newQueueBridge(db, hub, xcall, filepath.Join(t.TempDir(), "state.json"))
+
+	err := bridge.processQueue(context.Background())
+	require.NoError(t, err)
+
+	require.Len(t, hub.ackItems, 1)
+	assert.Equal(t, "failed", hub.ackItems[0].Status)
+	assert.Contains(t, hub.ackItems[0].Error, "too large")
+	assert.Empty(t, xcall.calls) // xcall should NOT be called.
+}
+
+// --- archive tests ---
+
+func TestProcessQueue_ArchiveAction(t *testing.T) { //nolint:dupl // archive test mirrors trash test by design
+	db := &mockBearDB{
+		notesByUUID: map[string]*beardb.NoteBasicInfo{
+			"bear-note-1": {UUID: "bear-note-1", Title: "Note", Archived: 0},
+		},
+	}
+	hub := &mockHubClient{
+		queueItems: []models.WriteQueueItem{
+			{
+				ID:             50,
+				IdempotencyKey: "idem-50",
+				Action:         "archive",
+				NoteID:         "bear-note-1",
+				Payload:        `{"bear_id":"bear-note-1"}`,
+			},
+		},
+	}
+	xcall := &mockXCallback{}
+	bridge := newQueueBridge(db, hub, xcall, filepath.Join(t.TempDir(), "state.json"))
+
+	err := bridge.processQueue(context.Background())
+	require.NoError(t, err)
+
+	require.Len(t, xcall.calls, 1)
+	assert.Equal(t, "archive", xcall.calls[0].action)
+	assert.Equal(t, "bear-note-1", xcall.calls[0].bearID)
+
+	require.Len(t, hub.ackItems, 1)
+	assert.Equal(t, "applied", hub.ackItems[0].Status)
+}
+
+func TestProcessQueue_ArchiveAlreadyArchived(t *testing.T) {
+	db := &mockBearDB{
+		notesByUUID: map[string]*beardb.NoteBasicInfo{
+			"bear-note-1": {UUID: "bear-note-1", Title: "Note", Archived: 1},
+		},
+	}
+	hub := &mockHubClient{
+		queueItems: []models.WriteQueueItem{
+			{
+				ID:             51,
+				IdempotencyKey: "idem-51",
+				Action:         "archive",
+				NoteID:         "bear-note-1",
+				Payload:        `{"bear_id":"bear-note-1"}`,
+			},
+		},
+	}
+	xcall := &mockXCallback{}
+	bridge := newQueueBridge(db, hub, xcall, filepath.Join(t.TempDir(), "state.json"))
+
+	err := bridge.processQueue(context.Background())
+	require.NoError(t, err)
+
+	// bear-xcall should NOT be called — note already archived.
+	assert.Empty(t, xcall.calls)
+
+	require.Len(t, hub.ackItems, 1)
+	assert.Equal(t, "applied", hub.ackItems[0].Status)
+}
+
+func TestProcessQueue_ArchiveXCallError(t *testing.T) {
+	db := &mockBearDB{
+		notesByUUID: map[string]*beardb.NoteBasicInfo{
+			"bear-note-1": {UUID: "bear-note-1", Title: "Note", Archived: 0},
+		},
+	}
+	hub := &mockHubClient{
+		queueItems: []models.WriteQueueItem{
+			{
+				ID:             52,
+				IdempotencyKey: "idem-52",
+				Action:         "archive",
+				NoteID:         "bear-note-1",
+				Payload:        `{"bear_id":"bear-note-1"}`,
+			},
+		},
+	}
+	xcall := &mockXCallback{archiveErr: fmt.Errorf("bear-xcall archive failed")}
+	bridge := newQueueBridge(db, hub, xcall, filepath.Join(t.TempDir(), "state.json"))
+
+	err := bridge.processQueue(context.Background())
+	require.NoError(t, err)
+
+	require.Len(t, hub.ackItems, 1)
+	assert.Equal(t, "failed", hub.ackItems[0].Status)
+	assert.Contains(t, hub.ackItems[0].Error, "bear-xcall archive")
+}
+
+func TestProcessQueue_ArchiveInvalidPayload(t *testing.T) {
+	db := &mockBearDB{}
+	hub := &mockHubClient{
+		queueItems: []models.WriteQueueItem{
+			{
+				ID:             53,
+				IdempotencyKey: "idem-53",
+				Action:         "archive",
+				NoteID:         "nonexistent",
+				Payload:        `{"bear_id":"nonexistent"}`,
+			},
+		},
+	}
+	xcall := &mockXCallback{}
+	bridge := newQueueBridge(db, hub, xcall, filepath.Join(t.TempDir(), "state.json"))
+
+	err := bridge.processQueue(context.Background())
+	require.NoError(t, err)
+
+	require.Len(t, hub.ackItems, 1)
+	assert.Equal(t, "failed", hub.ackItems[0].Status)
+	assert.Contains(t, hub.ackItems[0].Error, "cannot resolve bear UUID")
+}
+
+// --- rename_tag tests ---
+
+func TestProcessQueue_RenameTagAction(t *testing.T) {
+	db := &mockBearDB{}
+	hub := &mockHubClient{
+		queueItems: []models.WriteQueueItem{
+			{
+				ID:             60,
+				IdempotencyKey: "idem-60",
+				Action:         "rename_tag",
+				Payload:        `{"name":"old/tag","new_name":"new/tag"}`,
+			},
+		},
+	}
+	xcall := &mockXCallback{}
+	bridge := newQueueBridge(db, hub, xcall, filepath.Join(t.TempDir(), "state.json"))
+
+	err := bridge.processQueue(context.Background())
+	require.NoError(t, err)
+
+	require.Len(t, xcall.calls, 1)
+	assert.Equal(t, "rename_tag", xcall.calls[0].action)
+	assert.Equal(t, "old/tag", xcall.calls[0].oldName)
+	assert.Equal(t, "new/tag", xcall.calls[0].newName)
+
+	require.Len(t, hub.ackItems, 1)
+	assert.Equal(t, "applied", hub.ackItems[0].Status)
+}
+
+func TestProcessQueue_RenameTagXCallError(t *testing.T) {
+	db := &mockBearDB{}
+	hub := &mockHubClient{
+		queueItems: []models.WriteQueueItem{
+			{
+				ID:             61,
+				IdempotencyKey: "idem-61",
+				Action:         "rename_tag",
+				Payload:        `{"name":"old/tag","new_name":"new/tag"}`,
+			},
+		},
+	}
+	xcall := &mockXCallback{renameTagErr: fmt.Errorf("bear error: tag locked")}
+	bridge := newQueueBridge(db, hub, xcall, filepath.Join(t.TempDir(), "state.json"))
+
+	err := bridge.processQueue(context.Background())
+	require.NoError(t, err)
+
+	require.Len(t, hub.ackItems, 1)
+	assert.Equal(t, "failed", hub.ackItems[0].Status)
+	assert.Contains(t, hub.ackItems[0].Error, "bear-xcall rename-tag")
+}
+
+func TestProcessQueue_RenameTagInvalidPayload(t *testing.T) {
+	db := &mockBearDB{}
+	hub := &mockHubClient{
+		queueItems: []models.WriteQueueItem{
+			{
+				ID:             62,
+				IdempotencyKey: "idem-62",
+				Action:         "rename_tag",
+				Payload:        `{invalid json`,
+			},
+		},
+	}
+	xcall := &mockXCallback{}
+	bridge := newQueueBridge(db, hub, xcall, filepath.Join(t.TempDir(), "state.json"))
+
+	err := bridge.processQueue(context.Background())
+	require.NoError(t, err)
+
+	require.Len(t, hub.ackItems, 1)
+	assert.Equal(t, "failed", hub.ackItems[0].Status)
+	assert.Contains(t, hub.ackItems[0].Error, "parse rename_tag payload")
+}
+
+// --- delete_tag tests ---
+
+func TestProcessQueue_DeleteTagAction(t *testing.T) {
+	db := &mockBearDB{}
+	hub := &mockHubClient{
+		queueItems: []models.WriteQueueItem{
+			{
+				ID:             70,
+				IdempotencyKey: "idem-70",
+				Action:         "delete_tag",
+				Payload:        `{"name":"old/tag"}`,
+			},
+		},
+	}
+	xcall := &mockXCallback{}
+	bridge := newQueueBridge(db, hub, xcall, filepath.Join(t.TempDir(), "state.json"))
+
+	err := bridge.processQueue(context.Background())
+	require.NoError(t, err)
+
+	require.Len(t, xcall.calls, 1)
+	assert.Equal(t, "delete_tag", xcall.calls[0].action)
+	assert.Equal(t, "old/tag", xcall.calls[0].tagName)
+
+	require.Len(t, hub.ackItems, 1)
+	assert.Equal(t, "applied", hub.ackItems[0].Status)
+}
+
+func TestProcessQueue_DeleteTagNotFound(t *testing.T) {
+	db := &mockBearDB{}
+	hub := &mockHubClient{
+		queueItems: []models.WriteQueueItem{
+			{
+				ID:             71,
+				IdempotencyKey: "idem-71",
+				Action:         "delete_tag",
+				Payload:        `{"name":"nonexistent"}`,
+			},
+		},
+	}
+	// Bear returns error for non-existent tag, which bear-xcall surfaces.
+	xcall := &mockXCallback{deleteTagErr: fmt.Errorf("bear error: tag not found")}
+	bridge := newQueueBridge(db, hub, xcall, filepath.Join(t.TempDir(), "state.json"))
+
+	err := bridge.processQueue(context.Background())
+	require.NoError(t, err)
+
+	require.Len(t, hub.ackItems, 1)
+	assert.Equal(t, "failed", hub.ackItems[0].Status)
+	assert.Contains(t, hub.ackItems[0].Error, "bear-xcall delete-tag")
+}
+
+func TestProcessQueue_DeleteTagXCallError(t *testing.T) {
+	db := &mockBearDB{}
+	hub := &mockHubClient{
+		queueItems: []models.WriteQueueItem{
+			{
+				ID:             72,
+				IdempotencyKey: "idem-72",
+				Action:         "delete_tag",
+				Payload:        `{"name":"some/tag"}`,
+			},
+		},
+	}
+	xcall := &mockXCallback{deleteTagErr: fmt.Errorf("bear-xcall unavailable")}
+	bridge := newQueueBridge(db, hub, xcall, filepath.Join(t.TempDir(), "state.json"))
+
+	err := bridge.processQueue(context.Background())
+	require.NoError(t, err)
+
+	require.Len(t, hub.ackItems, 1)
+	assert.Equal(t, "failed", hub.ackItems[0].Status)
+	assert.Contains(t, hub.ackItems[0].Error, "bear-xcall delete-tag")
+}
+
+func TestProcessQueue_DeleteTagInvalidPayload(t *testing.T) {
+	db := &mockBearDB{}
+	hub := &mockHubClient{
+		queueItems: []models.WriteQueueItem{
+			{
+				ID:             73,
+				IdempotencyKey: "idem-73",
+				Action:         "delete_tag",
+				Payload:        `{invalid json`,
+			},
+		},
+	}
+	xcall := &mockXCallback{}
+	bridge := newQueueBridge(db, hub, xcall, filepath.Join(t.TempDir(), "state.json"))
+
+	err := bridge.processQueue(context.Background())
+	require.NoError(t, err)
+
+	require.Len(t, hub.ackItems, 1)
+	assert.Equal(t, "failed", hub.ackItems[0].Status)
+	assert.Contains(t, hub.ackItems[0].Error, "parse delete_tag payload")
 }
 
 func TestCountByStatus(t *testing.T) {

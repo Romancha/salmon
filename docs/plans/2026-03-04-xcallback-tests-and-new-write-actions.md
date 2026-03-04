@@ -165,31 +165,31 @@
 - [x] run tests: `make test` — must pass before next task
 
 ### Task 12: Bridge queue processing — add_file, archive, rename_tag, delete_tag
-- [ ] add `addFilePayload` struct: `{AttachmentID, Filename}`
-- [ ] add `case "add_file"` in `applyQueueItem` switch, implement `applyAddFile`: parse payload → resolve bear UUID → download from hub → validate size ≤ 5 MB → call `xcall.AddFile()`
-- [ ] add `case "archive"` in switch, implement `applyArchive`: parse payload → resolve bear UUID → duplicate check (already archived?) → call `xcall.Archive()`
-- [ ] add `renameTagPayload` struct: `{Name, NewName}`
-- [ ] add `case "rename_tag"` in switch, implement `applyRenameTag`: parse payload → call `xcall.RenameTag(oldName, newName)` → verify in Bear SQLite
-- [ ] add `deleteTagPayload` struct: `{Name}`
-- [ ] add `case "delete_tag"` in switch, implement `applyDeleteTag`: parse payload → call `xcall.DeleteTag(name)` → verify tag gone from Bear SQLite
-- [ ] update mock structs in `cmd/bridge/sync_test.go` to include `DownloadAttachment` and new xcallback methods (AddFile, Archive, RenameTag, DeleteTag)
-- [ ] add test: add_file success
-- [ ] add test: add_file download error → failed ack
-- [ ] add test: add_file xcall error → failed ack
-- [ ] add test: add_file invalid payload → failed ack
-- [ ] add test: add_file too large → failed ack
-- [ ] add test: archive success
-- [ ] add test: archive already archived → skip
-- [ ] add test: archive xcall error → failed ack
-- [ ] add test: archive invalid payload → failed ack
-- [ ] add test: rename_tag success
-- [ ] add test: rename_tag xcall error → failed ack
-- [ ] add test: rename_tag invalid payload → failed ack
-- [ ] add test: delete_tag success
-- [ ] add test: delete_tag not found → skip
-- [ ] add test: delete_tag xcall error → failed ack
-- [ ] add test: delete_tag invalid payload → failed ack
-- [ ] run tests: `make test` — must pass before next task
+- [x] add `addFilePayload` struct: `{AttachmentID, Filename}`
+- [x] add `case "add_file"` in `applyQueueItem` switch, implement `applyAddFile`: parse payload → resolve bear UUID → download from hub → validate size ≤ 5 MB → call `xcall.AddFile()`
+- [x] add `case "archive"` in switch, implement `applyArchive`: parse payload → resolve bear UUID → duplicate check (already archived?) → call `xcall.Archive()`
+- [x] add `renameTagPayload` struct: `{Name, NewName}`
+- [x] add `case "rename_tag"` in switch, implement `applyRenameTag`: parse payload → call `xcall.RenameTag(oldName, newName)` → verify in Bear SQLite
+- [x] add `deleteTagPayload` struct: `{Name}`
+- [x] add `case "delete_tag"` in switch, implement `applyDeleteTag`: parse payload → call `xcall.DeleteTag(name)` → verify tag gone from Bear SQLite
+- [x] update mock structs in `cmd/bridge/sync_test.go` to include `DownloadAttachment` and new xcallback methods (AddFile, Archive, RenameTag, DeleteTag)
+- [x] add test: add_file success
+- [x] add test: add_file download error → failed ack
+- [x] add test: add_file xcall error → failed ack
+- [x] add test: add_file invalid payload → failed ack
+- [x] add test: add_file too large → failed ack
+- [x] add test: archive success
+- [x] add test: archive already archived → skip
+- [x] add test: archive xcall error → failed ack
+- [x] add test: archive invalid payload → failed ack
+- [x] add test: rename_tag success
+- [x] add test: rename_tag xcall error → failed ack
+- [x] add test: rename_tag invalid payload → failed ack
+- [x] add test: delete_tag success
+- [x] add test: delete_tag not found → skip
+- [x] add test: delete_tag xcall error → failed ack
+- [x] add test: delete_tag invalid payload → failed ack
+- [x] run tests: `make test` — must pass before next task
 
 ### Task 13: Swift integration tests
 - [ ] add `add-file` test in `runBearTests()`: base64 encode small text → call `/add-file` with created note ID → verify exit 0
