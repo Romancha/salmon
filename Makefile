@@ -3,6 +3,9 @@
 BINARY_HUB=bear-sync-hub
 BINARY_BRIDGE=bear-bridge
 
+# Code signing identity for bear-xcall.app (use "Developer ID Application: ..." for distribution)
+CODESIGN_IDENTITY ?= -
+
 # Bridge install paths
 PLIST_LABEL=com.romancha.bear-bridge
 PLIST_SRC=deploy/$(PLIST_LABEL).plist
@@ -131,7 +134,7 @@ ifeq ($(shell uname),Darwin)
 	@mkdir -p $(BRIDGE_CONFIG_DIR)
 	cp bin/$(BINARY_BRIDGE) $(BRIDGE_BIN_DIR)/
 	cp -R bin/bear-xcall.app $(BRIDGE_BIN_DIR)/
-	codesign --force --deep --sign - $(BRIDGE_BIN_DIR)/bear-xcall.app
+	codesign --force --deep --sign "$(CODESIGN_IDENTITY)" --entitlements tools/bear-xcall/entitlements.plist --options runtime $(BRIDGE_BIN_DIR)/bear-xcall.app
 	cp deploy/bear-bridge-wrapper.sh $(BRIDGE_BIN_DIR)/
 	chmod +x $(BRIDGE_BIN_DIR)/bear-bridge-wrapper.sh
 	@if [ ! -f $(BRIDGE_CONFIG_DIR)/.env.bridge ]; then \

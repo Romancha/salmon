@@ -16,6 +16,8 @@
 	<string>1.0</string>
 	<key>LSBackgroundOnly</key>
 	<true/>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>bear-xcall needs to send x-callback-url requests to Bear to sync notes.</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
