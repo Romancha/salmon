@@ -229,12 +229,14 @@ The bridge runs every 5 minutes and starts automatically on login.
 
 Logs are written to `~/Library/Logs/bear-bridge/` (`stdout.log`, `stderr.log`). The wrapper script automatically rotates logs when they exceed 5 MB, keeping one backup (`.log.1`).
 
-To update to a new version:
+To update to a new version (from source):
 
 ```
 git pull
 make install-bridge
 ```
+
+Or download the latest release from the [Releases](../../releases) page and run `make install-bridge` from the extracted archive.
 
 To uninstall:
 
@@ -277,16 +279,71 @@ make tidy          # go mod tidy
 make swagger       # generate Swagger docs (swag init)
 ```
 
+## Install from GitHub Release
+
+Pre-built, signed, and notarized binaries are available on the [Releases](../../releases) page.
+
+1. Download the archive for your architecture:
+   - `bear-bridge-vX.Y.Z-darwin-arm64.tar.gz` (Apple Silicon)
+   - `bear-bridge-vX.Y.Z-darwin-amd64.tar.gz` (Intel)
+
+2. Verify the checksum (optional):
+
+```
+shasum -a 256 -c bear-bridge-vX.Y.Z-darwin-arm64.tar.gz.sha256
+```
+
+3. Extract and install:
+
+```
+tar xzf bear-bridge-vX.Y.Z-darwin-arm64.tar.gz
+cd bear-bridge-vX.Y.Z-darwin-arm64
+make install-bridge
+```
+
+4. Edit the config and reload the agent (see [Bridge Setup](#bridge-setup) above for details).
+
+The release binaries are signed with a Developer ID certificate and notarized by Apple, so macOS Gatekeeper will allow them without warnings.
+
+To verify signatures after install:
+
+```
+make verify-bridge
+```
+
 ## CI/CD
 
 GitHub Actions runs automatically:
 
 - **CI** (push/PR to main): lint, test, test with race detector
-- **Docker Publish** (push tag `v*`): builds multi-platform image (`linux/amd64`, `linux/arm64`) and pushes to `ghcr.io/romancha/bear-sync-hub`
+- **Docker Publish** (push tag `v*`): builds multi-platform hub image (`linux/amd64`, `linux/arm64`) and pushes to `ghcr.io/romancha/bear-sync-hub`
+- **Release Bridge** (push tag `v*`): builds, signs, notarizes, and publishes bridge + bear-xcall for macOS (`arm64`, `amd64`) as GitHub Release assets
 
-To publish a new release:
+### Publishing a release
+
+Tag and push to trigger both Docker and bridge release workflows:
 
 ```
 git tag v0.1.0
 git push origin v0.1.0
 ```
+
+Pre-release tags (e.g., `v0.1.0-rc.1`) are automatically marked as pre-releases on GitHub.
+
+### Required GitHub secrets for bridge release
+
+The bridge release workflow requires Apple code signing credentials. Set these in the repository settings under Settings > Secrets and variables > Actions:
+
+| Secret | Description |
+|---|---|
+| `APPLE_CERTIFICATE` | Base64-encoded Developer ID Application .p12 certificate (`base64 -i cert.p12 \| pbcopy`) |
+| `APPLE_CERTIFICATE_PASSWORD` | Password for the .p12 certificate |
+| `APPLE_TEAM_ID` | Apple Developer Team ID |
+| `APPLE_ID` | Apple ID email for notarytool authentication |
+| `APPLE_ID_PASSWORD` | App-specific password for notarytool (generate at [appleid.apple.com](https://appleid.apple.com/account/manage)) |
+
+Setup steps:
+1. Export your Developer ID Application certificate as .p12 from Keychain Access
+2. Base64-encode it: `base64 -i cert.p12 | pbcopy`
+3. Create an app-specific password at https://appleid.apple.com/account/manage
+4. Add all five secrets in the repository settings

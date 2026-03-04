@@ -99,9 +99,9 @@
 - [x] Run linter — all issues must be fixed
 
 ### Task 7: [Final] Update documentation
-- [ ] Add release process section to README.md
-- [ ] Document required GitHub secrets setup
-- [ ] Document how users install from GitHub Releases
+- [x] Add release process section to README.md
+- [x] Document required GitHub secrets setup
+- [x] Document how users install from GitHub Releases
 
 ## Technical Details
 
