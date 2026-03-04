@@ -116,10 +116,10 @@
 - [x] run tests: `make test` — must pass before next task
 
 ### Task 7: Add `DownloadAttachment` to HubClient
-- [ ] add `DownloadAttachment(ctx context.Context, attachmentID string) ([]byte, error)` to `HubClient` interface in `internal/hubclient/client.go`
-- [ ] implement on `HTTPClient`: `GET /api/sync/attachments/{id}`, read body with 10 MB limit reader, handle error responses
-- [ ] run `make generate` to regenerate hub client mock
-- [ ] run tests: `make test` — must pass before next task
+- [x] add `DownloadAttachment(ctx context.Context, attachmentID string) ([]byte, error)` to `HubClient` interface in `internal/hubclient/client.go`
+- [x] implement on `HTTPClient`: `GET /api/sync/attachments/{id}`, read body with 10 MB limit reader, handle error responses
+- [x] run `make generate` to regenerate hub client mock
+- [x] run tests: `make test` — must pass before next task
 
 ### Task 8: Add bridge-scoped attachment download endpoint
 - [ ] add `GET /sync/attachments/{id}` route under bridge auth group in `internal/api/server.go`

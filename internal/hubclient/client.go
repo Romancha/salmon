@@ -29,6 +29,7 @@ type HubClient interface {
 	LeaseQueue(ctx context.Context, processingBy string) ([]models.WriteQueueItem, error)
 	AckQueue(ctx context.Context, items []models.SyncAckItem) error
 	UploadAttachment(ctx context.Context, attachmentID string, reader io.Reader) error
+	DownloadAttachment(ctx context.Context, attachmentID string) ([]byte, error)
 	GetSyncStatus(ctx context.Context) (*SyncStatus, error)
 }
 
@@ -146,6 +147,33 @@ func (c *HTTPClient) UploadAttachment(ctx context.Context, attachmentID string, 
 	}
 
 	return nil
+}
+
+const maxDownloadSize = 10 * 1024 * 1024 // 10 MB
+
+func (c *HTTPClient) DownloadAttachment(ctx context.Context, attachmentID string) ([]byte, error) {
+	path := "/api/sync/attachments/" + attachmentID
+
+	resp, err := c.doWithRetry(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("download attachment: %w", err)
+	}
+	defer resp.Body.Close() //nolint:errcheck // best-effort close on response body
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("download attachment: %w", parseErrorResponse(resp))
+	}
+
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxDownloadSize+1))
+	if err != nil {
+		return nil, fmt.Errorf("read attachment body: %w", err)
+	}
+
+	if len(data) > maxDownloadSize {
+		return nil, fmt.Errorf("attachment %s exceeds maximum size of %d bytes", attachmentID, maxDownloadSize)
+	}
+
+	return data, nil
 }
 
 func (c *HTTPClient) GetSyncStatus(ctx context.Context) (*SyncStatus, error) {

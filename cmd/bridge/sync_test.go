@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log/slog"
 	"os"
@@ -123,6 +124,10 @@ type mockHubClient struct {
 	queueItems  []models.WriteQueueItem
 	ackItems    []models.SyncAckItem
 	uploadedIDs []string // attachment IDs that were uploaded
+
+	// DownloadAttachment test data.
+	downloadData map[string][]byte // attachmentID -> file data
+	downloadErr  error
 }
 
 func (m *mockHubClient) SyncPush(_ context.Context, req models.SyncPushRequest) error { //nolint:gocritic // interface match
@@ -142,6 +147,18 @@ func (m *mockHubClient) AckQueue(_ context.Context, items []models.SyncAckItem) 
 func (m *mockHubClient) UploadAttachment(_ context.Context, attachmentID string, _ io.Reader) error {
 	m.uploadedIDs = append(m.uploadedIDs, attachmentID)
 	return nil
+}
+
+func (m *mockHubClient) DownloadAttachment(_ context.Context, attachmentID string) ([]byte, error) {
+	if m.downloadErr != nil {
+		return nil, m.downloadErr
+	}
+	if m.downloadData != nil {
+		if data, ok := m.downloadData[attachmentID]; ok {
+			return data, nil
+		}
+	}
+	return nil, fmt.Errorf("attachment %s not found", attachmentID)
 }
 
 func (m *mockHubClient) GetSyncStatus(_ context.Context) (*hubclient.SyncStatus, error) {
