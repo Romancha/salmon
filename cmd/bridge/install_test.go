@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -14,6 +15,10 @@ import (
 // TestMakefileArchiveDetection verifies that the Makefile correctly detects
 // release archive context (no go.mod) and adjusts source paths accordingly.
 func TestMakefileArchiveDetection(t *testing.T) {
+	if runtime.GOOS != "darwin" {
+		t.Skip("Skipping on non-Darwin: Makefile install targets are macOS only")
+	}
+
 	repoRoot := findRepoRoot(t)
 	makefilePath := filepath.Join(repoRoot, "Makefile")
 
@@ -64,6 +69,10 @@ func TestMakefileArchiveDetection(t *testing.T) {
 // TestMakefileVerifyBridgeTarget verifies that verify-bridge target exists and
 // references the expected paths.
 func TestMakefileVerifyBridgeTarget(t *testing.T) {
+	if runtime.GOOS != "darwin" {
+		t.Skip("Skipping on non-Darwin: Makefile verify-bridge target is macOS only")
+	}
+
 	repoRoot := findRepoRoot(t)
 
 	//nolint:gosec // trusted command with test-controlled args

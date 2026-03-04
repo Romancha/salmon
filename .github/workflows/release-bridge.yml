@@ -19,11 +19,10 @@ on:
   push:
     tags: ["v*"]
 
-permissions:
-  contents: write
-
 jobs:
   build:
+    permissions:
+      contents: read
     strategy:
       matrix:
         include:

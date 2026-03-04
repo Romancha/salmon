@@ -168,10 +168,13 @@ ifeq ($(shell uname),Darwin)
 	cp -R $(XCALL_SRC_APP) $(BRIDGE_BIN_DIR)/
 ifeq ($(IS_RELEASE_ARCHIVE),1)
 	@if codesign --verify --quiet $(BRIDGE_BIN_DIR)/bear-xcall.app 2>/dev/null; then \
-		echo "bear-xcall.app already signed, skipping re-sign"; \
+		echo "bear-xcall.app signature valid, skipping re-sign"; \
 	else \
-		echo "Signing bear-xcall.app with identity $(CODESIGN_IDENTITY)..."; \
-		codesign --force --deep --sign "$(CODESIGN_IDENTITY)" --entitlements $(ENTITLEMENTS_SRC) --options runtime $(BRIDGE_BIN_DIR)/bear-xcall.app; \
+		echo "ERROR: bear-xcall.app signature verification failed."; \
+		echo "The release archive may be corrupted or tampered with."; \
+		echo "Please re-download from GitHub Releases."; \
+		echo "To override, re-sign manually: codesign --force --deep --sign - --entitlements $(ENTITLEMENTS_SRC) --options runtime $(BRIDGE_BIN_DIR)/bear-xcall.app"; \
+		exit 1; \
 	fi
 else
 	codesign --force --deep --sign "$(CODESIGN_IDENTITY)" --entitlements tools/bear-xcall/entitlements.plist --options runtime $(BRIDGE_BIN_DIR)/bear-xcall.app
