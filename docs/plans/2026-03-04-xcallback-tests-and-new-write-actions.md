@@ -93,14 +93,14 @@
 - [x] run tests: `make test` — must pass before next task
 
 ### Task 4: Add `RenameTag` to XCallback interface
-- [ ] add `RenameTag(ctx context.Context, token, oldName, newName string) error` to `XCallback` interface
-- [ ] implement `RenameTag` on `Xcall`: build `bear://x-callback-url/rename-tag?name=<old>&new_name=<new>&show_window=no`
-- [ ] add `TestRenameTag/success` sub-test: verify URL prefix, params (token, name, new_name, show_window)
-- [ ] add `TestRenameTag/bear error` sub-test (locked tag scenario)
-- [ ] add `TestRenameTag/exec error` sub-test
-- [ ] add `TestRenameTag/invalid JSON response` sub-test
-- [ ] add `TestRenameTag/special characters in names` sub-test: unicode and slash characters in tag names
-- [ ] run tests: `make test` — must pass before next task
+- [x] add `RenameTag(ctx context.Context, token, oldName, newName string) error` to `XCallback` interface
+- [x] implement `RenameTag` on `Xcall`: build `bear://x-callback-url/rename-tag?name=<old>&new_name=<new>&show_window=no`
+- [x] add `TestRenameTag/success` sub-test: verify URL prefix, params (token, name, new_name, show_window)
+- [x] add `TestRenameTag/bear error` sub-test (locked tag scenario)
+- [x] add `TestRenameTag/exec error` sub-test
+- [x] add `TestRenameTag/invalid JSON response` sub-test
+- [x] add `TestRenameTag/special characters in names` sub-test: unicode and slash characters in tag names
+- [x] run tests: `make test` — must pass before next task
 
 ### Task 5: Add `DeleteTag` to XCallback interface
 - [ ] add `DeleteTag(ctx context.Context, token, tagName string) error` to `XCallback` interface

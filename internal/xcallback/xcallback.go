@@ -38,6 +38,9 @@ type XCallback interface {
 
 	// Archive moves a note to the archive in Bear.
 	Archive(ctx context.Context, token, bearID string) error
+
+	// RenameTag renames a tag in Bear. All notes with the old tag are updated.
+	RenameTag(ctx context.Context, token, oldName, newName string) error
 }
 
 //go:generate moq -out xcallback_mock.go . XCallback
@@ -362,6 +365,36 @@ func (x *Xcall) Archive(ctx context.Context, token, bearID string) error {
 	}
 
 	x.logger.Info("bear-xcall archive succeeded", "bear_id", bearID)
+
+	return nil
+}
+
+func (x *Xcall) RenameTag(ctx context.Context, token, oldName, newName string) error {
+	params := url.Values{}
+	params.Set("token", token)
+	params.Set("name", oldName)
+	params.Set("new_name", newName)
+	params.Set("show_window", "no")
+
+	callURL := "bear://x-callback-url/rename-tag?" + params.Encode()
+
+	x.logger.Debug("executing bear-xcall rename-tag", "url", MaskToken(callURL), "old_name", oldName, "new_name", newName)
+
+	output, err := x.executor.Run(ctx, x.xcallPath, "-url", callURL)
+	if err != nil {
+		return fmt.Errorf("bear-xcall rename-tag: %w", err)
+	}
+
+	result, err := parseXcallResult(output)
+	if err != nil {
+		return fmt.Errorf("bear-xcall rename-tag parse response: %w", err)
+	}
+
+	if result.ErrorCode != 0 {
+		return fmt.Errorf("bear-xcall rename-tag bear error: code=%d msg=%s", result.ErrorCode, result.ErrorMsg)
+	}
+
+	x.logger.Info("bear-xcall rename-tag succeeded", "old_name", oldName, "new_name", newName)
 
 	return nil
 }

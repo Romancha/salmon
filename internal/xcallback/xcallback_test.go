@@ -419,6 +419,79 @@ func TestAddFile(t *testing.T) {
 	})
 }
 
+func TestRenameTag(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		resp := xcallResult{}
+		respJSON, _ := json.Marshal(resp)
+		executor := &mockExecutor{output: respJSON}
+		x := newTestXcall(executor)
+
+		err := x.RenameTag(context.Background(), "test-token", "old/tag", "new/tag")
+
+		require.NoError(t, err)
+		require.Len(t, executor.calls, 1)
+
+		callURL := executor.calls[0].Args[1]
+		assert.True(t, strings.HasPrefix(callURL, "bear://x-callback-url/rename-tag?"))
+
+		parsed, err := url.Parse(callURL)
+		require.NoError(t, err)
+		q := parsed.Query()
+		assert.Equal(t, "test-token", q.Get("token"))
+		assert.Equal(t, "old/tag", q.Get("name"))
+		assert.Equal(t, "new/tag", q.Get("new_name"))
+		assert.Equal(t, "no", q.Get("show_window"))
+	})
+
+	t.Run("bear error", func(t *testing.T) {
+		resp := xcallResult{ErrorCode: 1, ErrorMsg: "tag is locked"}
+		respJSON, _ := json.Marshal(resp)
+		executor := &mockExecutor{output: respJSON}
+		x := newTestXcall(executor)
+
+		err := x.RenameTag(context.Background(), "tok", "old", "new")
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "bear error")
+	})
+
+	t.Run("exec error", func(t *testing.T) {
+		executor := &mockExecutor{err: fmt.Errorf("exit status 1")}
+		x := newTestXcall(executor)
+
+		err := x.RenameTag(context.Background(), "tok", "old", "new")
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "bear-xcall rename-tag")
+	})
+
+	t.Run("invalid JSON response", func(t *testing.T) {
+		executor := &mockExecutor{output: []byte("not json")}
+		x := newTestXcall(executor)
+
+		err := x.RenameTag(context.Background(), "tok", "old", "new")
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid bear-xcall JSON")
+	})
+
+	t.Run("special characters in names", func(t *testing.T) {
+		resp := xcallResult{}
+		respJSON, _ := json.Marshal(resp)
+		executor := &mockExecutor{output: respJSON}
+		x := newTestXcall(executor)
+
+		err := x.RenameTag(context.Background(), "tok", "тег/подтег", "новый/тег & символы")
+
+		require.NoError(t, err)
+
+		callURL := executor.calls[0].Args[1]
+		parsed, _ := url.Parse(callURL)
+		assert.Equal(t, "тег/подтег", parsed.Query().Get("name"))
+		assert.Equal(t, "новый/тег & символы", parsed.Query().Get("new_name"))
+	})
+}
+
 func TestMaskToken(t *testing.T) {
 	tests := []struct {
 		name     string
