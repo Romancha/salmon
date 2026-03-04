@@ -100,7 +100,7 @@ Binaries are placed in `bin/bear-sync-hub` and `bin/bear-bridge`.
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `HUB_HOST` | No | `127.0.0.1` | Listen host (`0.0.0.0` for Docker) |
-| `HUB_PORT` | No | `8080` | Listen port |
+| `HUB_PORT` | No | `7433` | Listen port |
 | `HUB_DB_PATH` | Yes | — | Path to SQLite database file |
 | `HUB_CONSUMER_TOKENS` | Yes | — | Consumer tokens in `name:token` format, comma-separated (e.g. `openclaw:secret1,myapp:secret2`) |
 | `HUB_BRIDGE_TOKEN` | Yes | — | Bearer token for bridge sync access |

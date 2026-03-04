@@ -48,7 +48,7 @@ func loadConfig() (*config, error) {
 	}
 
 	if cfg.port == "" {
-		cfg.port = "8080"
+		cfg.port = "7433"
 	}
 
 	if cfg.dbPath == "" {

@@ -1,5 +1,5 @@
 {$DOMAIN:bear-sync.example.com} {
-	reverse_proxy hub:8080
+	reverse_proxy hub:7433
 	log {
 		output stdout
 	}

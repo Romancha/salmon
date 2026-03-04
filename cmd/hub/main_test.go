@@ -35,7 +35,7 @@ func TestLoadConfig_Defaults(t *testing.T) {
 	cfg, err := loadConfig()
 	require.NoError(t, err)
 	assert.Equal(t, "127.0.0.1", cfg.host)
-	assert.Equal(t, "8080", cfg.port)
+	assert.Equal(t, "7433", cfg.port)
 	assert.Equal(t, "attachments", cfg.attachmentsDir)
 	assert.Equal(t, map[string]string{"app1": "oc-test"}, cfg.consumerTokens)
 	assert.Equal(t, "br-test", cfg.bridgeToken)

@@ -19,6 +19,6 @@ WORKDIR /data
 
 COPY --from=build /bin/bear-sync-hub /usr/local/bin/bear-sync-hub
 
-EXPOSE 8080
+EXPOSE 7433
 
 ENTRYPOINT ["bear-sync-hub"]
