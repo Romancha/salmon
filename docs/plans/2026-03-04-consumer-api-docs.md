@@ -58,16 +58,16 @@
 - [x] run `make test` — must pass before next task
 
 ### Task 3: Annotate notes_handler.go (8 handlers)
-- [ ] add `example` struct tags to `createNoteRequest` and `updateNoteRequest`
-- [ ] add swag annotations to `listNotes` — `@Summary`, `@Tags Notes`, `@Param`, `@Success`, `@Failure`, `@Security BearerAuth`, `@Router /api/notes [get]`
-- [ ] add swag annotations to `searchNotes` — `@Router /api/notes/search [get]`
-- [ ] add swag annotations to `getNote` — `@Router /api/notes/{id} [get]`
-- [ ] add swag annotations to `createNote` — `@Router /api/notes [post]`
-- [ ] add swag annotations to `updateNote` — `@Router /api/notes/{id} [put]`
-- [ ] add swag annotations to `trashNote` — `@Router /api/notes/{id} [delete]`
-- [ ] add swag annotations to `archiveNote` — `@Router /api/notes/{id}/archive [post]`
-- [ ] add swag annotations to `addFile` — path param `{noteID}`, `@Router /api/notes/{noteID}/attachments [post]`
-- [ ] run `make test` — must pass before next task
+- [x] add `example` struct tags to `createNoteRequest` and `updateNoteRequest`
+- [x] add swag annotations to `listNotes` — `@Summary`, `@Tags Notes`, `@Param`, `@Success`, `@Failure`, `@Security BearerAuth`, `@Router /api/notes [get]`
+- [x] add swag annotations to `searchNotes` — `@Router /api/notes/search [get]`
+- [x] add swag annotations to `getNote` — `@Router /api/notes/{id} [get]`
+- [x] add swag annotations to `createNote` — `@Router /api/notes [post]`
+- [x] add swag annotations to `updateNote` — `@Router /api/notes/{id} [put]`
+- [x] add swag annotations to `trashNote` — `@Router /api/notes/{id} [delete]`
+- [x] add swag annotations to `archiveNote` — `@Router /api/notes/{id}/archive [post]`
+- [x] add swag annotations to `addFile` — path param `{noteID}`, `@Router /api/notes/{noteID}/attachments [post]`
+- [x] run `make test` — must pass before next task
 
 ### Task 4: Annotate tags_handler.go (4 handlers)
 - [ ] add `example` struct tags to `addTagRequest` and `renameTagRequest`

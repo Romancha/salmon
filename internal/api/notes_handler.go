@@ -26,6 +26,25 @@ const maxAddFileSize = 5 * 1024 * 1024
 // errFileTooLarge is returned by writeUploadedFile when actual bytes exceed maxAddFileSize.
 var errFileTooLarge = errors.New("file exceeds 5 MB limit")
 
+// listNotes godoc
+// @Summary List notes
+// @Description Returns a list of notes with optional filtering. Body field is stripped from list responses.
+// @Tags Notes
+// @Produce json
+// @Param tag query string false "Filter by tag name"
+// @Param sort query string false "Sort column" Enums(modified_at, created_at, title)
+// @Param order query string false "Sort order" Enums(asc, desc)
+// @Param trashed query boolean false "Filter by trashed status"
+// @Param encrypted query boolean false "Filter by encrypted status"
+// @Param limit query integer false "Max results (max 200)"
+// @Param offset query integer false "Offset for pagination"
+// @Success 200 {array} models.Note
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Security BearerAuth
+// @Router /api/notes [get]
 func (s *Server) listNotes(w http.ResponseWriter, r *http.Request) {
 	filter := store.NoteFilter{
 		Tag:   r.URL.Query().Get("tag"),
@@ -82,6 +101,21 @@ func (s *Server) listNotes(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, notes)
 }
 
+// searchNotes godoc
+// @Summary Search notes
+// @Description Full-text search across note titles and bodies using FTS5.
+// @Tags Notes
+// @Produce json
+// @Param q query string true "Search query"
+// @Param tag query string false "Filter by tag name"
+// @Param limit query integer false "Max results (default 20, max 200)"
+// @Success 200 {array} models.Note
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Security BearerAuth
+// @Router /api/notes/search [get]
 func (s *Server) searchNotes(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query().Get("q")
 	if q == "" {
@@ -115,6 +149,19 @@ func (s *Server) searchNotes(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, notes)
 }
 
+// getNote godoc
+// @Summary Get a note
+// @Description Returns a single note by ID, including body, tags, and backlinks.
+// @Tags Notes
+// @Produce json
+// @Param id path string true "Note ID"
+// @Success 200 {object} models.Note
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Security BearerAuth
+// @Router /api/notes/{id} [get]
 func (s *Server) getNote(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
@@ -133,11 +180,26 @@ func (s *Server) getNote(w http.ResponseWriter, r *http.Request) {
 }
 
 type createNoteRequest struct {
-	Title string   `json:"title"`
-	Body  string   `json:"body"`
-	Tags  []string `json:"tags,omitempty"`
+	Title string   `json:"title" example:"Meeting Notes"`
+	Body  string   `json:"body" example:"# Meeting Notes\nDiscussed project roadmap."`
+	Tags  []string `json:"tags,omitempty" example:"work,meetings"`
 }
 
+// createNote godoc
+// @Summary Create a note
+// @Description Creates a new note and enqueues it for sync to Bear. Requires Idempotency-Key header.
+// @Tags Notes
+// @Accept json
+// @Produce json
+// @Param Idempotency-Key header string true "Idempotency key for deduplication"
+// @Param request body createNoteRequest true "Note to create"
+// @Success 201 {object} models.Note
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Security BearerAuth
+// @Router /api/notes [post]
 func (s *Server) createNote(w http.ResponseWriter, r *http.Request) {
 	var req createNoteRequest
 	if err := readJSON(r, &req); err != nil {
@@ -230,10 +292,28 @@ func (s *Server) createNote(w http.ResponseWriter, r *http.Request) {
 }
 
 type updateNoteRequest struct {
-	Title string `json:"title,omitempty"`
-	Body  string `json:"body,omitempty"`
+	Title string `json:"title,omitempty" example:"Updated Title"`
+	Body  string `json:"body,omitempty" example:"# Updated Content\nNew body text."`
 }
 
+// updateNote godoc
+// @Summary Update a note
+// @Description Updates an existing note's title and/or body. Body is required. Requires Idempotency-Key header.
+// @Tags Notes
+// @Accept json
+// @Produce json
+// @Param id path string true "Note ID"
+// @Param Idempotency-Key header string true "Idempotency key for deduplication"
+// @Param request body updateNoteRequest true "Fields to update"
+// @Success 200 {object} models.Note
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 409 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Security BearerAuth
+// @Router /api/notes/{id} [put]
 func (s *Server) updateNote(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
@@ -344,6 +424,21 @@ func (s *Server) updateNote(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, note)
 }
 
+// trashNote godoc
+// @Summary Trash a note
+// @Description Moves a note to trash. Requires Idempotency-Key header.
+// @Tags Notes
+// @Produce json
+// @Param id path string true "Note ID"
+// @Param Idempotency-Key header string true "Idempotency key for deduplication"
+// @Success 200 {object} models.Note
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 409 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Security BearerAuth
+// @Router /api/notes/{id} [delete]
 func (s *Server) trashNote(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
@@ -429,6 +524,21 @@ func (s *Server) trashNote(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, note)
 }
 
+// archiveNote godoc
+// @Summary Archive a note
+// @Description Archives a note. Requires Idempotency-Key header.
+// @Tags Notes
+// @Produce json
+// @Param id path string true "Note ID"
+// @Param Idempotency-Key header string true "Idempotency key for deduplication"
+// @Success 200 {object} models.Note
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 409 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Security BearerAuth
+// @Router /api/notes/{id}/archive [post]
 func (s *Server) archiveNote(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
@@ -508,6 +618,25 @@ func (s *Server) archiveNote(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, note)
 }
 
+// addFile godoc
+// @Summary Attach a file to a note
+// @Description Uploads a file and attaches it to a note. Max file size is 5 MB. Requires Idempotency-Key header.
+// @Tags Notes
+// @Accept multipart/form-data
+// @Produce json
+// @Param noteID path string true "Note ID"
+// @Param Idempotency-Key header string true "Idempotency key for deduplication"
+// @Param file formData file true "File to attach"
+// @Success 202 {object} models.WriteQueueItem
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 409 {object} ErrorResponse
+// @Failure 413 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Security BearerAuth
+// @Router /api/notes/{noteID}/attachments [post]
 func (s *Server) addFile(w http.ResponseWriter, r *http.Request) {
 	noteID := chi.URLParam(r, "noteID")
 
