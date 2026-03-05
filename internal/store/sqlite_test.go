@@ -12,8 +12,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/romancha/bear-sync/internal/models"
-	"github.com/romancha/bear-sync/internal/store"
+	"github.com/romancha/salmon/internal/models"
+	"github.com/romancha/salmon/internal/store"
 
 	_ "modernc.org/sqlite"
 )

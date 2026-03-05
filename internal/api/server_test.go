@@ -16,9 +16,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/romancha/bear-sync/internal/api"
-	"github.com/romancha/bear-sync/internal/models"
-	"github.com/romancha/bear-sync/internal/store"
+	"github.com/romancha/salmon/internal/api"
+	"github.com/romancha/salmon/internal/models"
+	"github.com/romancha/salmon/internal/store"
 )
 
 const (

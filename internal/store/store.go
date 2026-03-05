@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/romancha/bear-sync/internal/models"
+	"github.com/romancha/salmon/internal/models"
 )
 
 // NoteFilter defines filtering options for listing notes.

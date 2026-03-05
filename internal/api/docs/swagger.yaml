@@ -263,7 +263,7 @@ definitions:
 info:
   contact: {}
   description: API for reading and writing Bear notes via the hub.
-  title: Bear Sync Hub API
+  title: Salmon Hub API
   version: "1.0"
 paths:
   /api/attachments/{id}:

@@ -10,9 +10,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/romancha/bear-sync/internal/beardb"
-	"github.com/romancha/bear-sync/internal/hubclient"
-	"github.com/romancha/bear-sync/internal/xcallback"
+	"github.com/romancha/salmon/internal/beardb"
+	"github.com/romancha/salmon/internal/hubclient"
+	"github.com/romancha/salmon/internal/xcallback"
 )
 
 // version is set at build time via ldflags.
@@ -23,7 +23,7 @@ func main() {
 	for _, arg := range os.Args[1:] {
 		switch arg {
 		case "--version":
-			fmt.Println("bear-bridge " + version)
+			fmt.Println("salmon-run " + version)
 			return
 		case "--daemon":
 			daemonMode = true

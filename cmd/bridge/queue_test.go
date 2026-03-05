@@ -11,10 +11,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/romancha/bear-sync/internal/beardb"
-	"github.com/romancha/bear-sync/internal/ipc"
-	"github.com/romancha/bear-sync/internal/models"
-	"github.com/romancha/bear-sync/internal/xcallback"
+	"github.com/romancha/salmon/internal/beardb"
+	"github.com/romancha/salmon/internal/ipc"
+	"github.com/romancha/salmon/internal/models"
+	"github.com/romancha/salmon/internal/xcallback"
 )
 
 // newQueueBridge creates a Bridge configured for queue processing tests.

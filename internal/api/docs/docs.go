@@ -1496,7 +1496,7 @@ var SwaggerInfo = &swag.Spec{
 	Host:             "",
 	BasePath:         "/",
 	Schemes:          []string{},
-	Title:            "Bear Sync Hub API",
+	Title:            "Salmon Hub API",
 	Description:      "API for reading and writing Bear notes via the hub.",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,

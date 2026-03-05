@@ -13,9 +13,9 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	httpSwagger "github.com/swaggo/http-swagger/v2"
 
-	_ "github.com/romancha/bear-sync/internal/api/docs"
-	"github.com/romancha/bear-sync/internal/mapper"
-	"github.com/romancha/bear-sync/internal/store"
+	_ "github.com/romancha/salmon/internal/api/docs"
+	"github.com/romancha/salmon/internal/mapper"
+	"github.com/romancha/salmon/internal/store"
 )
 
 type contextKey string

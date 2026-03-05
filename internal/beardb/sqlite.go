@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/romancha/bear-sync/internal/mapper"
+	"github.com/romancha/salmon/internal/mapper"
 
 	_ "modernc.org/sqlite" // SQLite driver
 )

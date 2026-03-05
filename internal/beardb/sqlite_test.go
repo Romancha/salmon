@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/romancha/bear-sync/internal/beardb"
+	"github.com/romancha/salmon/internal/beardb"
 
 	_ "modernc.org/sqlite"
 )

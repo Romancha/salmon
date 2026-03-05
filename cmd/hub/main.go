@@ -14,11 +14,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/romancha/bear-sync/internal/api"
-	"github.com/romancha/bear-sync/internal/store"
+	"github.com/romancha/salmon/internal/api"
+	"github.com/romancha/salmon/internal/store"
 )
 
-// @title Bear Sync Hub API
+// @title Salmon Hub API
 // @version 1.0
 // @description API for reading and writing Bear notes via the hub.
 // @BasePath /

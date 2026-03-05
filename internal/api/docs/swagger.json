@@ -2,7 +2,7 @@
     "swagger": "2.0",
     "info": {
         "description": "API for reading and writing Bear notes via the hub.",
-        "title": "Bear Sync Hub API",
+        "title": "Salmon Hub API",
         "contact": {},
         "version": "1.0"
     },

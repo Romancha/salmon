@@ -14,8 +14,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/romancha/bear-sync/internal/models"
-	"github.com/romancha/bear-sync/internal/store"
+	"github.com/romancha/salmon/internal/models"
+	"github.com/romancha/salmon/internal/store"
 )
 
 // maxAddFileSize is the maximum file size for the addFile endpoint (5 MB).

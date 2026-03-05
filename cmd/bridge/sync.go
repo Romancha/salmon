@@ -8,12 +8,12 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/romancha/bear-sync/internal/beardb"
-	"github.com/romancha/bear-sync/internal/hubclient"
-	"github.com/romancha/bear-sync/internal/ipc"
-	"github.com/romancha/bear-sync/internal/mapper"
-	"github.com/romancha/bear-sync/internal/models"
-	"github.com/romancha/bear-sync/internal/xcallback"
+	"github.com/romancha/salmon/internal/beardb"
+	"github.com/romancha/salmon/internal/hubclient"
+	"github.com/romancha/salmon/internal/ipc"
+	"github.com/romancha/salmon/internal/mapper"
+	"github.com/romancha/salmon/internal/models"
+	"github.com/romancha/salmon/internal/xcallback"
 )
 
 // junctionFullScanInterval determines how often a full junction table scan is performed.

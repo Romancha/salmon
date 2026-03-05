@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/romancha/bear-sync/internal/models"
+	"github.com/romancha/salmon/internal/models"
 )
 
 // --- Note columns and scanning ---

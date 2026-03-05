@@ -1,4 +1,4 @@
-module github.com/romancha/bear-sync
+module github.com/romancha/salmon
 
 go 1.26.0
 

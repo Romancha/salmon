@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/romancha/bear-sync/internal/beardb"
-	"github.com/romancha/bear-sync/internal/ipc"
-	"github.com/romancha/bear-sync/internal/models"
-	"github.com/romancha/bear-sync/internal/xcallback"
+	"github.com/romancha/salmon/internal/beardb"
+	"github.com/romancha/salmon/internal/ipc"
+	"github.com/romancha/salmon/internal/models"
+	"github.com/romancha/salmon/internal/xcallback"
 )
 
 // verifyDelay is how long to wait before verifying bear-xcall results in Bear SQLite.

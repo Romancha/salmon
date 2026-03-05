@@ -12,7 +12,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/romancha/bear-sync/internal/models"
+	"github.com/romancha/salmon/internal/models"
 )
 
 // SyncStatus represents the hub's current sync state.

@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/romancha/bear-sync/internal/models"
+	"github.com/romancha/salmon/internal/models"
 
 	_ "modernc.org/sqlite"
 )

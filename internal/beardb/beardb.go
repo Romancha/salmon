@@ -3,7 +3,7 @@ package beardb
 import (
 	"context"
 
-	"github.com/romancha/bear-sync/internal/mapper"
+	"github.com/romancha/salmon/internal/mapper"
 )
 
 // NoteTagPair represents a resolved note-tag junction table entry with Bear UUIDs.

@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/romancha/bear-sync/internal/beardb"
-	"github.com/romancha/bear-sync/internal/mapper"
+	"github.com/romancha/salmon/internal/beardb"
+	"github.com/romancha/salmon/internal/mapper"
 )
 
 func TestRunDaemon_RunsInitialSyncAndStops(t *testing.T) {

@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/romancha/bear-sync/internal/ipc"
+	"github.com/romancha/salmon/internal/ipc"
 )
 
 // runDaemon runs the bridge sync loop continuously until the context is cancelled.

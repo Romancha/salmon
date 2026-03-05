@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/romancha/bear-sync/internal/models"
+	"github.com/romancha/salmon/internal/models"
 )
 
 // CoreDataEpochOffset is the difference in seconds between Unix epoch (1970-01-01)
