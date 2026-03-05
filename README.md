@@ -8,9 +8,9 @@ Syncs Bear notes with external consumers. Two components: **hub** (API server on
 
 **Bear** — source of truth for all note content. Stores notes in a local SQLite database (Core Data schema). The bridge reads this database directly and applies writes via Bear's x-callback-url scheme.
 
-**Bridge** (`bin/bear-bridge`) — Mac agent that runs on the same machine as Bear. Can run as a one-shot command (scheduled via launchd) or in daemon mode (`--daemon`) with a continuous sync loop. Reads Bear's SQLite, detects changes since the last run, pushes them to the hub, and pulls pending write operations from the hub to apply back to Bear via bear-xcall.
+**Bridge** (`bin/bear-bridge`) — Mac agent that runs on the same machine as Bear. Runs in daemon mode (`--daemon`) with a continuous sync loop, managed by BearBridge.app. Reads Bear's SQLite, detects changes since the last run, pushes them to the hub, and pulls pending write operations from the hub to apply back to Bear via bear-xcall.
 
-**BearBridge.app** — native macOS menu bar application that wraps the bridge binary. Provides a GUI for monitoring sync status, viewing logs, triggering manual syncs, and configuring settings. Replaces the headless launchd agent with a user-friendly interface. The bridge runs as a managed child process in daemon mode.
+**BearBridge.app** — native macOS menu bar application that wraps the bridge binary. Provides a GUI for monitoring sync status, viewing logs, triggering manual syncs, and configuring settings. The bridge runs as a managed child process in daemon mode.
 
 **Hub** (`bin/bear-sync-hub`) — API server that runs on a VPS. Acts as a read replica of Bear's notes and exposes a REST API for external consumers. Holds a write queue for consumer-initiated changes that need to propagate back to Bear.
 
@@ -209,54 +209,11 @@ CLI flags:
 - `--daemon` — run continuously with periodic sync (default interval: 5 minutes)
 - `--version` — print version and exit
 
-The bridge runs once per invocation by default. Use launchd to schedule periodic runs, or use the [Menu Bar App](#menu-bar-app-bearbridgeapp) which manages the bridge in daemon mode with a GUI.
-
-### Launchd (headless)
-
-Install the bridge, bear-xcall, and the launchd agent:
-
-```
-make install-bridge
-```
-
-This builds both binaries, copies them to `~/bin/`, installs the wrapper script and launchd plist,
-and creates a config template at `~/.config/bear-bridge/.env.bridge`.
-
-Edit the config to set your hub URL and tokens:
-
-```
-nano ~/.config/bear-bridge/.env.bridge
-```
-
-Reload the agent to pick up the new config:
-
-```
-launchctl bootout gui/$(id -u)/com.romancha.bear-bridge
-launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.romancha.bear-bridge.plist
-```
-
-The bridge runs every 5 minutes and starts automatically on login.
-
-Logs are written to `~/Library/Logs/bear-bridge/` (`stdout.log`, `stderr.log`). The wrapper script automatically rotates logs when they exceed 5 MB, keeping one backup (`.log.1`).
-
-To update to a new version (from source):
-
-```
-git pull
-make install-bridge
-```
-
-Or download the latest release from the [Releases](../../releases) page and run `make install-bridge` from the extracted archive.
-
-To uninstall:
-
-```
-make uninstall-bridge
-```
+The recommended way to run the bridge is via the [Menu Bar App](#menu-bar-app-bearbridgeapp), which manages the bridge in daemon mode with a GUI.
 
 ## Menu Bar App (BearBridge.app)
 
-BearBridge.app is a native macOS menu bar application (macOS 13+) that replaces the headless launchd agent. It manages the bridge as a child process in daemon mode and provides a GUI for monitoring and configuration.
+BearBridge.app is a native macOS menu bar application (macOS 13+) that manages the bridge as a child process in daemon mode and provides a GUI for monitoring and configuration.
 
 ### Menu Bar UI
 
@@ -304,21 +261,16 @@ Settings are accessible from the menu bar popup via "Settings...":
 | General | Launch at Login | SMAppService | Auto-start BearBridge.app on login |
 | General | Notifications | UserDefaults | Show macOS notifications on sync errors |
 
-Tokens are stored securely in the macOS Keychain. All other settings use UserDefaults. The app generates environment variables for the bridge process from these settings, replacing the `.env.bridge` config file.
+Tokens are stored securely in the macOS Keychain. All other settings use UserDefaults. The app generates environment variables for the bridge process from these settings.
 
 ### Install
 
-From a GitHub Release archive:
+Download the .dmg for your architecture from the [Releases](../../releases) page:
 
-```
-make install-app
-```
+- `BearBridge-vX.Y.Z-arm64.dmg` (Apple Silicon)
+- `BearBridge-vX.Y.Z-amd64.dmg` (Intel)
 
-This copies `BearBridge.app` to `~/Applications/` (verifies code signature first). To launch:
-
-```
-open ~/Applications/BearBridge.app
-```
+Open the .dmg and drag BearBridge.app to `/Applications`. Launch from Applications and configure your Hub URL and tokens in Settings.
 
 From source:
 
@@ -332,34 +284,6 @@ To uninstall:
 ```
 make uninstall-app
 ```
-
-### Switching from launchd Agent to Menu Bar App
-
-If you previously used the headless launchd agent, follow these steps to switch:
-
-1. Stop and remove the launchd agent:
-
-```
-make uninstall-bridge
-```
-
-2. Install the menu bar app:
-
-```
-make install-app
-```
-
-3. Launch the app and configure settings:
-
-```
-open ~/Applications/BearBridge.app
-```
-
-4. Open Settings from the menu bar popup and enter your Hub URL, Hub Token, and Bear Token. These are the same values from your old `~/.config/bear-bridge/.env.bridge` file.
-
-5. Optionally enable "Launch at Login" in the General tab.
-
-The menu bar app manages the bridge process internally, so no launchd plist or wrapper script is needed. The bridge state file (`~/.bear-bridge-state.json`) is shared, so your sync history is preserved.
 
 ### Build
 
@@ -405,45 +329,13 @@ make tidy          # go mod tidy
 make swagger       # generate Swagger docs (swag init)
 ```
 
-## Install from GitHub Release
-
-Pre-built, signed, and notarized binaries are available on the [Releases](../../releases) page.
-
-1. Download the archive for your architecture:
-   - `bear-bridge-vX.Y.Z-darwin-arm64.tar.gz` (Apple Silicon)
-   - `bear-bridge-vX.Y.Z-darwin-amd64.tar.gz` (Intel)
-
-2. Verify the checksum (optional):
-
-```
-shasum -a 256 -c bear-bridge-vX.Y.Z-darwin-arm64.tar.gz.sha256
-```
-
-3. Extract and install:
-
-```
-tar xzf bear-bridge-vX.Y.Z-darwin-arm64.tar.gz
-cd bear-bridge-vX.Y.Z-darwin-arm64
-make install-bridge
-```
-
-4. Edit the config and reload the agent (see [Bridge Setup](#bridge-setup) above for details).
-
-The release binaries are signed with a Developer ID certificate and notarized by Apple, so macOS Gatekeeper will allow them without warnings.
-
-To verify signatures after install:
-
-```
-make verify-bridge
-```
-
 ## CI/CD
 
 GitHub Actions runs automatically:
 
 - **CI** (push/PR to main): lint, test, test with race detector
 - **Docker Publish** (push tag `v*`): builds multi-platform hub image (`linux/amd64`, `linux/arm64`) and pushes to `ghcr.io/romancha/bear-sync-hub`
-- **Release Bridge** (push tag `v*`): builds, signs, notarizes, and publishes bridge + bear-xcall + BearBridge.app for macOS (`arm64`, `amd64`) as GitHub Release assets
+- **Release Bridge** (push tag `v*`): builds, signs, notarizes, and publishes BearBridge.app as .dmg for macOS (`arm64`, `amd64`) as GitHub Release assets
 
 ### Publishing a release
 
