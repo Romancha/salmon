@@ -107,22 +107,26 @@ func (s *Server) Start(ctx context.Context) error {
 		s.mu.Unlock()
 		return fmt.Errorf("ipc server already started")
 	}
+	s.started = true
 	s.mu.Unlock()
 
 	// Remove stale socket file.
 	if err := os.Remove(s.socketPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+		s.revertStarted()
 		return fmt.Errorf("remove stale socket: %w", err)
 	}
 
 	lc := net.ListenConfig{}
 	ln, err := lc.Listen(ctx, "unix", s.socketPath)
 	if err != nil {
+		s.revertStarted()
 		return fmt.Errorf("listen on %s: %w", s.socketPath, err)
 	}
 
 	// Set socket permissions to owner-only.
 	if err := os.Chmod(s.socketPath, 0o600); err != nil {
 		ln.Close() //nolint:errcheck,gosec // closing on error path
+		s.revertStarted()
 		return fmt.Errorf("chmod socket: %w", err)
 	}
 
@@ -131,13 +135,18 @@ func (s *Server) Start(ctx context.Context) error {
 	s.mu.Lock()
 	s.listener = ln
 	s.cancelFn = cancel
-	s.started = true
 	s.mu.Unlock()
 
 	go s.acceptLoop(ctx)
 
 	s.logger.Info("ipc server started", "socket", s.socketPath)
 	return nil
+}
+
+func (s *Server) revertStarted() {
+	s.mu.Lock()
+	s.started = false
+	s.mu.Unlock()
 }
 
 // Stop shuts down the IPC server and removes the socket file.

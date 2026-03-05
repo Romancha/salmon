@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/romancha/bear-sync/internal/ipc"
@@ -22,6 +23,9 @@ func runDaemonWithIPC(
 ) error {
 	stats := ipc.NewStatsTracker(0)
 	bridge.stats = stats
+
+	// Wrap the logger to feed log entries into the stats tracker for IPC logs command.
+	logger = slog.New(&statsLogHandler{Handler: logger.Handler(), stats: stats})
 
 	if socketPath != "" {
 		srv := ipc.NewServer(socketPath, stats, logger)
@@ -56,6 +60,33 @@ func runDaemonWithIPC(
 			return nil
 		}
 	}
+}
+
+// statsLogHandler wraps a slog.Handler and feeds log records into StatsTracker.
+type statsLogHandler struct {
+	slog.Handler
+	stats *ipc.StatsTracker
+}
+
+//nolint:gocritic // slog.Handler interface requires slog.Record by value
+func (h *statsLogHandler) Handle(ctx context.Context, r slog.Record) error {
+	h.stats.AddLog(ipc.LogEntry{
+		Time:  r.Time.UTC().Format(time.RFC3339),
+		Level: strings.ToLower(r.Level.String()),
+		Msg:   r.Message,
+	})
+	if err := h.Handler.Handle(ctx, r); err != nil {
+		return fmt.Errorf("stats log handler: %w", err)
+	}
+	return nil
+}
+
+func (h *statsLogHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	return &statsLogHandler{Handler: h.Handler.WithAttrs(attrs), stats: h.stats}
+}
+
+func (h *statsLogHandler) WithGroup(name string) slog.Handler {
+	return &statsLogHandler{Handler: h.Handler.WithGroup(name), stats: h.stats}
 }
 
 // runSyncCycle executes a single sync and updates stats accordingly.

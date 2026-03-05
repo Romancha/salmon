@@ -11,6 +11,7 @@ struct BearBridgeApp: App {
     @StateObject private var settingsManager: SettingsManager
     @Environment(\.openWindow) private var openWindow
     private let notificationService: NotificationService
+    private let processManager: BridgeProcessManager
 
     init() {
         let ipcClient = BridgeIPCClient()
@@ -21,18 +22,32 @@ struct BearBridgeApp: App {
             NotificationCenter.default.post(name: .openLogViewer, object: nil)
         }
 
+        let logVM = LogViewModel(ipcClient: ipcClient)
+
         _viewModel = StateObject(wrappedValue: StatusViewModel(
             ipcClient: ipcClient,
             notificationService: notifications
         ))
-        _logViewModel = StateObject(wrappedValue: LogViewModel(ipcClient: ipcClient))
+        _logViewModel = StateObject(wrappedValue: logVM)
         _settingsManager = StateObject(wrappedValue: settings)
         self.notificationService = notifications
+
+        let pm = BridgeProcessManager(environment: settings.bridgeEnvironment())
+        pm.onLogEntry = { entry in
+            DispatchQueue.main.async {
+                logVM.addEntry(entry)
+            }
+        }
+        self.processManager = pm
+
+        if settings.isConfigured {
+            try? pm.start()
+        }
     }
 
     var body: some Scene {
         MenuBarExtra {
-            MenuBarView(viewModel: viewModel, logViewModel: logViewModel)
+            MenuBarView(viewModel: viewModel, logViewModel: logViewModel, processManager: processManager)
                 .onAppear {
                     viewModel.startPolling()
                 }

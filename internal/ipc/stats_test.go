@@ -50,13 +50,13 @@ func TestStatsTracker_RecordSync(t *testing.T) {
 	assert.Equal(t, 2, status.Stats.QueueProcessed)
 	assert.Equal(t, int64(1200), status.Stats.LastDurationMs)
 
-	// Cumulative.
+	// Per-cycle (overwrites previous values).
 	st.RecordSync(3, 1, 0, 800)
 	status = st.GetStatus()
-	assert.Equal(t, 13, status.Stats.NotesSynced)
-	assert.Equal(t, 6, status.Stats.TagsSynced)
-	assert.Equal(t, 2, status.Stats.QueueProcessed)
-	assert.Equal(t, int64(800), status.Stats.LastDurationMs) // Last, not cumulative.
+	assert.Equal(t, 3, status.Stats.NotesSynced)
+	assert.Equal(t, 1, status.Stats.TagsSynced)
+	assert.Equal(t, 0, status.Stats.QueueProcessed)
+	assert.Equal(t, int64(800), status.Stats.LastDurationMs)
 }
 
 func TestStatsTracker_AddLog(t *testing.T) {
@@ -180,7 +180,7 @@ func TestStatsTracker_ConcurrentAccess(t *testing.T) {
 	wg.Wait()
 
 	status := st.GetStatus()
-	assert.Equal(t, 100, status.Stats.NotesSynced)
+	assert.Equal(t, 1, status.Stats.NotesSynced)
 }
 
 func TestStatsTracker_QueueStatus_Empty(t *testing.T) {

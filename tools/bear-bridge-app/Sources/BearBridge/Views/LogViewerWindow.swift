@@ -65,7 +65,7 @@ struct LogViewerWindow: View {
         Button {
             viewModel.autoScroll.toggle()
         } label: {
-            Image(systemName: viewModel.autoScroll ? "arrow.down.to.line" : "arrow.down.to.line")
+            Image(systemName: viewModel.autoScroll ? "arrow.down.to.line.circle.fill" : "arrow.down.to.line")
                 .foregroundColor(viewModel.autoScroll ? .accentColor : .secondary)
         }
         .buttonStyle(.plain)

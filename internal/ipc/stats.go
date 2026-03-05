@@ -121,13 +121,13 @@ func (st *StatsTracker) SetError(errMsg string) {
 	st.lastError = errMsg
 }
 
-// RecordSync records stats from a completed sync cycle.
+// RecordSync records stats from the most recent sync cycle.
 func (st *StatsTracker) RecordSync(notesSynced, tagsSynced, queueProcessed int, durationMs int64) {
 	st.mu.Lock()
 	defer st.mu.Unlock()
-	st.notesSynced += notesSynced
-	st.tagsSynced += tagsSynced
-	st.queueProcessed += queueProcessed
+	st.notesSynced = notesSynced
+	st.tagsSynced = tagsSynced
+	st.queueProcessed = queueProcessed
 	st.lastDurationMs = durationMs
 }
 

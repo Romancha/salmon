@@ -3,6 +3,7 @@ import SwiftUI
 struct MenuBarView: View {
     @ObservedObject var viewModel: StatusViewModel
     @ObservedObject var logViewModel: LogViewModel
+    let processManager: BridgeProcessManager
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
@@ -112,6 +113,7 @@ struct MenuBarView: View {
 
     private var quitButton: some View {
         Button {
+            processManager.stop()
             NSApplication.shared.terminate(nil)
         } label: {
             Text("Quit Bear Bridge")
