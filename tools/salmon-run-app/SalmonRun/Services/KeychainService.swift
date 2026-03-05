@@ -20,7 +20,7 @@ final class KeychainService: KeychainServiceProtocol {
     private let service: String
 
     /// - Parameter service: The Keychain service name (defaults to the app bundle ID).
-    init(service: String = Bundle.main.bundleIdentifier ?? "com.bear-bridge") {
+    init(service: String = Bundle.main.bundleIdentifier ?? "com.salmon-run") {
         self.service = service
     }
 

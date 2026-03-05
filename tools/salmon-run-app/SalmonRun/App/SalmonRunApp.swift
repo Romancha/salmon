@@ -5,7 +5,7 @@ extension Notification.Name {
 }
 
 @main
-struct BearBridgeApp: App {
+struct SalmonRunApp: App {
     @StateObject private var appModel = AppModel()
     @Environment(\.openWindow) private var openWindow
 
@@ -34,7 +34,7 @@ struct BearBridgeApp: App {
         }
         .menuBarExtraStyle(.window)
 
-        Window("Bear Bridge Logs", id: "log-viewer") {
+        Window("Salmon Run Logs", id: "log-viewer") {
             AppRoot(app: appModel) {
                 LogViewerWindow()
             }

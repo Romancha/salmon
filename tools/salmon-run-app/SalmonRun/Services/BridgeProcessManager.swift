@@ -29,10 +29,10 @@ enum BridgeProcessError: Error, Equatable {
 
 // MARK: - BridgeProcessManager
 
-/// Manages the bear-bridge daemon as a child process.
+/// Manages the salmon-run daemon as a child process.
 ///
 /// Responsibilities:
-/// - Locates the bear-bridge binary (in .app bundle or ~/bin/)
+/// - Locates the salmon-run binary (in .app bundle or ~/bin/)
 /// - Launches it with `--daemon` flag and configured environment
 /// - Parses stdout JSON lines into LogEntry and StatusEvent
 /// - Restarts on unexpected exit (up to 3 retries)
@@ -65,7 +65,7 @@ final class BridgeProcessManager {
     var onStateChange: ((State) -> Void)?
 
     /// - Parameters:
-    ///   - binaryPath: Explicit path to bear-bridge binary. If nil, searches default locations.
+    ///   - binaryPath: Explicit path to salmon-run binary. If nil, searches default locations.
     ///   - environmentProvider: Closure returning environment variables. Evaluated at each process launch.
     ///   - launcher: Process launcher (injectable for testing).
     init(binaryPath: String? = nil, environmentProvider: @escaping () -> [String: String] = { [:] }, launcher: ProcessLauncher? = nil) {
@@ -113,7 +113,7 @@ final class BridgeProcessManager {
         try launchProcess(at: url)
     }
 
-    /// Resolve the bear-bridge binary URL.
+    /// Resolve the salmon-run binary URL.
     /// Checks: explicit path > .app bundle > ~/bin/
     func resolveBinaryURL() -> URL? {
         if let explicit = binaryPath {
@@ -124,18 +124,18 @@ final class BridgeProcessManager {
             return nil
         }
 
-        // Check inside .app bundle (Contents/MacOS/bear-bridge)
+        // Check inside .app bundle (Contents/MacOS/salmon-run)
         if let bundleExec = Bundle.main.executableURL {
-            let bundled = bundleExec.deletingLastPathComponent().appendingPathComponent("bear-bridge")
+            let bundled = bundleExec.deletingLastPathComponent().appendingPathComponent("salmon-run")
             if FileManager.default.isExecutableFile(atPath: bundled.path) {
                 return bundled
             }
         }
 
-        // Check ~/bin/bear-bridge
+        // Check ~/bin/salmon-run
         let homeBin = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("bin")
-            .appendingPathComponent("bear-bridge")
+            .appendingPathComponent("salmon-run")
         if FileManager.default.isExecutableFile(atPath: homeBin.path) {
             return homeBin
         }

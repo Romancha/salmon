@@ -55,7 +55,7 @@ struct SettingsWindow: View {
                 HStack {
                     TextField("Hub URL", text: $settings.hubURL)
                         .textFieldStyle(.roundedBorder)
-                        .help(Text(verbatim: "The URL of your bear-sync hub server (e.g. https://hub.example.com)"))
+                        .help(Text(verbatim: "The URL of your Salmon Hub server (e.g. https://hub.example.com)"))
                         .onChange(of: settings.hubURL) { _ in
                             scheduleRestart()
                         }
@@ -124,7 +124,7 @@ struct SettingsWindow: View {
         Form {
             Section {
                 Toggle("Launch at Login", isOn: $settings.launchAtLogin)
-                    .help("Automatically start Bear Bridge when you log in")
+                    .help("Automatically start Salmon Run when you log in")
             } header: {
                 Text("Startup")
             }
@@ -158,7 +158,7 @@ struct SettingsWindow: View {
 
             Section {
                 LabeledContent("GitHub") {
-                    Link("bear-sync", destination: URL(string: "https://github.com/romancha/bear-sync")!)
+                    Link("salmon", destination: URL(string: "https://github.com/romancha/salmon")!)
                 }
             } header: {
                 Text("Links")

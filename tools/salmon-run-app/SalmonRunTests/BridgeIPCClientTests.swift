@@ -1,6 +1,6 @@
 import XCTest
 
-@testable import BearBridge
+@testable import SalmonRun
 
 // MARK: - Mock transport
 
@@ -49,7 +49,7 @@ final class BridgeIPCClientTests: XCTestCase {
 
     func testDefaultSocketPath() {
         let client = BridgeIPCClient()
-        let expectedPath = FileManager.default.homeDirectoryForCurrentUser.path + "/.bear-bridge.sock"
+        let expectedPath = FileManager.default.homeDirectoryForCurrentUser.path + "/.salmon.sock"
         XCTAssertEqual(client.socketPath, expectedPath)
     }
 

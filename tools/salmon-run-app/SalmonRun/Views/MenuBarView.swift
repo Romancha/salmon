@@ -88,7 +88,7 @@ struct MenuBarView: View {
                     Image(systemName: "power")
                         .frame(width: 16)
                         .foregroundColor(.secondary)
-                    Text("Quit Bear Bridge")
+                    Text("Quit Salmon Run")
                     Spacer()
                 }
                 .contentShape(Rectangle())

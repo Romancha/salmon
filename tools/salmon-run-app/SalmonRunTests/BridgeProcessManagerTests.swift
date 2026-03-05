@@ -1,6 +1,6 @@
 import XCTest
 
-@testable import BearBridge
+@testable import SalmonRun
 
 // MARK: - Mock process infrastructure
 
@@ -78,17 +78,17 @@ final class BridgeProcessManagerTests: XCTestCase {
         let binaryPath = createTempExecutable()
         defer { removeTempFile(binaryPath) }
 
-        let env = ["BRIDGE_HUB_URL": "https://hub.example.com", "BRIDGE_HUB_TOKEN": "secret"]
+        let env = ["SALMON_HUB_URL": "https://hub.example.com", "SALMON_HUB_TOKEN": "secret"]
         let manager = BridgeProcessManager(binaryPath: binaryPath, environment: env, launcher: launcher)
         try manager.start()
 
-        XCTAssertEqual(launcher.lastEnvironment?["BRIDGE_HUB_URL"], "https://hub.example.com")
-        XCTAssertEqual(launcher.lastEnvironment?["BRIDGE_HUB_TOKEN"], "secret")
+        XCTAssertEqual(launcher.lastEnvironment?["SALMON_HUB_URL"], "https://hub.example.com")
+        XCTAssertEqual(launcher.lastEnvironment?["SALMON_HUB_TOKEN"], "secret")
     }
 
     func testStartThrowsBinaryNotFound() {
         let launcher = MockProcessLauncher()
-        let manager = BridgeProcessManager(binaryPath: "/nonexistent/bear-bridge", launcher: launcher)
+        let manager = BridgeProcessManager(binaryPath: "/nonexistent/salmon-run", launcher: launcher)
 
         XCTAssertThrowsError(try manager.start()) { error in
             XCTAssertEqual(error as? BridgeProcessError, .binaryNotFound)
@@ -398,7 +398,7 @@ final class BridgeProcessManagerTests: XCTestCase {
     }
 
     func testResolveBinaryWithInvalidExplicitPath() {
-        let manager = BridgeProcessManager(binaryPath: "/nonexistent/bear-bridge")
+        let manager = BridgeProcessManager(binaryPath: "/nonexistent/salmon-run")
         let url = manager.resolveBinaryURL()
 
         XCTAssertNil(url)
@@ -416,7 +416,7 @@ final class BridgeProcessManagerTests: XCTestCase {
     // MARK: - Helpers
 
     private func createTempExecutable() -> String {
-        let path = NSTemporaryDirectory() + "bear-bridge-test-\(UUID().uuidString)"
+        let path = NSTemporaryDirectory() + "salmon-run-test-\(UUID().uuidString)"
         FileManager.default.createFile(atPath: path, contents: "#!/bin/sh\n".data(using: .utf8))
         try? FileManager.default.setAttributes(
             [.posixPermissions: 0o755],

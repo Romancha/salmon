@@ -1,6 +1,6 @@
 import XCTest
 
-@testable import BearBridge
+@testable import SalmonRun
 
 @MainActor
 final class AppModelTests: XCTestCase {
@@ -21,7 +21,7 @@ final class AppModelTests: XCTestCase {
 
         let settings = SettingsManager(store: store, keychain: keychain, loginItemManager: loginItem)
         let mockLauncher = launcher ?? MockProcessLauncher()
-        let binaryPath = "/tmp/fake-bear-bridge"
+        let binaryPath = "/tmp/fake-salmon-run"
         FileManager.default.createFile(atPath: binaryPath, contents: nil)
         // Make it executable
         try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: binaryPath)
@@ -186,7 +186,7 @@ final class AppModelTests: XCTestCase {
         keychain.storage[TokenKey.bearToken] = "bear-token"
         let settings = SettingsManager(store: store, keychain: keychain, loginItemManager: MockLoginItemManager())
         let mockLauncher = MockProcessLauncher()
-        let binaryPath = "/tmp/fake-bear-bridge"
+        let binaryPath = "/tmp/fake-salmon-run"
         FileManager.default.createFile(atPath: binaryPath, contents: nil)
         try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: binaryPath)
         let pm = BridgeProcessManager(binaryPath: binaryPath, environmentProvider: { settings.bridgeEnvironment() }, launcher: mockLauncher)
@@ -213,7 +213,7 @@ final class AppModelTests: XCTestCase {
         keychain.storage[TokenKey.bearToken] = "bear-token"
         let settings = SettingsManager(store: store, keychain: keychain, loginItemManager: MockLoginItemManager())
         let mockLauncher = MockProcessLauncher()
-        let binaryPath = "/tmp/fake-bear-bridge"
+        let binaryPath = "/tmp/fake-salmon-run"
         FileManager.default.createFile(atPath: binaryPath, contents: nil)
         try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: binaryPath)
         let pm = BridgeProcessManager(binaryPath: binaryPath, environmentProvider: { settings.bridgeEnvironment() }, launcher: mockLauncher)
@@ -258,7 +258,7 @@ final class AppModelTests: XCTestCase {
     // MARK: - Cleanup
 
     override func tearDown() {
-        try? FileManager.default.removeItem(atPath: "/tmp/fake-bear-bridge")
+        try? FileManager.default.removeItem(atPath: "/tmp/fake-salmon-run")
         super.tearDown()
     }
 }

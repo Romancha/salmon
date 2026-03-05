@@ -1,6 +1,6 @@
 import XCTest
 
-@testable import BearBridge
+@testable import SalmonRun
 
 @MainActor
 final class LogViewModelTests: XCTestCase {

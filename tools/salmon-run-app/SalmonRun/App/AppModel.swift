@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Central application model owning all services and view models.
 ///
-/// Single dependency injection point — created once as @StateObject in BearBridgeApp
+/// Single dependency injection point — created once as @StateObject in SalmonRunApp
 /// and distributed to all views via @EnvironmentObject through AppRoot.
 @MainActor
 final class AppModel: ObservableObject {

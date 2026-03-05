@@ -89,13 +89,15 @@ Full rebranding of the project from bear-sync/bear-bridge/BearBridge to Salmon-t
 - [x] Rename Swift files that have "BearBridge" in their name (e.g., `BearBridgeApp.swift` -> `SalmonRunApp.swift`)
 
 ### Task 7: Update Swift source code
-- [ ] Update all Swift files: class/struct/enum names containing "BearBridge" -> "SalmonRun"
-- [ ] Update `@main` app struct name
-- [ ] Update UI strings: window titles, menu text, about text
-- [ ] Update `BridgeProcessManager` references to binary name `bear-bridge` -> `salmon-run`
-- [ ] Update `SettingsManager` references to env var names
-- [ ] Update `BridgeIPCClient` socket path references
-- [ ] Update bundle identifier in project.pbxproj: `com.bear-sync.*` -> `com.salmon.*` (or appropriate)
+- [x] Update all Swift files: class/struct/enum names containing "BearBridge" -> "SalmonRun"
+- [x] Update `@main` app struct name
+- [x] Update UI strings: window titles, menu text, about text
+- [x] Update `BridgeProcessManager` references to binary name `bear-bridge` -> `salmon-run`
+- [x] Update `SettingsManager` references to env var names
+- [x] Update `BridgeIPCClient` socket path references
+- [x] Update `KeychainService` fallback bundle ID
+- [x] Update all test files: `@testable import BearBridge` -> `@testable import SalmonRun`, env var references
++ Bundle identifier in project.pbxproj moved to Task 8 (requires pbxproj access)
 
 ### Task 8: Update Xcode project.pbxproj
 - [ ] Update all file references for renamed files/directories

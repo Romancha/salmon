@@ -163,23 +163,23 @@ final class SettingsManager: ObservableObject {
 
     // MARK: - Environment generation
 
-    /// Generates the environment variables needed by the bear-bridge process.
+    /// Generates the environment variables needed by the salmon-run process.
     /// Only includes variables that have non-empty values.
     func bridgeEnvironment() -> [String: String] {
         var env: [String: String] = [:]
 
         if !hubURL.isEmpty {
-            env["BRIDGE_HUB_URL"] = hubURL
+            env["SALMON_HUB_URL"] = hubURL
         }
         if !hubToken.isEmpty {
-            env["BRIDGE_HUB_TOKEN"] = hubToken
+            env["SALMON_HUB_TOKEN"] = hubToken
         }
         if !bearToken.isEmpty {
-            env["BEAR_TOKEN"] = bearToken
+            env["SALMON_BEAR_TOKEN"] = bearToken
         }
 
         let intervalSeconds = syncIntervalMinutes * 60
-        env["BRIDGE_SYNC_INTERVAL"] = String(intervalSeconds)
+        env["SALMON_SYNC_INTERVAL"] = String(intervalSeconds)
 
         return env
     }

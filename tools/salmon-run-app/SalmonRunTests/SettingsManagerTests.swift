@@ -1,6 +1,6 @@
 import XCTest
 
-@testable import BearBridge
+@testable import SalmonRun
 
 // MARK: - Mock Keychain
 
@@ -232,10 +232,10 @@ final class SettingsManagerTests: XCTestCase {
 
         let env = manager.bridgeEnvironment()
 
-        XCTAssertEqual(env["BRIDGE_HUB_URL"], "https://hub.example.com")
-        XCTAssertEqual(env["BRIDGE_HUB_TOKEN"], "hub-token-123")
-        XCTAssertEqual(env["BEAR_TOKEN"], "bear-token-456")
-        XCTAssertEqual(env["BRIDGE_SYNC_INTERVAL"], "600")
+        XCTAssertEqual(env["SALMON_HUB_URL"], "https://hub.example.com")
+        XCTAssertEqual(env["SALMON_HUB_TOKEN"], "hub-token-123")
+        XCTAssertEqual(env["SALMON_BEAR_TOKEN"], "bear-token-456")
+        XCTAssertEqual(env["SALMON_SYNC_INTERVAL"], "600")
     }
 
     func testBridgeEnvironmentOmitsEmptyValues() {
@@ -243,11 +243,11 @@ final class SettingsManagerTests: XCTestCase {
 
         let env = manager.bridgeEnvironment()
 
-        XCTAssertNil(env["BRIDGE_HUB_URL"])
-        XCTAssertNil(env["BRIDGE_HUB_TOKEN"])
-        XCTAssertNil(env["BEAR_TOKEN"])
+        XCTAssertNil(env["SALMON_HUB_URL"])
+        XCTAssertNil(env["SALMON_HUB_TOKEN"])
+        XCTAssertNil(env["SALMON_BEAR_TOKEN"])
         // Sync interval is always present
-        XCTAssertEqual(env["BRIDGE_SYNC_INTERVAL"], "300")
+        XCTAssertEqual(env["SALMON_SYNC_INTERVAL"], "300")
     }
 
     func testBridgeEnvironmentSyncIntervalConversion() {
@@ -255,11 +255,11 @@ final class SettingsManagerTests: XCTestCase {
         manager.syncIntervalMinutes = 1
 
         let env = manager.bridgeEnvironment()
-        XCTAssertEqual(env["BRIDGE_SYNC_INTERVAL"], "60")
+        XCTAssertEqual(env["SALMON_SYNC_INTERVAL"], "60")
 
         manager.syncIntervalMinutes = 30
         let env2 = manager.bridgeEnvironment()
-        XCTAssertEqual(env2["BRIDGE_SYNC_INTERVAL"], "1800")
+        XCTAssertEqual(env2["SALMON_SYNC_INTERVAL"], "1800")
     }
 
     func testBridgeEnvironmentDefaultInterval() {
@@ -267,7 +267,7 @@ final class SettingsManagerTests: XCTestCase {
 
         let env = manager.bridgeEnvironment()
         // Default is 5 min = 300 seconds
-        XCTAssertEqual(env["BRIDGE_SYNC_INTERVAL"], "300")
+        XCTAssertEqual(env["SALMON_SYNC_INTERVAL"], "300")
     }
 
     // MARK: - isConfigured
@@ -459,15 +459,15 @@ final class SettingsManagerTests: XCTestCase {
         manager.syncIntervalMinutes = 15
 
         var env = manager.bridgeEnvironment()
-        XCTAssertEqual(env["BRIDGE_HUB_URL"], "https://hub1.example.com")
-        XCTAssertEqual(env["BRIDGE_SYNC_INTERVAL"], "900")
+        XCTAssertEqual(env["SALMON_HUB_URL"], "https://hub1.example.com")
+        XCTAssertEqual(env["SALMON_SYNC_INTERVAL"], "900")
 
         // Change settings
         manager.hubURL = "https://hub2.example.com"
         manager.syncIntervalMinutes = 20
 
         env = manager.bridgeEnvironment()
-        XCTAssertEqual(env["BRIDGE_HUB_URL"], "https://hub2.example.com")
-        XCTAssertEqual(env["BRIDGE_SYNC_INTERVAL"], "1200")
+        XCTAssertEqual(env["SALMON_HUB_URL"], "https://hub2.example.com")
+        XCTAssertEqual(env["SALMON_SYNC_INTERVAL"], "1200")
     }
 }

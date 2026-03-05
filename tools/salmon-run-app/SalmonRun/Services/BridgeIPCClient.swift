@@ -20,7 +20,7 @@ enum IPCClientError: Error, Equatable {
 
 // MARK: - BridgeIPCClient
 
-/// Client for communicating with the bear-bridge daemon over Unix socket IPC.
+/// Client for communicating with the salmon-run daemon over Unix socket IPC.
 ///
 /// Each command creates a fresh socket connection (matching the Go server's
 /// one-request-per-connection model). Auto-reconnect is implicit: if the
@@ -35,12 +35,12 @@ final class BridgeIPCClient {
 
     /// Creates an IPC client for the given socket path.
     /// - Parameters:
-    ///   - socketPath: Path to the Unix socket (default: ~/.bear-bridge.sock).
+    ///   - socketPath: Path to the Unix socket (default: ~/.salmon.sock).
     ///   - transport: Transport layer (injectable for testing).
     init(socketPath: String? = nil, transport: IPCTransport? = nil) {
         self.socketPath = socketPath ?? {
             let home = FileManager.default.homeDirectoryForCurrentUser.path
-            return home + "/.bear-bridge.sock"
+            return home + "/.salmon.sock"
         }()
         self.transport = transport ?? UnixSocketTransport()
     }
