@@ -1,4 +1,4 @@
-.PHONY: build build-xcall test test-coverage test-race test-xcall lint fmt tidy clean generate tools swagger help all install-bridge uninstall-bridge verify-bridge
+.PHONY: build build-xcall build-app test test-coverage test-race test-xcall test-app lint fmt tidy clean generate tools swagger help all install-bridge uninstall-bridge verify-bridge
 
 BINARY_HUB=bear-sync-hub
 BINARY_BRIDGE=bear-bridge
@@ -71,6 +71,7 @@ help:
 	@echo "  Build:"
 	@echo "    make build          - Build all binaries to bin/ (includes bear-xcall on macOS)"
 	@echo "    make build-xcall    - Build bear-xcall Swift CLI .app bundle (macOS only)"
+	@echo "    make build-app      - Build BearBridge menu bar .app bundle (macOS only)"
 	@echo "    make install-bridge - Install bridge + launchd agent to ~/bin/ (macOS only)"
 	@echo "    make uninstall-bridge - Uninstall bridge + launchd agent (macOS only)"
 	@echo "    make verify-bridge  - Verify installed bridge code signatures (macOS only)"
@@ -80,6 +81,7 @@ help:
 	@echo "    make test-coverage  - Run tests with coverage report"
 	@echo "    make test-race      - Run tests with race detector"
 	@echo "    make test-xcall     - Run bear-xcall manual tests (macOS + Bear)"
+	@echo "    make test-app       - Run BearBridge Swift tests (macOS only)"
 	@echo ""
 	@echo "  Tools:"
 	@echo "    make lint           - Run golangci-lint"
@@ -103,6 +105,25 @@ ifeq ($(shell uname),Darwin)
 	cp tools/bear-xcall/Info.plist bin/bear-xcall.app/Contents/
 else
 	@echo "Skipping bear-xcall build (macOS only)"
+endif
+
+build-app:
+ifeq ($(shell uname),Darwin)
+	@echo "Building BearBridge.app..."
+	cd tools/bear-bridge-app && swift build -c release
+	@mkdir -p bin/BearBridge.app/Contents/MacOS
+	cp tools/bear-bridge-app/.build/release/BearBridge bin/BearBridge.app/Contents/MacOS/
+	cp tools/bear-bridge-app/Info.plist bin/BearBridge.app/Contents/
+else
+	@echo "Skipping BearBridge.app build (macOS only)"
+endif
+
+test-app:
+ifeq ($(shell uname),Darwin)
+	@echo "Running BearBridge Swift tests..."
+	cd tools/bear-bridge-app && swift test
+else
+	@echo "Skipping BearBridge tests (macOS only)"
 endif
 
 test:

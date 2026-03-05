@@ -69,18 +69,18 @@
 - [x] Run tests — must pass before next task
 
 ### Task 4: Create SwiftUI menu bar app project
-- [ ] Create `tools/bear-bridge-app/` directory structure:
+- [x] Create `tools/bear-bridge-app/` directory structure:
   - `BearBridge/` — Xcode project or Swift Package with executable target
   - `BearBridge/App/BearBridgeApp.swift` — @main entry, MenuBarExtra
   - `BearBridge/Views/` — SwiftUI views
   - `BearBridge/Services/` — bridge process manager, IPC client
   - `BearBridge/Models/` — data models
-- [ ] Create `BearBridgeApp.swift` with `MenuBarExtra` (macOS 13+)
-- [ ] Menu bar icon: SF Symbol `arrow.triangle.2.circlepath` (sync icon), changes color based on status
-- [ ] Basic menu popup with placeholder items
-- [ ] Add build target to Makefile: `make build-app` (compiles via `xcodebuild` or `swift build`)
-- [ ] Verify app launches and shows icon in menu bar
-- [ ] Write XCTests for app model initialization
+- [x] Create `BearBridgeApp.swift` with `MenuBarExtra` (macOS 13+)
+- [x] Menu bar icon: SF Symbol `arrow.triangle.2.circlepath` (sync icon), changes color based on status
+- [x] Basic menu popup with placeholder items
+- [x] Add build target to Makefile: `make build-app` (compiles via `xcodebuild` or `swift build`)
+- [x] Verify app launches and shows icon in menu bar
+- [x] Write XCTests for app model initialization
 
 ### Task 5: Implement bridge process manager in Swift
 - [ ] Create `BridgeProcessManager` class:
