@@ -9,7 +9,7 @@
 set -euo pipefail
 
 if [ $# -ne 2 ]; then
-    echo "Usage: $0 <path-to-BearBridge.app> <output.dmg>" >&2
+    echo "Usage: $0 <path-to-SalmonRun.app> <output.dmg>" >&2
     exit 1
 fi
 

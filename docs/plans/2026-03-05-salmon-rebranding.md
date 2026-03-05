@@ -148,14 +148,14 @@ Full rebranding of the project from bear-sync/bear-bridge/BearBridge to Salmon-t
 - [x] Update completed plans in `docs/plans/completed/` — leave as historical record (no changes needed)
 
 ### Task 15: Verify acceptance criteria
-- [ ] `make fmt` passes
-- [ ] `make lint` passes with no warnings
-- [ ] `make test` passes
-- [ ] `make test-race` passes
-- [ ] `make build` produces `salmon-hub` and `salmon-run` binaries
-- [ ] `make build-app` produces `SalmonRun.app`
-- [ ] `make build-xcall` still produces `bear-xcall.app`
-- [ ] No remaining references to "bear-sync", "bear-bridge", "BearBridge" except in:
+- [x] `make fmt` passes
+- [x] `make lint` passes with no warnings
+- [x] `make test` passes
+- [x] `make test-race` passes
+- [x] `make build` produces `salmon-hub` and `salmon-run` binaries
+- [x] `make build-app` produces `SalmonRun.app`
+- [x] `make build-xcall` still produces `bear-xcall.app`
+- [x] No remaining references to "bear-sync", "bear-bridge", "BearBridge" except in:
   - bear-xcall (intentionally kept)
   - `internal/beardb/` package name (reads Bear.app SQLite, name is correct)
   - Historical docs in `docs/plans/completed/`
