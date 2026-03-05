@@ -87,7 +87,12 @@ struct BearBridgeApp: App {
                     notificationService.isEnabled = enabled
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .restartBridge)) { _ in
-                    try? processManager.restart()
+                    do {
+                        try processManager.restart()
+                    } catch {
+                        viewModel.syncStatus = .error
+                        viewModel.lastError = "Failed to start bridge: \(error.localizedDescription)"
+                    }
                 }
         }
         .defaultSize(width: 450, height: 300)
