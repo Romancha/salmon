@@ -2,6 +2,8 @@ import SwiftUI
 
 struct MenuBarView: View {
     @ObservedObject var viewModel: StatusViewModel
+    @ObservedObject var logViewModel: LogViewModel
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -67,7 +69,7 @@ struct MenuBarView: View {
     private var menuActions: some View {
         Group {
             Button {
-                // Will open log window in Task 8
+                openWindow(id: "log-viewer")
             } label: {
                 Label("View Logs...", systemImage: "doc.text")
             }

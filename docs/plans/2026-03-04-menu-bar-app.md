@@ -133,16 +133,16 @@
 - [x] Run tests — must pass before next task
 
 ### Task 8: Build log viewer window
-- [ ] Create `LogViewerWindow` — separate SwiftUI window opened from menu
-- [ ] Display log entries in scrollable list with:
+- [x] Create `LogViewerWindow` — separate SwiftUI window opened from menu
+- [x] Display log entries in scrollable list with:
   - Timestamp, level (color-coded), message
   - Auto-scroll to bottom for new entries
   - Search/filter by text
   - Level filter (error, warning, info, debug)
-- [ ] Log entries populated from IPC `logs` command + live stdout stream
-- [ ] Limit displayed entries (last 500, configurable)
-- [ ] Write XCTests for log filtering and parsing
-- [ ] Run tests — must pass before next task
+- [x] Log entries populated from IPC `logs` command + live stdout stream
+- [x] Limit displayed entries (last 500, configurable)
+- [x] Write XCTests for log filtering and parsing
+- [x] Run tests — must pass before next task
 
 ### Task 9: Build settings window
 - [ ] Create `SettingsWindow` with tabs/sections:
