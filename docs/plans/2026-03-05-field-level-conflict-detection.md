@@ -88,10 +88,10 @@ Replace timestamp-only conflict detection with field-level content comparison. C
 
 ### Task 6: Update existing conflict tests
 
-- [ ] Update `TestProcessSyncPush_ConflictDetection` to set up pending_bear fields and verify conflict fires only on content intersection
-- [ ] Update `TestProcessSyncPush_NoConflictOnSameModifiedAt` to verify it still passes
-- [ ] Add test: metadata-only change (modified_at differs, content same) → no conflict
-- [ ] Run tests — must pass before next task
+- [x] Update `TestProcessSyncPush_ConflictDetection` to set up pending_bear fields and verify conflict fires only on content intersection
+- [x] Update `TestProcessSyncPush_NoConflictOnSameModifiedAt` to verify it still passes
+- [x] Add test: metadata-only change (modified_at differs, content same) → no conflict
+- [x] Run tests — must pass before next task
 
 ### Task 7: Verify acceptance criteria
 

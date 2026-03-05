@@ -1126,26 +1126,32 @@ func TestProcessSyncPush_ConflictDetection(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()
 
-	// Create a note with pending_to_bear status and a known modified_at.
+	// Create a note with pending_to_bear status, pending_bear fields capture
+	// Bear's original content before consumer overwrote title/body.
 	bearID := "bear-conflict-1"
+	origTitle := "Original Bear Title"
+	origBody := "Original Bear Body"
 	require.NoError(t, s.CreateNote(ctx, &models.Note{
-		ID:            "n1",
-		BearID:        &bearID,
-		Title:         "Consumer Title",
-		Body:          "Consumer Body",
-		SyncStatus:    "pending_to_bear",
-		HubModifiedAt: "2025-01-01T12:00:00Z",
-		ModifiedAt:    "2025-01-01T10:00:00Z",
+		ID:               "n1",
+		BearID:           &bearID,
+		Title:            "Consumer Title",
+		Body:             "Consumer Body",
+		SyncStatus:       "pending_to_bear",
+		HubModifiedAt:    "2025-01-01T12:00:00Z",
+		ModifiedAt:       "2025-01-01T10:00:00Z",
+		PendingBearTitle: &origTitle,
+		PendingBearBody:  &origBody,
 	}))
 
-	// Bridge pushes the same note with a DIFFERENT modified_at (user changed it in Bear).
+	// Bridge pushes the same note with a DIFFERENT modified_at AND changed body
+	// (Bear user edited body). Consumer also changed body → field intersection → conflict.
 	req := models.SyncPushRequest{
 		Notes: []models.Note{
 			{
 				BearID:     &bearID,
-				Title:      "Bear Title",
-				Body:       "Bear Body",
-				ModifiedAt: "2025-01-01T11:00:00Z", // Changed since last push
+				Title:      "Original Bear Title",
+				Body:       "Bear Edited Body",
+				ModifiedAt: "2025-01-01T11:00:00Z",
 				SyncStatus: "synced",
 			},
 		},
@@ -1155,8 +1161,8 @@ func TestProcessSyncPush_ConflictDetection(t *testing.T) {
 	got, err := s.GetNote(ctx, "n1")
 	require.NoError(t, err)
 	assert.Equal(t, "conflict", got.SyncStatus, "sync_status should be conflict")
-	assert.Equal(t, "Consumer Title", got.Title, "title should be preserved")
-	assert.Equal(t, "Consumer Body", got.Body, "body should be preserved")
+	assert.Equal(t, "Consumer Title", got.Title, "consumer title should be preserved")
+	assert.Equal(t, "Consumer Body", got.Body, "consumer body should be preserved")
 }
 
 func TestProcessSyncPush_NoConflictOnSameModifiedAt(t *testing.T) {
@@ -1192,6 +1198,48 @@ func TestProcessSyncPush_NoConflictOnSameModifiedAt(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "pending_to_bear", got.SyncStatus, "sync_status should stay pending_to_bear")
 	assert.Equal(t, "Consumer Title", got.Title, "title should be preserved")
+}
+
+func TestProcessSyncPush_MetadataOnlyChangeNoConflict(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	// Create a note with pending_to_bear status and pending_bear fields.
+	// Consumer changed the body, Bear's original content is captured in pending_bear fields.
+	bearID := "bear-metadata-1"
+	origTitle := "Same Title"
+	origBody := "Original Body"
+	require.NoError(t, s.CreateNote(ctx, &models.Note{
+		ID:               "n1",
+		BearID:           &bearID,
+		Title:            "Same Title",
+		Body:             "Consumer Body",
+		SyncStatus:       "pending_to_bear",
+		ModifiedAt:       "2025-01-01T10:00:00Z",
+		PendingBearTitle: &origTitle,
+		PendingBearBody:  &origBody,
+	}))
+
+	// Bridge pushes with a DIFFERENT modified_at but same content as pending_bear.
+	// This is a metadata-only change (e.g. user opened the note in Bear).
+	req := models.SyncPushRequest{
+		Notes: []models.Note{
+			{
+				BearID:     &bearID,
+				Title:      "Same Title",
+				Body:       "Original Body",
+				ModifiedAt: "2025-01-01T11:00:00Z", // Changed
+				SyncStatus: "synced",
+			},
+		},
+	}
+	require.NoError(t, s.ProcessSyncPush(ctx, req))
+
+	got, err := s.GetNote(ctx, "n1")
+	require.NoError(t, err)
+	assert.Equal(t, "pending_to_bear", got.SyncStatus, "metadata-only change should NOT trigger conflict")
+	assert.Equal(t, "Same Title", got.Title, "title should be preserved")
+	assert.Equal(t, "Consumer Body", got.Body, "consumer body should be preserved")
 }
 
 func TestProcessSyncPush_FieldLevelConflict(t *testing.T) {
