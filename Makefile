@@ -113,10 +113,14 @@ endif
 build-app: build build-xcall
 ifeq ($(shell uname),Darwin)
 	@echo "Building BearBridge.app..."
-	cd tools/bear-bridge-app && swift build -c release
+	xcodebuild -project tools/bear-bridge-app/BearBridge.xcodeproj \
+		-scheme BearBridge -configuration Release \
+		CONFIGURATION_BUILD_DIR=$(CURDIR)/bin/xcodebuild-out \
+		CODE_SIGN_IDENTITY="$(CODESIGN_IDENTITY)" \
+		build
 	@mkdir -p bin/BearBridge.app/Contents/MacOS
-	cp tools/bear-bridge-app/.build/release/BearBridge bin/BearBridge.app/Contents/MacOS/
-	cp tools/bear-bridge-app/Info.plist bin/BearBridge.app/Contents/
+	cp -R bin/xcodebuild-out/BearBridge.app/ bin/BearBridge.app/
+	rm -rf bin/xcodebuild-out
 	cp bin/bear-bridge bin/BearBridge.app/Contents/MacOS/
 	cp -R bin/bear-xcall.app bin/BearBridge.app/Contents/MacOS/
 	codesign --force --deep --sign "$(CODESIGN_IDENTITY)" --entitlements $(ENTITLEMENTS_SRC) --options runtime bin/BearBridge.app/Contents/MacOS/bear-xcall.app
@@ -136,7 +140,9 @@ endif
 test-app:
 ifeq ($(shell uname),Darwin)
 	@echo "Running BearBridge Swift tests..."
-	cd tools/bear-bridge-app && swift test
+	xcodebuild -project tools/bear-bridge-app/BearBridge.xcodeproj \
+		-scheme BearBridge \
+		test
 else
 	@echo "Skipping BearBridge tests (macOS only)"
 endif

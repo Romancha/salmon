@@ -66,12 +66,17 @@ jobs:
         run: |
           # Inject version into Info.plist
           APP_VERSION="${VERSION#v}"
-          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $APP_VERSION" tools/bear-bridge-app/Info.plist
-          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $APP_VERSION" tools/bear-bridge-app/Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $APP_VERSION" tools/bear-bridge-app/BearBridge/Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $APP_VERSION" tools/bear-bridge-app/BearBridge/Info.plist
 
           # Build Swift app for target architecture
-          cd tools/bear-bridge-app
-          swift build -c release --arch ${{ matrix.swift_arch }}
+          xcodebuild -project tools/bear-bridge-app/BearBridge.xcodeproj \
+            -scheme BearBridge -configuration Release \
+            ARCHS=${{ matrix.swift_arch }} \
+            ONLY_ACTIVE_ARCH=NO \
+            CONFIGURATION_BUILD_DIR="$PWD/bin/xcodebuild-out" \
+            CODE_SIGN_IDENTITY="-" \
+            build
 
       - name: Import code signing certificate
         env:
@@ -132,11 +137,10 @@ jobs:
 
       - name: Assemble and sign BearBridge.app
         run: |
-          # Assemble .app bundle
+          # Assemble .app bundle from xcodebuild output
           mkdir -p bin/BearBridge.app/Contents/MacOS
-          SWIFT_BIN_PATH=$(cd tools/bear-bridge-app && swift build -c release --arch ${{ matrix.swift_arch }} --show-bin-path)
-          cp "$SWIFT_BIN_PATH/BearBridge" bin/BearBridge.app/Contents/MacOS/
-          cp tools/bear-bridge-app/Info.plist bin/BearBridge.app/Contents/
+          cp -R bin/xcodebuild-out/BearBridge.app/ bin/BearBridge.app/
+          rm -rf bin/xcodebuild-out
 
           # Embed signed binaries
           cp bin/bear-bridge bin/BearBridge.app/Contents/MacOS/

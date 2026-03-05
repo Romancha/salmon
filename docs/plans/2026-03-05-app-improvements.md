@@ -70,20 +70,20 @@ Three improvements to the BearBridge menu bar app:
 - [x] Test full .dmg creation locally with `make dmg`
 
 ### Task 3: Migrate to Xcode project (prerequisite for UI redesign)
-- [ ] Create `tools/bear-bridge-app/BearBridge.xcodeproj` using Xcode or `xcodebuild`
+- [x] Create `tools/bear-bridge-app/BearBridge.xcodeproj` using Xcode or `xcodebuild`
   - Target: macOS 13.0+
   - Bundle ID: com.romancha.bear-bridge
   - Product name: BearBridge
   - LSUIElement: true (menu bar only, no dock icon)
-- [ ] Move Swift sources from `Sources/BearBridge/` into Xcode-compatible structure
-- [ ] Migrate Info.plist into Xcode project settings
-- [ ] Add Assets.xcassets with app icon (use SF Symbol or simple sync icon)
-- [ ] Update Package.swift or remove if fully migrated to .xcodeproj
-- [ ] Update Makefile `build-app` target to use `xcodebuild` instead of `swift build`
-- [ ] Update Makefile `test-app` target to use `xcodebuild test`
-- [ ] Update `.github/workflows/release-bridge.yml` build step for BearBridge.app
-- [ ] Verify `make build-app` and `make test-app` still work
-- [ ] Verify all existing tests pass
+- [x] Move Swift sources from `Sources/BearBridge/` into Xcode-compatible structure
+- [x] Migrate Info.plist into Xcode project settings
+- [x] Add Assets.xcassets with app icon (use SF Symbol or simple sync icon)
+- [x] Update Package.swift or remove if fully migrated to .xcodeproj
+- [x] Update Makefile `build-app` target to use `xcodebuild` instead of `swift build`
+- [x] Update Makefile `test-app` target to use `xcodebuild test`
+- [x] Update `.github/workflows/release-bridge.yml` build step for BearBridge.app
+- [x] Verify `make build-app` and `make test-app` still work
+- [x] Verify all existing tests pass
 
 ### Task 4: Redesign app architecture — adopt MeetAlert patterns
 - [ ] Create `AppModel.swift` — central @StateObject managing all services (like MeetAlert's AppModel)
