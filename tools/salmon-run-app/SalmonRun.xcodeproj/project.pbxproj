@@ -12,24 +12,24 @@
 			containerPortal = A100000000000000000000A1 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = A100000000000000000000B1;
-			remoteInfo = BearBridge;
+			remoteInfo = SalmonRun;
 		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		A100000000000000000000D1 /* BearBridge.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BearBridge.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		A100000000000000000000D2 /* BearBridgeTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BearBridgeTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A100000000000000000000D1 /* SalmonRun.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SalmonRun.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A100000000000000000000D2 /* SalmonRunTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SalmonRunTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		A100000000000000000000E1 /* BearBridge */ = {
+		A100000000000000000000E1 /* SalmonRun */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = BearBridge;
+			path = SalmonRun;
 			sourceTree = "<group>";
 		};
-		A100000000000000000000E2 /* BearBridgeTests */ = {
+		A100000000000000000000E2 /* SalmonRunTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = BearBridgeTests;
+			path = SalmonRunTests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -55,8 +55,8 @@
 		A100000000000000000000A2 = {
 			isa = PBXGroup;
 			children = (
-				A100000000000000000000E1 /* BearBridge */,
-				A100000000000000000000E2 /* BearBridgeTests */,
+				A100000000000000000000E1 /* SalmonRun */,
+				A100000000000000000000E2 /* SalmonRunTests */,
 				A100000000000000000000A3 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -64,8 +64,8 @@
 		A100000000000000000000A3 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				A100000000000000000000D1 /* BearBridge.app */,
-				A100000000000000000000D2 /* BearBridgeTests.xctest */,
+				A100000000000000000000D1 /* SalmonRun.app */,
+				A100000000000000000000D2 /* SalmonRunTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -73,9 +73,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		A100000000000000000000B1 /* BearBridge */ = {
+		A100000000000000000000B1 /* SalmonRun */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = A1000000000000000000CC01 /* Build configuration list for PBXNativeTarget "BearBridge" */;
+			buildConfigurationList = A1000000000000000000CC01 /* Build configuration list for PBXNativeTarget "SalmonRun" */;
 			buildPhases = (
 				A100000000000000000000F3 /* Sources */,
 				A100000000000000000000F1 /* Frameworks */,
@@ -86,18 +86,18 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				A100000000000000000000E1 /* BearBridge */,
+				A100000000000000000000E1 /* SalmonRun */,
 			);
-			name = BearBridge;
+			name = SalmonRun;
 			packageProductDependencies = (
 			);
-			productName = BearBridge;
-			productReference = A100000000000000000000D1 /* BearBridge.app */;
+			productName = SalmonRun;
+			productReference = A100000000000000000000D1 /* SalmonRun.app */;
 			productType = "com.apple.product-type.application";
 		};
-		A100000000000000000000B2 /* BearBridgeTests */ = {
+		A100000000000000000000B2 /* SalmonRunTests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = A1000000000000000000CC02 /* Build configuration list for PBXNativeTarget "BearBridgeTests" */;
+			buildConfigurationList = A1000000000000000000CC02 /* Build configuration list for PBXNativeTarget "SalmonRunTests" */;
 			buildPhases = (
 				A100000000000000000000F4 /* Sources */,
 				A100000000000000000000F2 /* Frameworks */,
@@ -109,13 +109,13 @@
 				A100000000000000000000C2 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				A100000000000000000000E2 /* BearBridgeTests */,
+				A100000000000000000000E2 /* SalmonRunTests */,
 			);
-			name = BearBridgeTests;
+			name = SalmonRunTests;
 			packageProductDependencies = (
 			);
-			productName = BearBridgeTests;
-			productReference = A100000000000000000000D2 /* BearBridgeTests.xctest */;
+			productName = SalmonRunTests;
+			productReference = A100000000000000000000D2 /* SalmonRunTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
 /* End PBXNativeTarget section */
@@ -137,7 +137,7 @@
 					};
 				};
 			};
-			buildConfigurationList = A1000000000000000000CC00 /* Build configuration list for PBXProject "BearBridge" */;
+			buildConfigurationList = A1000000000000000000CC00 /* Build configuration list for PBXProject "SalmonRun" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -151,8 +151,8 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				A100000000000000000000B1 /* BearBridge */,
-				A100000000000000000000B2 /* BearBridgeTests */,
+				A100000000000000000000B1 /* SalmonRun */,
+				A100000000000000000000B2 /* SalmonRunTests */,
 			);
 		};
 /* End PBXProject section */
@@ -194,7 +194,7 @@
 /* Begin PBXTargetDependency section */
 		A100000000000000000000C2 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = A100000000000000000000B1 /* BearBridge */;
+			target = A100000000000000000000B1 /* SalmonRun */;
 			targetProxy = A100000000000000000000C1 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -332,8 +332,8 @@
 				"DEVELOPMENT_TEAM[sdk=macosx*]" = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = BearBridge/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = BearBridge;
+				INFOPLIST_FILE = SalmonRun/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = SalmonRun;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
@@ -343,7 +343,7 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.6;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "org.romancha.bear-bridge";
+				PRODUCT_BUNDLE_IDENTIFIER = "org.romancha.salmon-run";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				"PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]" = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -363,8 +363,8 @@
 				"DEVELOPMENT_TEAM[sdk=macosx*]" = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = BearBridge/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = BearBridge;
+				INFOPLIST_FILE = SalmonRun/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = SalmonRun;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
@@ -374,7 +374,7 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.6;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "org.romancha.bear-bridge";
+				PRODUCT_BUNDLE_IDENTIFIER = "org.romancha.salmon-run";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				"PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]" = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -392,11 +392,11 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.romancha.bear-bridge-tests";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.romancha.salmon-run-tests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/BearBridge.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/BearBridge";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/SalmonRun.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/SalmonRun";
 			};
 			name = Debug;
 		};
@@ -410,18 +410,18 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.romancha.bear-bridge-tests";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.romancha.salmon-run-tests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/BearBridge.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/BearBridge";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/SalmonRun.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/SalmonRun";
 			};
 			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		A1000000000000000000CC00 /* Build configuration list for PBXProject "BearBridge" */ = {
+		A1000000000000000000CC00 /* Build configuration list for PBXProject "SalmonRun" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				A10000000000000000000001 /* Debug */,
@@ -430,7 +430,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		A1000000000000000000CC01 /* Build configuration list for PBXNativeTarget "BearBridge" */ = {
+		A1000000000000000000CC01 /* Build configuration list for PBXNativeTarget "SalmonRun" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				A10000000000000000000003 /* Debug */,
@@ -439,7 +439,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		A1000000000000000000CC02 /* Build configuration list for PBXNativeTarget "BearBridgeTests" */ = {
+		A1000000000000000000CC02 /* Build configuration list for PBXNativeTarget "SalmonRunTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				A10000000000000000000005 /* Debug */,

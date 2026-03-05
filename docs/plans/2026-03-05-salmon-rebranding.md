@@ -100,12 +100,12 @@ Full rebranding of the project from bear-sync/bear-bridge/BearBridge to Salmon-t
 + Bundle identifier in project.pbxproj moved to Task 8 (requires pbxproj access)
 
 ### Task 8: Update Xcode project.pbxproj
-- [ ] Update all file references for renamed files/directories
-- [ ] Update product name: "BearBridge" -> "SalmonRun"
-- [ ] Update target names
-- [ ] Update scheme references
-- [ ] Update Info.plist paths if changed
-- [ ] Run `make build-app` to verify Xcode project builds
+- [x] Update all file references for renamed files/directories
+- [x] Update product name: "BearBridge" -> "SalmonRun"
+- [x] Update target names
+- [x] Update scheme references
+- [x] Update Info.plist paths if changed
+- [x] Run `make build-app` to verify Xcode project builds
 
 ### Task 9: Update Swift tests
 - [ ] Rename test files containing "BearBridge" -> "SalmonRun"

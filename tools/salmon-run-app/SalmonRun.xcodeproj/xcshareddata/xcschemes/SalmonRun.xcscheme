@@ -16,9 +16,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "A100000000000000000000B1"
-               BuildableName = "BearBridge.app"
-               BlueprintName = "BearBridge"
-               ReferencedContainer = "container:BearBridge.xcodeproj">
+               BuildableName = "SalmonRun.app"
+               BlueprintName = "SalmonRun"
+               ReferencedContainer = "container:SalmonRun.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -36,9 +36,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "A100000000000000000000B2"
-               BuildableName = "BearBridgeTests.xctest"
-               BlueprintName = "BearBridgeTests"
-               ReferencedContainer = "container:BearBridge.xcodeproj">
+               BuildableName = "SalmonRunTests.xctest"
+               BlueprintName = "SalmonRunTests"
+               ReferencedContainer = "container:SalmonRun.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>
@@ -58,9 +58,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "A100000000000000000000B1"
-            BuildableName = "BearBridge.app"
-            BlueprintName = "BearBridge"
-            ReferencedContainer = "container:BearBridge.xcodeproj">
+            BuildableName = "SalmonRun.app"
+            BlueprintName = "SalmonRun"
+            ReferencedContainer = "container:SalmonRun.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
