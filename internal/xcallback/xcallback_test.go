@@ -606,6 +606,31 @@ func TestMaskToken(t *testing.T) {
 	}
 }
 
+func TestEncodeParamsUsesPercentEncoding(t *testing.T) {
+	t.Run("spaces encoded as %20 not +", func(t *testing.T) {
+		resp := xcallResult{Identifier: "ID-1"}
+		respJSON, _ := json.Marshal(resp)
+		executor := &mockExecutor{output: respJSON}
+		x := newTestXcall(executor)
+
+		_, err := x.Create(context.Background(), "tok", "My Note Title", "Hello world body", nil)
+		require.NoError(t, err)
+
+		rawURL := executor.calls[0].Args[1]
+		// Raw URL must use %20 for spaces, not + (Bear treats + literally)
+		assert.NotContains(t, rawURL, "My+Note")
+		assert.NotContains(t, rawURL, "Hello+world")
+		assert.Contains(t, rawURL, "My%20Note%20Title")
+		assert.Contains(t, rawURL, "Hello%20world%20body")
+
+		// Verify values still decode correctly
+		parsed, err := url.Parse(rawURL)
+		require.NoError(t, err)
+		assert.Equal(t, "My Note Title", parsed.Query().Get("title"))
+		assert.Equal(t, "Hello world body", parsed.Query().Get("text"))
+	})
+}
+
 func TestURLEncoding(t *testing.T) {
 	t.Run("special characters in title and body", func(t *testing.T) {
 		resp := xcallResult{Identifier: "ID-1"}

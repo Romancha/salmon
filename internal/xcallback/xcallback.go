@@ -211,7 +211,7 @@ func (x *Xcall) Create(ctx context.Context, token, title, body string, tags []st
 	params.Set("show_window", "no")
 	params.Set("open_note", "no")
 
-	callURL := "bear://x-callback-url/create?" + params.Encode()
+	callURL := "bear://x-callback-url/create?" + encodeParams(params)
 
 	x.logger.Debug("executing bear-xcall create", "url", MaskToken(callURL))
 
@@ -249,7 +249,7 @@ func (x *Xcall) Update(ctx context.Context, token, bearID, body string) error {
 	params.Set("show_window", "no")
 	params.Set("open_note", "no")
 
-	callURL := "bear://x-callback-url/add-text?" + params.Encode()
+	callURL := "bear://x-callback-url/add-text?" + encodeParams(params)
 
 	x.logger.Debug("executing bear-xcall update", "url", MaskToken(callURL), "bear_id", bearID)
 
@@ -280,7 +280,7 @@ func (x *Xcall) AddTag(ctx context.Context, token, bearID, tag string) error {
 	params.Set("show_window", "no")
 	params.Set("open_note", "no")
 
-	callURL := "bear://x-callback-url/add-text?" + params.Encode()
+	callURL := "bear://x-callback-url/add-text?" + encodeParams(params)
 
 	x.logger.Debug("executing bear-xcall add-tag", "url", MaskToken(callURL), "bear_id", bearID, "tag", tag)
 
@@ -309,7 +309,7 @@ func (x *Xcall) Trash(ctx context.Context, token, bearID string) error {
 	params.Set("id", bearID)
 	params.Set("show_window", "no")
 
-	callURL := "bear://x-callback-url/trash?" + params.Encode()
+	callURL := "bear://x-callback-url/trash?" + encodeParams(params)
 
 	x.logger.Debug("executing bear-xcall trash", "url", MaskToken(callURL), "bear_id", bearID)
 
@@ -337,7 +337,7 @@ func (x *Xcall) AddFile(ctx context.Context, token, bearID, filename string, fil
 	params.Set("show_window", "no")
 	params.Set("open_note", "no")
 
-	callURL := "bear://x-callback-url/add-file?" + params.Encode()
+	callURL := "bear://x-callback-url/add-file?" + encodeParams(params)
 
 	x.logger.Debug("executing bear-xcall add-file", "bear_id", bearID, "filename", filename, "url_len", len(callURL))
 
@@ -368,7 +368,7 @@ func (x *Xcall) Archive(ctx context.Context, token, bearID string) error {
 	params.Set("id", bearID)
 	params.Set("show_window", "no")
 
-	callURL := "bear://x-callback-url/archive?" + params.Encode()
+	callURL := "bear://x-callback-url/archive?" + encodeParams(params)
 
 	x.logger.Debug("executing bear-xcall archive", "url", MaskToken(callURL), "bear_id", bearID)
 
@@ -388,7 +388,7 @@ func (x *Xcall) RenameTag(ctx context.Context, token, oldName, newName string) e
 	params.Set("new_name", newName)
 	params.Set("show_window", "no")
 
-	callURL := "bear://x-callback-url/rename-tag?" + params.Encode()
+	callURL := "bear://x-callback-url/rename-tag?" + encodeParams(params)
 
 	x.logger.Debug("executing bear-xcall rename-tag", "url", MaskToken(callURL), "old_name", oldName, "new_name", newName)
 
@@ -407,7 +407,7 @@ func (x *Xcall) DeleteTag(ctx context.Context, token, tagName string) error {
 	params.Set("name", tagName)
 	params.Set("show_window", "no")
 
-	callURL := "bear://x-callback-url/delete-tag?" + params.Encode()
+	callURL := "bear://x-callback-url/delete-tag?" + encodeParams(params)
 
 	x.logger.Debug("executing bear-xcall delete-tag", "url", MaskToken(callURL), "tag_name", tagName)
 
@@ -476,6 +476,13 @@ func (x *Xcall) executeAction(ctx context.Context, action, callURL string) error
 	}
 
 	return nil
+}
+
+// encodeParams encodes url.Values for use in x-callback-url schemes.
+// url.Values.Encode() produces application/x-www-form-urlencoded where spaces are "+".
+// Bear's x-callback-url handler treats "+" literally, so we must use percent-encoding (%20).
+func encodeParams(v url.Values) string {
+	return strings.ReplaceAll(v.Encode(), "+", "%20")
 }
 
 func parseXcallResult(output []byte) (*xcallResult, error) {
