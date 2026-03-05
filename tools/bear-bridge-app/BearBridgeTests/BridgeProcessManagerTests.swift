@@ -281,6 +281,7 @@ final class BridgeProcessManagerTests: XCTestCase {
         defer { removeTempFile(binaryPath) }
 
         let manager = BridgeProcessManager(binaryPath: binaryPath, launcher: launcher)
+        manager.retryBaseDelay = 0
         try manager.start()
         XCTAssertEqual(launcher.launchCount, 1)
 
@@ -302,6 +303,7 @@ final class BridgeProcessManagerTests: XCTestCase {
         defer { removeTempFile(binaryPath) }
 
         let manager = BridgeProcessManager(binaryPath: binaryPath, launcher: launcher)
+        manager.retryBaseDelay = 0
         try manager.start()
         XCTAssertEqual(launcher.launchCount, 1)
 
@@ -341,6 +343,7 @@ final class BridgeProcessManagerTests: XCTestCase {
         defer { removeTempFile(binaryPath) }
 
         let manager = BridgeProcessManager(binaryPath: binaryPath, launcher: launcher)
+        manager.retryBaseDelay = 0
         try manager.start()
 
         // Crash twice
@@ -365,6 +368,7 @@ final class BridgeProcessManagerTests: XCTestCase {
         defer { removeTempFile(binaryPath) }
 
         let manager = BridgeProcessManager(binaryPath: binaryPath, launcher: launcher)
+        manager.retryBaseDelay = 0
         try manager.start()
 
         // Make subsequent launches fail

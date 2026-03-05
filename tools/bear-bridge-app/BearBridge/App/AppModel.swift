@@ -89,6 +89,7 @@ final class AppModel: ObservableObject {
 
     /// Restart the bridge process (e.g. after settings change).
     func restartBridge() {
+        guard settingsManager.isConfigured else { return }
         do {
             try processManager.restart()
         } catch {

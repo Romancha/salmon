@@ -18,6 +18,7 @@ type StatsTracker struct {
 	tagsSynced     int
 	queueProcessed int
 	lastDurationMs int64
+	version        string
 
 	logBuf  []LogEntry
 	logSize int
@@ -42,6 +43,13 @@ func NewStatsTracker(logBufferSize int) *StatsTracker {
 	}
 }
 
+// SetVersion sets the bridge version string reported in status responses.
+func (st *StatsTracker) SetVersion(v string) {
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	st.version = v
+}
+
 // GetStatus returns the current status for IPC clients.
 func (st *StatsTracker) GetStatus() StatusResponse {
 	st.mu.RLock()
@@ -62,6 +70,7 @@ func (st *StatsTracker) GetStatus() StatusResponse {
 			QueueProcessed: st.queueProcessed,
 			LastDurationMs: st.lastDurationMs,
 		},
+		Version: st.version,
 	}
 }
 

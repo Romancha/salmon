@@ -21,6 +21,7 @@ func runDaemonWithIPC(
 	ctx context.Context, bridge *Bridge, interval time.Duration, socketPath string, logger *slog.Logger,
 ) error {
 	stats := ipc.NewStatsTracker(0)
+	stats.SetVersion(version)
 	bridge.stats = stats
 
 	// Wrap the logger to feed log entries into the stats tracker for IPC logs command.

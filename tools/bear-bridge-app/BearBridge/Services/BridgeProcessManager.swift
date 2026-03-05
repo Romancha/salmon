@@ -55,6 +55,7 @@ final class BridgeProcessManager {
     private let environmentProvider: () -> [String: String]
     private let launcher: ProcessLauncher
     private let binaryPath: String?
+    var retryBaseDelay: TimeInterval = 2.0
 
     /// Called for each parsed log line from bridge stdout/stderr.
     var onLogEntry: ((LogEntry) -> Void)?
@@ -194,22 +195,31 @@ final class BridgeProcessManager {
             return
         }
 
-        // Unexpected termination — try to restart.
+        // Unexpected termination — try to restart with backoff delay.
         retryCount += 1
         if retryCount <= Self.maxRetries {
             state = .restarting(attempt: retryCount)
             onStateChange?(state)
 
-            guard let url = resolveBinaryURL() else {
-                state = .stopped
-                onStateChange?(.stopped)
-                return
+            let delay = Double(retryCount) * retryBaseDelay
+            let retryBlock = { [weak self] in
+                guard let self, self.state != .stopped else { return }
+                guard let url = self.resolveBinaryURL() else {
+                    self.state = .stopped
+                    self.onStateChange?(.stopped)
+                    return
+                }
+                do {
+                    try self.launchProcess(at: url)
+                } catch {
+                    self.state = .stopped
+                    self.onStateChange?(.stopped)
+                }
             }
-            do {
-                try launchProcess(at: url)
-            } catch {
-                state = .stopped
-                onStateChange?(.stopped)
+            if delay > 0 {
+                DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: retryBlock)
+            } else {
+                retryBlock()
             }
         } else {
             state = .stopped

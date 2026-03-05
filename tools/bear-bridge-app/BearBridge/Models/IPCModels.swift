@@ -7,6 +7,7 @@ struct IPCStatusResponse: Codable, Equatable {
     let lastSync: String
     let lastError: String
     let stats: IPCSyncStats
+    let version: String?
     let error: String?
 
     enum CodingKeys: String, CodingKey {
@@ -14,7 +15,20 @@ struct IPCStatusResponse: Codable, Equatable {
         case lastSync = "last_sync"
         case lastError = "last_error"
         case stats
+        case version
         case error
+    }
+
+    init(
+        state: String, lastSync: String, lastError: String,
+        stats: IPCSyncStats, version: String? = nil, error: String? = nil
+    ) {
+        self.state = state
+        self.lastSync = lastSync
+        self.lastError = lastError
+        self.stats = stats
+        self.version = version
+        self.error = error
     }
 }
 

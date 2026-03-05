@@ -161,5 +161,8 @@ final class StatusViewModel: ObservableObject {
             queueCount: response.stats.queueProcessed,
             lastDurationMs: Int(response.stats.lastDurationMs)
         )
+        if let v = response.version, !v.isEmpty {
+            bridgeVersion = v
+        }
     }
 }

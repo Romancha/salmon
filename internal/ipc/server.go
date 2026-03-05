@@ -25,6 +25,7 @@ type StatusResponse struct {
 	LastSync  string    `json:"last_sync"`
 	LastError string    `json:"last_error"`
 	Stats     SyncStats `json:"stats"`
+	Version   string    `json:"version,omitempty"`
 	Error     string    `json:"error,omitempty"`
 }
 
