@@ -43,13 +43,13 @@ Three improvements to the BearBridge menu bar app:
 - [x] Ensure README still documents bridge CLI flags (`--daemon`, `--version`) for developer/advanced use
 
 ### Task 2: Create .dmg distribution workflow
-- [ ] Create `tools/create-dmg.sh` script that:
+- [x] Create `tools/create-dmg.sh` script that:
   - Takes BearBridge.app path and output .dmg path as arguments
   - Creates a temporary DMG with BearBridge.app and an alias to /Applications
   - Sets window size, icon positions, background (optional)
   - Converts to compressed read-only DMG
   - Uses `hdiutil` (built into macOS, no external dependencies)
-- [ ] Update `.github/workflows/release-bridge.yml`:
+- [x] Update `.github/workflows/release-bridge.yml`:
   - Replace tar.gz archive creation with .dmg creation
   - Create `BearBridge-{VERSION}-{arch}.dmg` per architecture
   - Sign the .dmg with Developer ID (`codesign --sign`)
@@ -59,15 +59,15 @@ Three improvements to the BearBridge menu bar app:
   - Upload .dmg + .sha256 as GitHub Release assets
   - Remove tar.gz archive creation steps
   - Remove inclusion of launchd plist, wrapper script, .env.bridge.example, entitlements.plist, Makefile in release
-- [ ] Update Makefile:
+- [x] Update Makefile:
   - Add `make dmg` target that calls `tools/create-dmg.sh`
   - Update `install-app` to work from .dmg context or local build
   - Remove release-archive-specific install logic (the `go.mod` detection for repo vs release)
-- [ ] Update README install instructions to describe .dmg flow:
+- [x] Update README install instructions to describe .dmg flow:
   - Download .dmg from GitHub Releases
   - Open .dmg, drag BearBridge.app to /Applications
   - Launch from /Applications
-- [ ] Test full .dmg creation locally with `make dmg`
+- [x] Test full .dmg creation locally with `make dmg`
 
 ### Task 3: Migrate to Xcode project (prerequisite for UI redesign)
 - [ ] Create `tools/bear-bridge-app/BearBridge.xcodeproj` using Xcode or `xcodebuild`

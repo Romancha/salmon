@@ -148,22 +148,29 @@ jobs:
             --timestamp \
             bin/BearBridge.app
 
-      - name: Notarize binaries
+      - name: Create .dmg disk image
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          ARCH_NAME: ${{ matrix.arch_name }}
+        run: |
+          DMG_NAME="BearBridge-${VERSION}-${ARCH_NAME}.dmg"
+          chmod +x tools/create-dmg.sh
+          ./tools/create-dmg.sh bin/BearBridge.app "$DMG_NAME"
+          echo "DMG_NAME=${DMG_NAME}" >> "$GITHUB_ENV"
+
+      - name: Sign .dmg
+        run: |
+          codesign --force --sign "$CODESIGN_IDENTITY" \
+            --timestamp \
+            "$DMG_NAME"
+
+      - name: Notarize .dmg
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
-          # Create a zip containing both signed artifacts for notarization
-          NOTARIZE_ZIP="$RUNNER_TEMP/notarize.zip"
-          mkdir -p "$RUNNER_TEMP/notarize-payload"
-          cp bin/bear-bridge "$RUNNER_TEMP/notarize-payload/"
-          cp -R bin/bear-xcall.app "$RUNNER_TEMP/notarize-payload/"
-          cp -R bin/BearBridge.app "$RUNNER_TEMP/notarize-payload/"
-          ditto -c -k "$RUNNER_TEMP/notarize-payload" "$NOTARIZE_ZIP"
-
-          # Submit for notarization and wait
-          xcrun notarytool submit "$NOTARIZE_ZIP" \
+          xcrun notarytool submit "$DMG_NAME" \
             --apple-id "$APPLE_ID" \
             --password "$APPLE_ID_PASSWORD" \
             --team-id "$APPLE_TEAM_ID" \
@@ -171,52 +178,28 @@ jobs:
 
       - name: Staple notarization ticket
         run: |
-          # Stapling only works on .app bundles and disk images, not standalone binaries
-          xcrun stapler staple bin/bear-xcall.app
-          xcrun stapler staple bin/BearBridge.app
+          xcrun stapler staple "$DMG_NAME"
 
       - name: Verify signatures
         run: |
-          echo "Verifying bear-bridge signature..."
-          codesign --verify --deep --strict --verbose=2 bin/bear-bridge
+          echo "Verifying .dmg signature..."
+          codesign --verify --verbose=2 "$DMG_NAME"
 
-          echo "Verifying bear-xcall.app signature..."
-          codesign --verify --deep --strict --verbose=2 bin/bear-xcall.app
-
-          echo "Verifying BearBridge.app signature..."
+          echo "Verifying BearBridge.app signature (inside .dmg build)..."
           codesign --verify --deep --strict --verbose=2 bin/BearBridge.app
-
-      - name: Create release archive
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
-          ARCH_NAME: ${{ matrix.arch_name }}
-        run: |
-          ARCHIVE_NAME="bear-bridge-${VERSION}-darwin-${ARCH_NAME}.tar.gz"
-          ARCHIVE_DIR="bear-bridge-${VERSION}-darwin-${ARCH_NAME}"
-          mkdir -p "${ARCHIVE_DIR}"
-          cp bin/bear-bridge "${ARCHIVE_DIR}/"
-          cp -R bin/bear-xcall.app "${ARCHIVE_DIR}/"
-          cp -R bin/BearBridge.app "${ARCHIVE_DIR}/"
-          cp deploy/com.romancha.bear-bridge.plist "${ARCHIVE_DIR}/"
-          cp deploy/bear-bridge-wrapper.sh "${ARCHIVE_DIR}/"
-          cp deploy/.env.bridge.example "${ARCHIVE_DIR}/"
-          cp tools/bear-xcall/entitlements.plist "${ARCHIVE_DIR}/"
-          cp Makefile "${ARCHIVE_DIR}/"
-          tar -czf "${ARCHIVE_NAME}" "${ARCHIVE_DIR}"
-          echo "ARCHIVE_NAME=${ARCHIVE_NAME}" >> "$GITHUB_ENV"
 
       - name: Generate SHA256 checksum
         run: |
-          shasum -a 256 "$ARCHIVE_NAME" > "${ARCHIVE_NAME}.sha256"
-          cat "${ARCHIVE_NAME}.sha256"
+          shasum -a 256 "$DMG_NAME" > "${DMG_NAME}.sha256"
+          cat "${DMG_NAME}.sha256"
 
       - name: Upload release assets
         uses: actions/upload-artifact@v4
         with:
           name: bridge-darwin-${{ matrix.arch_name }}
           path: |
-            ${{ env.ARCHIVE_NAME }}
-            ${{ env.ARCHIVE_NAME }}.sha256
+            ${{ env.DMG_NAME }}
+            ${{ env.DMG_NAME }}.sha256
           retention-days: 5
 
       - name: Cleanup keychain
@@ -238,7 +221,7 @@ jobs:
           merge-multiple: true
 
       - name: List release assets
-        run: ls -la bear-bridge-*
+        run: ls -la BearBridge-*
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -246,5 +229,5 @@ jobs:
           generate_release_notes: true
           prerelease: ${{ contains(github.ref_name, '-') }}
           files: |
-            bear-bridge-*.tar.gz
-            bear-bridge-*.sha256
+            BearBridge-*.dmg
+            BearBridge-*.sha256

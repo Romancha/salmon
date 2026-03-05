@@ -1,4 +1,4 @@
-.PHONY: build build-xcall build-app test test-coverage test-race test-xcall test-app lint fmt tidy clean generate tools swagger help all install-bridge uninstall-bridge install-app uninstall-app verify-bridge
+.PHONY: build build-xcall build-app test test-coverage test-race test-xcall test-app lint fmt tidy clean generate tools swagger help all install-bridge uninstall-bridge install-app uninstall-app verify-bridge dmg
 
 BINARY_HUB=bear-sync-hub
 BINARY_BRIDGE=bear-bridge
@@ -32,8 +32,6 @@ PLIST_SRC = deploy/$(PLIST_LABEL).plist
 WRAPPER_SRC = deploy/bear-bridge-wrapper.sh
 ENV_EXAMPLE_SRC = deploy/.env.bridge.example
 ENTITLEMENTS_SRC = tools/bear-xcall/entitlements.plist
-BEARBRIDGE_APP_SRC = bin/BearBridge.app
-INSTALL_APP_DEPS = build-app
 IS_RELEASE_ARCHIVE = 0
 # Go tools path
 ifeq (,$(shell go env GOBIN))
@@ -56,8 +54,6 @@ PLIST_SRC = $(PLIST_LABEL).plist
 WRAPPER_SRC = bear-bridge-wrapper.sh
 ENV_EXAMPLE_SRC = .env.bridge.example
 ENTITLEMENTS_SRC = entitlements.plist
-BEARBRIDGE_APP_SRC = BearBridge.app
-INSTALL_APP_DEPS =
 IS_RELEASE_ARCHIVE = 1
 endif
 
@@ -76,6 +72,7 @@ help:
 	@echo "    make build          - Build all binaries to bin/ (includes bear-xcall on macOS)"
 	@echo "    make build-xcall    - Build bear-xcall Swift CLI .app bundle (macOS only)"
 	@echo "    make build-app      - Build BearBridge menu bar .app bundle (macOS only)"
+	@echo "    make dmg            - Create BearBridge .dmg disk image (macOS only)"
 	@echo "    make install-bridge - Install bridge + launchd agent to ~/bin/ (macOS only)"
 	@echo "    make uninstall-bridge - Uninstall bridge + launchd agent (macOS only)"
 	@echo "    make install-app    - Install BearBridge.app to ~/Applications/ (macOS only)"
@@ -126,6 +123,14 @@ ifeq ($(shell uname),Darwin)
 	codesign --force --sign "$(CODESIGN_IDENTITY)" --options runtime bin/BearBridge.app
 else
 	@echo "Skipping BearBridge.app build (macOS only)"
+endif
+
+dmg: build-app
+ifeq ($(shell uname),Darwin)
+	@echo "Creating BearBridge .dmg..."
+	./tools/create-dmg.sh bin/BearBridge.app bin/BearBridge.dmg
+else
+	@echo "Skipping .dmg creation (macOS only)"
 endif
 
 test-app:
@@ -265,21 +270,12 @@ else
 	@exit 1
 endif
 
-install-app: $(INSTALL_APP_DEPS)
+install-app: build-app
 ifeq ($(shell uname),Darwin)
 	@echo "Installing BearBridge.app to $(HOME)/Applications/..."
 	@mkdir -p $(HOME)/Applications
-ifeq ($(IS_RELEASE_ARCHIVE),1)
-	@if codesign --verify --deep --strict -R '$(DEVID_REQ)' $(BEARBRIDGE_APP_SRC) 2>/dev/null; then \
-		echo "BearBridge.app code signature valid (Developer ID)"; \
-	else \
-		echo "ERROR: BearBridge.app code signature verification failed."; \
-		echo "Please re-download from GitHub Releases."; \
-		exit 1; \
-	fi
-endif
 	rm -rf $(HOME)/Applications/BearBridge.app
-	cp -R $(BEARBRIDGE_APP_SRC) $(HOME)/Applications/
+	cp -R bin/BearBridge.app $(HOME)/Applications/
 	@echo ""
 	@echo "BearBridge.app installed to $(HOME)/Applications/"
 	@echo "Launch it from Finder, Spotlight, or:"
