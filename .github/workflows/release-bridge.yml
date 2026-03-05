@@ -28,7 +28,7 @@ jobs:
         include:
           - goarch: arm64
             arch_name: arm64
-            swift_extra_flags: ""
+            swift_extra_flags: "-target arm64-apple-macosx11.0"
           - goarch: amd64
             arch_name: amd64
             swift_extra_flags: "-target x86_64-apple-macosx10.15"

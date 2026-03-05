@@ -9,6 +9,11 @@ VERSION ?= dev
 # Code signing identity for bear-xcall.app (use "Developer ID Application: ..." for distribution)
 CODESIGN_IDENTITY ?= -
 
+# Requirement for verifying Developer ID Application signatures (release archives).
+# Checks Apple root CA → Developer ID CA intermediate → Developer ID Application leaf.
+DEVID_REQ = anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] \
+  and certificate leaf[field.1.2.840.113635.100.6.1.13]
+
 # Bridge install paths
 PLIST_LABEL=com.romancha.bear-bridge
 PLIST_DST=$(HOME)/Library/LaunchAgents/$(PLIST_LABEL).plist
@@ -169,11 +174,12 @@ ifeq ($(shell uname),Darwin)
 	@mkdir -p $(BRIDGE_LOG_DIR)
 	@mkdir -p $(BRIDGE_CONFIG_DIR)
 ifeq ($(IS_RELEASE_ARCHIVE),1)
-	@if codesign --verify --quiet $(BRIDGE_SRC_BIN) 2>/dev/null && \
-	    codesign --verify --quiet $(XCALL_SRC_APP) 2>/dev/null; then \
-		echo "Code signatures valid"; \
+	@if codesign --verify --deep --strict -R '$(DEVID_REQ)' $(BRIDGE_SRC_BIN) 2>/dev/null && \
+	    codesign --verify --deep --strict -R '$(DEVID_REQ)' $(XCALL_SRC_APP) 2>/dev/null; then \
+		echo "Code signatures valid (Developer ID)"; \
 	else \
 		echo "ERROR: Code signature verification failed."; \
+		echo "Binaries must be signed with a Developer ID Application certificate."; \
 		echo "The release archive may be corrupted or tampered with."; \
 		echo "Please re-download from GitHub Releases."; \
 		exit 1; \
