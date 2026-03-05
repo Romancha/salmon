@@ -102,6 +102,34 @@ final class StatusViewModel: ObservableObject {
         isSyncing = false
     }
 
+    /// Handle a status event from the bridge stdout stream (real-time updates).
+    func handleStatusEvent(_ event: StatusEvent) {
+        switch event.event {
+        case .syncStart:
+            syncStatus = .syncing
+        case .syncComplete:
+            syncStatus = .idle
+            lastSyncTime = event.time
+            if let notes = event.notesSynced, let tags = event.tagsSynced {
+                stats = SyncStats(
+                    notesCount: notes,
+                    tagsCount: tags,
+                    queueCount: event.queueItems ?? 0,
+                    lastDurationMs: event.durationMs ?? 0
+                )
+            }
+            lastError = nil
+        case .syncError:
+            syncStatus = .error
+            if let error = event.error {
+                lastError = error
+                notificationService?.showSyncError(error)
+            }
+        case .syncProgress:
+            break
+        }
+    }
+
     // MARK: - Private
 
     private func applyStatus(_ response: IPCStatusResponse) {

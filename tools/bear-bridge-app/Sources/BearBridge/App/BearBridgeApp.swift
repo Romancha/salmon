@@ -2,6 +2,7 @@ import SwiftUI
 
 extension Notification.Name {
     static let openLogViewer = Notification.Name("openLogViewer")
+    static let restartBridge = Notification.Name("restartBridge")
 }
 
 @main
@@ -24,24 +25,35 @@ struct BearBridgeApp: App {
 
         let logVM = LogViewModel(ipcClient: ipcClient)
 
-        _viewModel = StateObject(wrappedValue: StatusViewModel(
+        let statusVM = StatusViewModel(
             ipcClient: ipcClient,
             notificationService: notifications
-        ))
+        )
+        _viewModel = StateObject(wrappedValue: statusVM)
         _logViewModel = StateObject(wrappedValue: logVM)
         _settingsManager = StateObject(wrappedValue: settings)
         self.notificationService = notifications
 
-        let pm = BridgeProcessManager(environment: settings.bridgeEnvironment())
+        let pm = BridgeProcessManager(environmentProvider: { settings.bridgeEnvironment() })
         pm.onLogEntry = { entry in
             DispatchQueue.main.async {
                 logVM.addEntry(entry)
             }
         }
+        pm.onStatusEvent = { event in
+            DispatchQueue.main.async {
+                statusVM.handleStatusEvent(event)
+            }
+        }
         self.processManager = pm
 
         if settings.isConfigured {
-            try? pm.start()
+            do {
+                try pm.start()
+            } catch {
+                statusVM.syncStatus = .error
+                statusVM.lastError = "Failed to start bridge: \(error.localizedDescription)"
+            }
         }
     }
 
@@ -73,6 +85,9 @@ struct BearBridgeApp: App {
             SettingsWindow(settings: settingsManager)
                 .onReceive(settingsManager.$notificationsEnabled) { enabled in
                     notificationService.isEnabled = enabled
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .restartBridge)) { _ in
+                    try? processManager.restart()
                 }
         }
         .defaultSize(width: 450, height: 300)

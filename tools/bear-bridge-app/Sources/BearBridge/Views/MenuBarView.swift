@@ -59,8 +59,8 @@ struct MenuBarView: View {
 
     private var statsSection: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text("Notes: \(viewModel.stats.notesCount.formatted())")
-            Text("Tags: \(viewModel.stats.tagsCount.formatted())")
+            Text("Notes synced: \(viewModel.stats.notesCount.formatted())")
+            Text("Tags synced: \(viewModel.stats.tagsCount.formatted())")
             Text("Queue: \(viewModel.queueItems.count) pending")
         }
         .font(.caption)

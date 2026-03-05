@@ -59,6 +59,8 @@ struct SettingsWindow: View {
                         .foregroundColor(.secondary)
                 }
             }
+
+            restartBridgeButton
         }
         .padding()
     }
@@ -83,6 +85,8 @@ struct SettingsWindow: View {
             } header: {
                 Text("Sync Schedule")
             }
+
+            restartBridgeButton
         }
         .padding()
     }
@@ -106,6 +110,15 @@ struct SettingsWindow: View {
             }
         }
         .padding()
+    }
+
+    private var restartBridgeButton: some View {
+        Section {
+            Button("Restart Bridge to Apply Changes") {
+                NotificationCenter.default.post(name: .restartBridge, object: nil)
+            }
+            .font(.caption)
+        }
     }
 
     // MARK: - Bindings for Keychain-backed properties

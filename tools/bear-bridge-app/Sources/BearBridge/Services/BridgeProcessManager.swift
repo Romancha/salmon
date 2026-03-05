@@ -51,7 +51,7 @@ final class BridgeProcessManager {
     private var processHandle: ProcessHandle?
     private let parser = OutputParser()
     private var retryCount = 0
-    private let environment: [String: String]
+    private let environmentProvider: () -> [String: String]
     private let launcher: ProcessLauncher
     private let binaryPath: String?
 
@@ -64,12 +64,17 @@ final class BridgeProcessManager {
 
     /// - Parameters:
     ///   - binaryPath: Explicit path to bear-bridge binary. If nil, searches default locations.
-    ///   - environment: Environment variables to pass to the bridge process.
+    ///   - environmentProvider: Closure returning environment variables. Evaluated at each process launch.
     ///   - launcher: Process launcher (injectable for testing).
-    init(binaryPath: String? = nil, environment: [String: String] = [:], launcher: ProcessLauncher? = nil) {
+    init(binaryPath: String? = nil, environmentProvider: @escaping () -> [String: String] = { [:] }, launcher: ProcessLauncher? = nil) {
         self.binaryPath = binaryPath
-        self.environment = environment
+        self.environmentProvider = environmentProvider
         self.launcher = launcher ?? SystemProcessLauncher()
+    }
+
+    /// Convenience initializer with a static environment dictionary.
+    convenience init(binaryPath: String? = nil, environment: [String: String], launcher: ProcessLauncher? = nil) {
+        self.init(binaryPath: binaryPath, environmentProvider: { environment }, launcher: launcher)
     }
 
     /// Start the bridge process.
@@ -94,6 +99,16 @@ final class BridgeProcessManager {
         }
         processHandle = nil
         onStateChange?(.stopped)
+    }
+
+    /// Restart the bridge process with fresh environment from the provider.
+    func restart() throws {
+        stop()
+        guard let url = resolveBinaryURL() else {
+            throw BridgeProcessError.binaryNotFound
+        }
+        retryCount = 0
+        try launchProcess(at: url)
     }
 
     /// Resolve the bear-bridge binary URL.
@@ -132,7 +147,7 @@ final class BridgeProcessManager {
         let handle = try launcher.launch(
             executableURL: url,
             arguments: ["--daemon"],
-            environment: environment,
+            environment: environmentProvider(),
             onStdoutLine: { [weak self] line in self?.handleStdoutLine(line) },
             onStderrLine: { [weak self] line in self?.handleStderrLine(line) },
             onTermination: { [weak self] status in self?.handleTermination(status: status) }
@@ -232,7 +247,10 @@ final class SystemProcessLauncher: ProcessLauncher {
         process.terminationHandler = { proc in
             stdoutPipe.fileHandleForReading.readabilityHandler = nil
             stderrPipe.fileHandleForReading.readabilityHandler = nil
-            onTermination(proc.terminationStatus)
+            let status = proc.terminationStatus
+            DispatchQueue.main.async {
+                onTermination(status)
+            }
         }
 
         try process.run()
@@ -250,7 +268,9 @@ final class SystemProcessLauncher: ProcessLauncher {
                 let lineData = buffer.subdata(in: buffer.startIndex..<range.lowerBound)
                 buffer.removeSubrange(buffer.startIndex...range.lowerBound)
                 if let line = String(data: lineData, encoding: .utf8), !line.isEmpty {
-                    onLine(line)
+                    DispatchQueue.main.async {
+                        onLine(line)
+                    }
                 }
             }
         }

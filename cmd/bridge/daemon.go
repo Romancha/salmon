@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"strings"
 	"time"
 
 	"github.com/romancha/bear-sync/internal/ipc"
@@ -72,7 +71,7 @@ type statsLogHandler struct {
 func (h *statsLogHandler) Handle(ctx context.Context, r slog.Record) error {
 	h.stats.AddLog(ipc.LogEntry{
 		Time:  r.Time.UTC().Format(time.RFC3339),
-		Level: strings.ToLower(r.Level.String()),
+		Level: r.Level.String(),
 		Msg:   r.Message,
 	})
 	if err := h.Handler.Handle(ctx, r); err != nil {
