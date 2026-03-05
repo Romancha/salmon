@@ -102,7 +102,7 @@ private struct IPCRequest: Encodable {
 // MARK: - Unix socket transport (real implementation)
 
 /// Sends IPC commands over a real Unix domain socket using POSIX APIs.
-final class UnixSocketTransport: IPCTransport {
+final class UnixSocketTransport: IPCTransport, @unchecked Sendable {
 
     static let defaultTimeout: TimeInterval = 5
 
@@ -113,6 +113,21 @@ final class UnixSocketTransport: IPCTransport {
     }
 
     func send(request: Data, to socketPath: String) async throws -> Data {
+        // Run blocking POSIX I/O on a background queue to avoid blocking
+        // Swift's cooperative thread pool (and by extension the main thread).
+        try await withCheckedThrowingContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                do {
+                    let result = try self.sendSync(request: request, to: socketPath)
+                    continuation.resume(returning: result)
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+
+    private func sendSync(request: Data, to socketPath: String) throws -> Data {
         // Verify socket file exists
         guard FileManager.default.fileExists(atPath: socketPath) else {
             throw IPCClientError.socketNotAvailable
@@ -155,15 +170,19 @@ final class UnixSocketTransport: IPCTransport {
         setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv, socklen_t(MemoryLayout<timeval>.size))
         setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, socklen_t(MemoryLayout<timeval>.size))
 
-        // Send request
-        let sent = request.withUnsafeBytes { buf in
-            Darwin.send(fd, buf.baseAddress!, buf.count, 0)
-        }
-        guard sent == request.count else {
-            if errno == EAGAIN || errno == EWOULDBLOCK {
-                throw IPCClientError.timeout
+        // Send request (loop to handle partial writes)
+        var totalSent = 0
+        while totalSent < request.count {
+            let sent = request.withUnsafeBytes { buf in
+                Darwin.send(fd, buf.baseAddress! + totalSent, buf.count - totalSent, 0)
             }
-            throw IPCClientError.connectionFailed("send() failed: \(errno)")
+            if sent < 0 {
+                if errno == EAGAIN || errno == EWOULDBLOCK {
+                    throw IPCClientError.timeout
+                }
+                throw IPCClientError.connectionFailed("send() failed: \(errno)")
+            }
+            totalSent += sent
         }
 
         // Read response (read until newline or EOF)

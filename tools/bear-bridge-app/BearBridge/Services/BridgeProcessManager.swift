@@ -51,6 +51,7 @@ final class BridgeProcessManager {
     private var processHandle: ProcessHandle?
     private let parser = OutputParser()
     private var retryCount = 0
+    private var launchGeneration: Int = 0
     private let environmentProvider: () -> [String: String]
     private let launcher: ProcessLauncher
     private let binaryPath: String?
@@ -144,13 +145,15 @@ final class BridgeProcessManager {
     // MARK: - Private
 
     private func launchProcess(at url: URL) throws {
+        launchGeneration += 1
+        let generation = launchGeneration
         let handle = try launcher.launch(
             executableURL: url,
             arguments: ["--daemon"],
             environment: environmentProvider(),
             onStdoutLine: { [weak self] line in self?.handleStdoutLine(line) },
             onStderrLine: { [weak self] line in self?.handleStderrLine(line) },
-            onTermination: { [weak self] status in self?.handleTermination(status: status) }
+            onTermination: { [weak self] status in self?.handleTermination(status: status, generation: generation) }
         )
         processHandle = handle
         state = .running
@@ -173,7 +176,10 @@ final class BridgeProcessManager {
         onLogEntry?(entry)
     }
 
-    private func handleTermination(status: Int32) {
+    private func handleTermination(status: Int32, generation: Int) {
+        // Ignore stale callbacks from a previous process (e.g. after restart()).
+        guard generation == launchGeneration else { return }
+
         processHandle = nil
 
         // If stopped intentionally, don't restart.

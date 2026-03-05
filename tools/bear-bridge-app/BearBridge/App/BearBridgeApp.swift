@@ -15,7 +15,6 @@ struct BearBridgeApp: App {
                 MenuBarView()
             }
             .onAppear {
-                appModel.initialize()
                 appModel.statusViewModel.startPolling()
             }
             .onDisappear {
@@ -25,6 +24,7 @@ struct BearBridgeApp: App {
                 openWindow(id: "log-viewer")
             }
             .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
+                appModel.statusViewModel.stopPolling()
                 appModel.shutdown()
             }
         } label: {

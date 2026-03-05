@@ -67,6 +67,9 @@ final class AppModel: ObservableObject {
         notifications.onOpenLogViewer = {
             NotificationCenter.default.post(name: .openLogViewer, object: nil)
         }
+
+        // Start bridge immediately at app launch (not deferred to first popup open)
+        initialize()
     }
 
     /// Initialize the app — start bridge if configured.

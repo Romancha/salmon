@@ -43,14 +43,14 @@ final class AppModelTests: XCTestCase {
 
     // MARK: - Initialization
 
-    func testInitialStateNotInitialized() {
+    func testInitializedOnCreation() {
         let (model, _) = makeAppModel()
-        XCTAssertFalse(model.isInitialized)
+        XCTAssertTrue(model.isInitialized)
     }
 
     func testInitializeOnlyOnce() {
         let (model, launcher) = makeAppModel(configured: true)
-        model.initialize()
+        // init() already called initialize(); calling again should be a no-op
         model.initialize()
         XCTAssertTrue(model.isInitialized)
         XCTAssertEqual(launcher.launchCount, 1)
@@ -58,14 +58,14 @@ final class AppModelTests: XCTestCase {
 
     func testInitializeStartsBridgeWhenConfigured() {
         let (model, launcher) = makeAppModel(configured: true)
-        model.initialize()
+        // init() already called initialize()
         XCTAssertTrue(model.isInitialized)
         XCTAssertTrue(launcher.launchCalled)
     }
 
     func testInitializeDoesNotStartBridgeWhenNotConfigured() {
         let (model, launcher) = makeAppModel(configured: false)
-        model.initialize()
+        // init() already called initialize()
         XCTAssertTrue(model.isInitialized)
         XCTAssertFalse(launcher.launchCalled)
     }
@@ -85,7 +85,6 @@ final class AppModelTests: XCTestCase {
 
     func testRestartBridge() {
         let (model, launcher) = makeAppModel(configured: true)
-        model.initialize()
         XCTAssertEqual(launcher.launchCount, 1)
 
         model.restartBridge()
@@ -96,7 +95,6 @@ final class AppModelTests: XCTestCase {
 
     func testShutdownStopsProcess() {
         let (model, launcher) = makeAppModel(configured: true)
-        model.initialize()
         XCTAssertTrue(launcher.mockHandle.isRunning)
 
         model.shutdown()
@@ -107,7 +105,6 @@ final class AppModelTests: XCTestCase {
 
     func testLogEntryWiring() {
         let (model, launcher) = makeAppModel(configured: true)
-        model.initialize()
 
         let logJSON = """
         {"time":"2026-03-04T12:00:00Z","level":"info","msg":"test log message"}
@@ -125,7 +122,6 @@ final class AppModelTests: XCTestCase {
 
     func testStatusEventWiring() {
         let (model, launcher) = makeAppModel(configured: true)
-        model.initialize()
 
         let eventJSON = """
         {"event":"sync_complete","time":"2026-03-04T12:00:00Z","notes_synced":42,"tags_synced":5,"queue_items":0,"duration_ms":1500}
@@ -144,8 +140,7 @@ final class AppModelTests: XCTestCase {
     // MARK: - State change wiring
 
     func testStateChangeUpdatesBridgeConnected() {
-        let (model, launcher) = makeAppModel(configured: true)
-        model.initialize()
+        let (model, _) = makeAppModel(configured: true)
 
         // Bridge starts running — onStateChange should set bridgeConnected to true
         let startExpectation = XCTestExpectation(description: "bridgeConnected set on start")
@@ -169,7 +164,10 @@ final class AppModelTests: XCTestCase {
     // MARK: - Schedule restart (debounced auto-restart)
 
     func testScheduleRestartDoesNothingBeforeInitialize() {
-        let (model, launcher) = makeAppModel(configured: true)
+        // Use unconfigured model — initialize() runs in init but doesn't launch since not configured
+        let (model, launcher) = makeAppModel(configured: false)
+        // Temporarily reset isInitialized to simulate pre-init state
+        model.isInitialized = false
         model.scheduleRestart()
         // Not initialized, so no restart should happen even after waiting
         let expectation = XCTestExpectation(description: "No restart")
@@ -194,7 +192,7 @@ final class AppModelTests: XCTestCase {
         let pm = BridgeProcessManager(binaryPath: binaryPath, environmentProvider: { settings.bridgeEnvironment() }, launcher: mockLauncher)
         let model = AppModel(settingsManager: settings, ipcClient: MockIPCClient(), processManager: pm, restartDebounceSeconds: 0)
 
-        model.initialize()
+        // init() already called initialize()
         XCTAssertEqual(mockLauncher.launchCount, 1)
 
         model.scheduleRestart()
@@ -221,7 +219,7 @@ final class AppModelTests: XCTestCase {
         let pm = BridgeProcessManager(binaryPath: binaryPath, environmentProvider: { settings.bridgeEnvironment() }, launcher: mockLauncher)
         let model = AppModel(settingsManager: settings, ipcClient: MockIPCClient(), processManager: pm, restartDebounceSeconds: 0)
 
-        model.initialize()
+        // init() already called initialize()
         XCTAssertEqual(mockLauncher.launchCount, 1)
 
         // Rapid fire multiple schedules — only the last one should fire
@@ -252,8 +250,7 @@ final class AppModelTests: XCTestCase {
         let pm = BridgeProcessManager(binaryPath: "/nonexistent/path", environmentProvider: { [:] })
         let model = AppModel(settingsManager: settings, ipcClient: MockIPCClient(), processManager: pm)
 
-        model.initialize()
-
+        // init() already called initialize() which should have set the error
         XCTAssertEqual(model.statusViewModel.syncStatus, .error)
         XCTAssertNotNil(model.statusViewModel.lastError)
     }

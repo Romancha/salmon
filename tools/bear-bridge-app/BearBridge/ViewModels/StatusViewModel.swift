@@ -78,6 +78,8 @@ final class StatusViewModel: ObservableObject {
             // Fetch queue status (non-critical — don't fail the whole refresh).
             if let queueResponse = try? await ipcClient.getQueueStatus() {
                 queueItems = queueResponse.items
+            } else {
+                queueItems = []
             }
         } catch {
             if bridgeConnected {
