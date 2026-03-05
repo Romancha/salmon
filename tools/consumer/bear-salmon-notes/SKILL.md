@@ -1,5 +1,6 @@
 ---
 name: bear-salmon-notes
+version: 1.0.0
 description: Read and write Bear (https://bear.app) notes via the Salmon Hub API. List, search, create, update, trash, archive notes. Manage tags. Download attachments. View backlinks and sync status.
 homepage: https://github.com/romancha/salmon
 metadata: {"openclaw":{"emoji":"🐻","requires":{"bins":["curl","jq"],"env":["SALMON_HUB_URL","SALMON_CONSUMER_TOKEN"]},"primaryEnv":"SALMON_CONSUMER_TOKEN"}}
