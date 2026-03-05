@@ -122,11 +122,16 @@ final class SettingsManager: ObservableObject {
             self.loginItemManager = nil
         }
 
+        // Suppress didSet side effects during init
+        self.suppressLaunchAtLoginDidSet = true
+
         // Load saved values
         self.hubURL = resolvedStore.string(forKey: SettingsKey.hubURL) ?? ""
         self.syncIntervalMinutes = resolvedStore.integer(forKey: SettingsKey.syncIntervalMinutes)
         self.launchAtLogin = resolvedStore.bool(forKey: SettingsKey.launchAtLogin)
         self.notificationsEnabled = resolvedStore.bool(forKey: SettingsKey.notificationsEnabled)
+
+        self.suppressLaunchAtLoginDidSet = false
     }
 
     // MARK: - Token management (Keychain)

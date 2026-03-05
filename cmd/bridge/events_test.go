@@ -43,14 +43,22 @@ func TestEventEmitter_FieldPresence(t *testing.T) {
 	e.Emit(&SyncEvent{Event: "sync_start"})
 
 	line := strings.TrimSpace(buf.String())
-	// String fields with omitempty are omitted when empty.
+	// All optional fields with omitempty are omitted when zero/empty.
 	assert.NotContains(t, line, `"phase"`)
 	assert.NotContains(t, line, `"error"`)
-	// Integer fields are always present (no omitempty) so the Swift app can distinguish 0 from absent.
-	assert.Contains(t, line, `"notes_synced"`)
-	assert.Contains(t, line, `"duration_ms"`)
-	assert.Contains(t, line, `"tags_synced"`)
-	assert.Contains(t, line, `"queue_items"`)
+	assert.NotContains(t, line, `"notes_synced"`)
+	assert.NotContains(t, line, `"duration_ms"`)
+	assert.NotContains(t, line, `"tags_synced"`)
+	assert.NotContains(t, line, `"queue_items"`)
+
+	// Verify fields are present when non-zero.
+	buf.Reset()
+	e.Emit(&SyncEvent{Event: "sync_complete", DurationMs: 150, NotesSynced: 10, TagsSynced: 3, QueueItems: 2})
+	line = strings.TrimSpace(buf.String())
+	assert.Contains(t, line, `"duration_ms":150`)
+	assert.Contains(t, line, `"notes_synced":10`)
+	assert.Contains(t, line, `"tags_synced":3`)
+	assert.Contains(t, line, `"queue_items":2`)
 }
 
 func TestSyncEvents_InitialSync(t *testing.T) {

@@ -517,7 +517,7 @@ final class StatusViewModelTests: XCTestCase {
         XCTAssertEqual(vm.bridgeVersion, "v1.2.3")
     }
 
-    func testQueueItemsNotClearedOnQueueStatusError() async {
+    func testQueueItemsResetOnEmptyQueueResponse() async {
         let mock = MockIPCClient()
         mock.setIdleStatus()
         mock.queueStatusResponse = IPCQueueStatusResponse(
@@ -530,14 +530,9 @@ final class StatusViewModelTests: XCTestCase {
         await vm.refreshStatus()
         XCTAssertEqual(vm.queueItems.count, 1)
 
-        // Next refresh where queue_status fails — items stay since we use try?
+        // Next refresh returns empty queue — items are cleared
         mock.queueStatusResponse = nil
-        mock.shouldThrow = IPCClientError.socketNotAvailable
-        // shouldThrow affects getStatus too, so items won't update (bridgeConnected=false)
-        // Reset mock to only fail queue
-        mock.shouldThrow = nil
         await vm.refreshStatus()
-        // Queue items are still updated from the nil queueStatusResponse (returns empty)
         XCTAssertTrue(vm.queueItems.isEmpty)
     }
 }

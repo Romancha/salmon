@@ -16,7 +16,8 @@ Monorepo with two Go binaries for syncing Bear notes with external consumers.
 - internal/xcallback/ — Bear x-callback-url executor via bear-xcall CLI (bridge only)
 - internal/ipc/ — Unix socket IPC server for daemon mode (bridge only)
 - tools/bear-xcall/ — Swift CLI source for bear-xcall .app bundle (macOS only, bridge dependency)
-- tools/bear-bridge-app/ — SwiftUI menu bar app (macOS 13+, wraps bridge daemon)
+- tools/bear-bridge-app/ — SwiftUI menu bar app (macOS 13+, Xcode project, wraps bridge daemon)
+- tools/create-dmg.sh — script to create .dmg disk image for BearBridge.app distribution
 - deploy/ — deployment configs (systemd unit, launchd plist, Caddyfile)
 - docs/ — consumer-facing documentation (API quick start guide)
 - testdata/ — test fixtures (test Bear SQLite)
@@ -39,6 +40,7 @@ Monorepo with two Go binaries for syncing Bear notes with external consumers.
 - make verify-bridge — verify installed bridge code signatures (macOS only)
 - make build-app — build BearBridge menu bar .app bundle (macOS only)
 - make test-app — run BearBridge Swift tests (macOS only)
+- make dmg — create BearBridge .dmg disk image (macOS only)
 - make install-app — install BearBridge.app to ~/Applications/ (macOS only)
 - make uninstall-app — uninstall BearBridge.app (macOS only)
 
@@ -130,4 +132,4 @@ Run these checks before committing (in order):
 
 - `.github/workflows/ci.yml` — lint, test, test-race on push/PR
 - `.github/workflows/docker-publish.yml` — builds and pushes hub Docker image on v* tag
-- `.github/workflows/release-bridge.yml` — builds, signs, notarizes, and publishes bridge macOS binaries on v* tag (arm64 + amd64)
+- `.github/workflows/release-bridge.yml` — builds, signs, notarizes, and publishes BearBridge.app as .dmg disk images on v* tag (arm64 + amd64)

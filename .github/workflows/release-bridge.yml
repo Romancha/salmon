@@ -146,8 +146,8 @@ jobs:
           cp bin/bear-bridge bin/BearBridge.app/Contents/MacOS/
           cp -R bin/bear-xcall.app bin/BearBridge.app/Contents/MacOS/
 
-          # Sign the outer app (embedded items already signed individually)
-          codesign --force --sign "$CODESIGN_IDENTITY" \
+          # Sign the outer app with --deep to re-sign embedded bundles in place
+          codesign --force --deep --sign "$CODESIGN_IDENTITY" \
             --options runtime \
             --timestamp \
             bin/BearBridge.app
