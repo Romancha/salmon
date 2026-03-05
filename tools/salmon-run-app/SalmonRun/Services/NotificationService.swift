@@ -83,7 +83,7 @@ final class NotificationService: NSObject, NotificationServiceProtocol, UNUserNo
         guard rateLimiter.shouldAllow(error: message) else { return }
 
         let content = UNMutableNotificationContent()
-        content.title = "Bear Bridge Sync Error"
+        content.title = "SalmonRun Sync Error"
         content.body = message
         content.categoryIdentifier = Self.categoryIdentifier
         content.sound = .default

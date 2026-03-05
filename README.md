@@ -137,13 +137,7 @@ Create `/opt/salmon/.env` with the environment variables above.
 
 ### Docker Compose (production)
 
-1. Copy `.env.example` to `.env` and fill in secrets:
-
-```
-cp .env.example .env
-```
-
-2. Set your domain in `.env`:
+1. Create a `.env` file with your secrets:
 
 ```
 SALMON_HUB_CONSUMER_TOKENS="openclaw:secret1,myapp:secret2"
@@ -151,7 +145,7 @@ SALMON_HUB_BRIDGE_TOKEN=<token>
 DOMAIN=salmon.example.com
 ```
 
-3. Start the stack:
+2. Start the stack:
 
 ```
 docker compose up -d
@@ -217,7 +211,7 @@ The recommended way to run the bridge is via the [Menu Bar App](#menu-bar-app-sa
 
 ## Menu Bar App (SalmonRun.app)
 
-SalmonRun.app is a native macOS menu bar application (macOS 13+) that manages the bridge as a child process in daemon mode and provides a GUI for monitoring and configuration.
+SalmonRun.app is a native macOS menu bar application (macOS 14+) that manages the bridge as a child process in daemon mode and provides a GUI for monitoring and configuration.
 
 ### Menu Bar UI
 
@@ -280,13 +274,7 @@ From source:
 
 ```
 make build-app
-make install-app
-```
-
-To uninstall:
-
-```
-make uninstall-app
+cp -R bin/SalmonRun.app /Applications/
 ```
 
 ### Build
