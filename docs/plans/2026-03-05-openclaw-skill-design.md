@@ -2,11 +2,11 @@
 
 ## Summary
 
-Create an OpenClaw skill (`salmon-notes`) that allows the OpenClaw AI assistant to read and write Bear notes via the Salmon Hub consumer API using curl + jq.
+Create an OpenClaw skill (`bear-salmon-notes`) that allows the OpenClaw AI assistant to read and write Bear notes via the Salmon Hub consumer API using curl + jq.
 
 ## Location
 
-`tools/consumer/openclaw-skill/`
+`tools/consumer/bear-salmon-notes/`
 
 ## Files
 

@@ -1,13 +1,13 @@
 ---
-name: salmon-notes
-description: Read and write Bear notes via the Salmon Hub API. List, search, create, update, trash, archive notes. Manage tags. Download attachments. View backlinks and sync status.
+name: bear-salmon-notes
+description: Read and write Bear (https://bear.app) notes via the Salmon Hub API. List, search, create, update, trash, archive notes. Manage tags. Download attachments. View backlinks and sync status.
 homepage: https://github.com/romancha/salmon
-metadata: {"openclaw":{"emoji":"🐟","requires":{"bins":["curl","jq"],"env":["SALMON_HUB_URL","SALMON_CONSUMER_TOKEN"]},"primaryEnv":"SALMON_CONSUMER_TOKEN"}}
+metadata: {"openclaw":{"emoji":"🐻","requires":{"bins":["curl","jq"],"env":["SALMON_HUB_URL","SALMON_CONSUMER_TOKEN"]},"primaryEnv":"SALMON_CONSUMER_TOKEN"}}
 ---
 
-# Salmon Notes
+# Bear Salmon Notes
 
-Interact with Bear notes through the Salmon Hub API. Bear is the source of truth — writes go through an async queue and are applied to Bear by the bridge agent.
+Interact with [Bear](https://bear.app) notes through the Salmon Hub API. Bear is the source of truth — writes go through an async queue and are applied to Bear by the bridge agent.
 
 Bear notes use Markdown format. When creating or updating notes, always write the `body` field in Markdown. Bear supports headings (`#`, `##`), lists (`-`, `1.`), checkboxes (`- [ ]`, `- [x]`), bold (`**bold**`), italic (`*italic*`), code blocks, links, and inline tags (`#tag`, `#tag/subtag`). The `title` field is plain text — do not use Markdown in it.
 

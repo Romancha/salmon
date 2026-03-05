@@ -1,6 +1,6 @@
-# salmon-notes — OpenClaw Skill
+# bear-salmon-notes — OpenClaw Skill
 
-OpenClaw skill for interacting with Bear notes through the [Salmon Hub](https://github.com/romancha/salmon) consumer API.
+OpenClaw skill for interacting with [Bear](https://bear.app) notes through the [Salmon Hub](https://github.com/romancha/salmon) consumer API.
 
 ## Prerequisites
 
@@ -10,16 +10,26 @@ OpenClaw skill for interacting with Bear notes through the [Salmon Hub](https://
 
 ## Installation
 
-Copy the `openclaw-skill` folder to your OpenClaw skills directory:
+### Option 1: ClawHub (recommended)
+
+Install from [ClawHub](https://clawhub.ai):
 
 ```bash
-cp -r tools/consumer/openclaw-skill ~/.openclaw/workspace/skills/salmon-notes
+clawhub install bear-salmon-notes
 ```
 
-Or create a symlink:
+### Option 2: Manual
+
+Copy the skill folder to your OpenClaw skills directory:
 
 ```bash
-ln -s "$(pwd)/tools/consumer/openclaw-skill" ~/.openclaw/workspace/skills/salmon-notes
+cp -r tools/consumer/bear-salmon-notes ~/.openclaw/workspace/skills/bear-salmon-notes
+```
+
+Or create a symlink for development:
+
+```bash
+ln -s "$(pwd)/tools/consumer/bear-salmon-notes" ~/.openclaw/workspace/skills/bear-salmon-notes
 ```
 
 ## Configuration
@@ -30,7 +40,7 @@ Add the following to `~/.openclaw/openclaw.json`:
 {
   "skills": {
     "entries": {
-      "salmon-notes": {
+      "bear-salmon-notes": {
         "enabled": true,
         "env": {
           "SALMON_HUB_URL": "https://salmon.example.com",
