@@ -15,10 +15,10 @@ type SyncEvent struct {
 	Phase       string `json:"phase,omitempty"`
 	Notes       int    `json:"notes,omitempty"`
 	Items       int    `json:"items,omitempty"`
-	DurationMs  int64  `json:"duration_ms,omitempty"`
-	NotesSynced int    `json:"notes_synced,omitempty"`
-	TagsSynced  int    `json:"tags_synced,omitempty"`
-	QueueItems  int    `json:"queue_items,omitempty"`
+	DurationMs  int64  `json:"duration_ms"`
+	NotesSynced int    `json:"notes_synced"`
+	TagsSynced  int    `json:"tags_synced"`
+	QueueItems  int    `json:"queue_items"`
 	Error       string `json:"error,omitempty"`
 }
 

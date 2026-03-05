@@ -36,17 +36,21 @@ func TestEventEmitter_EmitsJSON(t *testing.T) {
 	assert.NotEmpty(t, events[0].Time)
 }
 
-func TestEventEmitter_OmitsZeroFields(t *testing.T) {
+func TestEventEmitter_FieldPresence(t *testing.T) {
 	var buf bytes.Buffer
 	e := NewEventEmitter(&buf)
 
 	e.Emit(&SyncEvent{Event: "sync_start"})
 
 	line := strings.TrimSpace(buf.String())
+	// String fields with omitempty are omitted when empty.
 	assert.NotContains(t, line, `"phase"`)
 	assert.NotContains(t, line, `"error"`)
-	assert.NotContains(t, line, `"notes_synced"`)
-	assert.NotContains(t, line, `"duration_ms"`)
+	// Integer fields are always present (no omitempty) so the Swift app can distinguish 0 from absent.
+	assert.Contains(t, line, `"notes_synced"`)
+	assert.Contains(t, line, `"duration_ms"`)
+	assert.Contains(t, line, `"tags_synced"`)
+	assert.Contains(t, line, `"queue_items"`)
 }
 
 func TestSyncEvents_InitialSync(t *testing.T) {

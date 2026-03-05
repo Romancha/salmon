@@ -54,7 +54,7 @@ struct MenuBarView: View {
                 Label("Sync Now", systemImage: "arrow.clockwise")
             }
         }
-        .disabled(viewModel.isSyncing)
+        .disabled(viewModel.isSyncing || viewModel.syncStatus == .syncing)
     }
 
     private var statsSection: some View {

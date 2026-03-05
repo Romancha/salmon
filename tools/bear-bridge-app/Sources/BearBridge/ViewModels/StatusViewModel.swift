@@ -110,14 +110,12 @@ final class StatusViewModel: ObservableObject {
         case .syncComplete:
             syncStatus = .idle
             lastSyncTime = event.time
-            if let notes = event.notesSynced, let tags = event.tagsSynced {
-                stats = SyncStats(
-                    notesCount: notes,
-                    tagsCount: tags,
-                    queueCount: event.queueItems ?? 0,
-                    lastDurationMs: event.durationMs ?? 0
-                )
-            }
+            stats = SyncStats(
+                notesCount: event.notesSynced ?? 0,
+                tagsCount: event.tagsSynced ?? 0,
+                queueCount: event.queueItems ?? 0,
+                lastDurationMs: event.durationMs ?? 0
+            )
             lastError = nil
         case .syncError:
             syncStatus = .error

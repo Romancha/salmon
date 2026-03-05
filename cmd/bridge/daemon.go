@@ -25,6 +25,7 @@ func runDaemonWithIPC(
 
 	// Wrap the logger to feed log entries into the stats tracker for IPC logs command.
 	logger = slog.New(&statsLogHandler{Handler: logger.Handler(), stats: stats})
+	bridge.logger = logger
 
 	if socketPath != "" {
 		srv := ipc.NewServer(socketPath, stats, logger)
