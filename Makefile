@@ -124,6 +124,7 @@ ifeq ($(shell uname),Darwin)
 	cp bin/bear-bridge bin/BearBridge.app/Contents/MacOS/
 	cp -R bin/bear-xcall.app bin/BearBridge.app/Contents/MacOS/
 	codesign --force --deep --sign "$(CODESIGN_IDENTITY)" --entitlements $(ENTITLEMENTS_SRC) --options runtime bin/BearBridge.app/Contents/MacOS/bear-xcall.app
+	codesign --force --sign "$(CODESIGN_IDENTITY)" --options runtime bin/BearBridge.app/Contents/MacOS/bear-bridge
 	codesign --force --sign "$(CODESIGN_IDENTITY)" --options runtime bin/BearBridge.app
 else
 	@echo "Skipping BearBridge.app build (macOS only)"

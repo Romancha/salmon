@@ -257,7 +257,7 @@ Settings are accessible from the menu bar popup via "Settings...":
 | Connection | Hub Token | Keychain | Bridge authentication token (matches `HUB_BRIDGE_TOKEN`) |
 | Connection | Bear Token | Keychain | Token for Bear x-callback-url API |
 | Sync | Sync interval | UserDefaults | How often to sync (1-30 minutes, default 5) |
-| Sync | Sync on launch | UserDefaults | Trigger a sync when the app starts |
+| Sync | Sync on launch | Always on | Automatically syncs when the app starts |
 | General | Launch at Login | SMAppService | Auto-start BearBridge.app on login |
 | General | Notifications | UserDefaults | Show macOS notifications on sync errors |
 
