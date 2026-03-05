@@ -147,7 +147,7 @@ final class StatusViewModel: ObservableObject {
 
     private func applyStatus(_ response: IPCStatusResponse) {
         syncStatus = SyncStatus(rawValue: response.state) ?? .idle
-        if !response.lastSync.isEmpty, let date = ISO8601DateFormatter().date(from: response.lastSync) {
+        if !response.lastSync.isEmpty, let date = OutputParser.parseISO8601(response.lastSync) {
             lastSyncTime = date
         }
         let newError = response.lastError.isEmpty ? nil : response.lastError
