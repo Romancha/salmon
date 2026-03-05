@@ -162,16 +162,16 @@ Based on MeetAlert patterns — clean sections, proper styling, native macOS fee
 ### Task 7: Redesign Settings window
 Based on MeetAlert's `EnhancedSettingsView` — NavigationSplitView with sidebar.
 
-- [ ] Redesign `SettingsWindow.swift` using native `Settings` scene:
+- [x] Redesign `SettingsWindow.swift` using native `Settings` scene:
   - Use `TabView` with `.tabViewStyle(.automatic)` (macOS native tab style)
   - **Connection tab**: Hub URL, Hub Token (secure field), Bear Token (secure field)
   - **Sync tab**: Interval slider with live value display, Sync on launch toggle
   - **General tab**: Launch at Login, Notifications toggle
   - **About tab**: App version, bridge version, links
-- [ ] Use `Form` with `Section` for clean macOS native layout
-- [ ] Add validation indicators (checkmark when configured, warning when missing)
-- [ ] Remove manual "Restart Bridge" button — auto-restart when settings change
-- [ ] Update tests
+- [x] Use `Form` with `Section` for clean macOS native layout
+- [x] Add validation indicators (checkmark when configured, warning when missing)
+- [x] Remove manual "Restart Bridge" button — auto-restart when settings change
+- [x] Update tests
 
 ### Task 8: Polish and verify
 - [ ] Verify menu bar icon changes color correctly (green/yellow/red)

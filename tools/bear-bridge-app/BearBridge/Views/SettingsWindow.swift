@@ -20,7 +20,13 @@ struct SettingsWindow: View {
                 .tabItem {
                     Label("General", systemImage: "gear")
                 }
+
+            aboutTab
+                .tabItem {
+                    Label("About", systemImage: "info.circle")
+                }
         }
+        .tabViewStyle(.automatic)
         .frame(width: 450, height: 300)
         .onAppear {
             settings.refreshLoginItemStatus()
@@ -46,36 +52,36 @@ struct SettingsWindow: View {
     private var connectionTab: some View {
         Form {
             Section {
-                TextField("Hub URL", text: $settings.hubURL)
-                    .textFieldStyle(.roundedBorder)
-                    .help("The URL of your bear-sync hub server (e.g. https://hub.example.com)")
+                HStack {
+                    TextField("Hub URL", text: $settings.hubURL)
+                        .textFieldStyle(.roundedBorder)
+                        .help("The URL of your bear-sync hub server (e.g. https://hub.example.com)")
+                        .onChange(of: settings.hubURL) { _ in
+                            scheduleRestart()
+                        }
+                    validationIcon(isValid: !settings.hubURL.isEmpty)
+                }
             } header: {
                 Text("Hub Server")
             }
 
             Section {
-                SecureField("Hub Token", text: hubTokenBinding)
-                    .textFieldStyle(.roundedBorder)
-                    .help("Authentication token for the hub API (bridge scope)")
+                HStack {
+                    SecureField("Hub Token", text: hubTokenBinding)
+                        .textFieldStyle(.roundedBorder)
+                        .help("Authentication token for the hub API (bridge scope)")
+                    validationIcon(isValid: !settings.hubToken.isEmpty)
+                }
 
-                SecureField("Bear Token", text: bearTokenBinding)
-                    .textFieldStyle(.roundedBorder)
-                    .help("Authentication token for Bear note access")
+                HStack {
+                    SecureField("Bear Token", text: bearTokenBinding)
+                        .textFieldStyle(.roundedBorder)
+                        .help("Authentication token for Bear note access")
+                    validationIcon(isValid: !settings.bearToken.isEmpty)
+                }
             } header: {
                 Text("Tokens (stored in Keychain)")
             }
-
-            if settings.isConfigured {
-                HStack {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.green)
-                    Text("All connection settings configured")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            }
-
-            restartBridgeButton
         }
         .padding()
     }
@@ -85,23 +91,31 @@ struct SettingsWindow: View {
     private var syncTab: some View {
         Form {
             Section {
-                HStack {
+                VStack(alignment: .leading, spacing: 8) {
                     Text("Sync every \(settings.syncIntervalMinutes) min")
-                    Spacer()
+                        .font(.body)
                     Slider(
                         value: syncIntervalBinding,
                         in: syncIntervalSliderRange,
                         step: 1
                     )
-                    .frame(width: 200)
                 }
             } header: {
                 Text("Sync Schedule")
             }
 
-            restartBridgeButton
+            Section {
+                Toggle("Sync on launch", isOn: .constant(true))
+                    .disabled(true)
+                    .help("Bridge always syncs when it starts")
+            } header: {
+                Text("Behavior")
+            }
         }
         .padding()
+        .onChange(of: settings.syncIntervalMinutes) { _ in
+            scheduleRestart()
+        }
     }
 
     // MARK: - General tab
@@ -125,28 +139,78 @@ struct SettingsWindow: View {
         .padding()
     }
 
-    private var restartBridgeButton: some View {
-        Section {
-            Button("Restart Bridge to Apply Changes") {
-                appModel.restartBridge()
+    // MARK: - About tab
+
+    private var aboutTab: some View {
+        Form {
+            Section {
+                LabeledContent("App Version") {
+                    Text(appVersion)
+                        .textSelection(.enabled)
+                }
+                LabeledContent("Bridge Version") {
+                    Text(bridgeVersion)
+                        .textSelection(.enabled)
+                }
+            } header: {
+                Text("Version")
             }
-            .font(.caption)
+
+            Section {
+                LabeledContent("GitHub") {
+                    Link("bear-sync", destination: URL(string: "https://github.com/romancha/bear-sync")!)
+                }
+            } header: {
+                Text("Links")
+            }
+        }
+        .padding()
+    }
+
+    // MARK: - Helpers
+
+    @ViewBuilder
+    private func validationIcon(isValid: Bool) -> some View {
+        if isValid {
+            Image(systemName: "checkmark.circle.fill")
+                .foregroundColor(.green)
+                .help("Configured")
+        } else {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundColor(.orange)
+                .help("Not configured")
         }
     }
 
-    // MARK: - Bindings for Keychain-backed properties
+    private var appVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Unknown"
+    }
+
+    private var bridgeVersion: String {
+        appModel.statusViewModel.bridgeVersion ?? "Unknown"
+    }
+
+    private func scheduleRestart() {
+        appModel.scheduleRestart()
+    }
 
     private var hubTokenBinding: Binding<String> {
         Binding(
             get: { settings.hubToken },
-            set: { settings.hubToken = $0 }
+            set: {
+                settings.hubToken = $0
+                scheduleRestart()
+            }
         )
     }
 
     private var bearTokenBinding: Binding<String> {
         Binding(
             get: { settings.bearToken },
-            set: { settings.bearToken = $0 }
+            set: {
+                settings.bearToken = $0
+                scheduleRestart()
+            }
         )
     }
 

@@ -502,6 +502,21 @@ final class StatusViewModelTests: XCTestCase {
         XCTAssertTrue(vm.queueItems.isEmpty)
     }
 
+    // MARK: - Bridge version
+
+    func testBridgeVersionInitiallyNil() {
+        let mock = MockIPCClient()
+        let vm = StatusViewModel(ipcClient: mock)
+        XCTAssertNil(vm.bridgeVersion)
+    }
+
+    func testBridgeVersionCanBeSet() {
+        let mock = MockIPCClient()
+        let vm = StatusViewModel(ipcClient: mock)
+        vm.bridgeVersion = "v1.2.3"
+        XCTAssertEqual(vm.bridgeVersion, "v1.2.3")
+    }
+
     func testQueueItemsNotClearedOnQueueStatusError() async {
         let mock = MockIPCClient()
         mock.setIdleStatus()

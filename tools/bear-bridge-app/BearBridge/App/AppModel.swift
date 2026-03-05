@@ -15,17 +15,22 @@ final class AppModel: ObservableObject {
 
     @Published var isInitialized = false
 
+    private var restartTask: Task<Void, Never>?
+    private let restartDebounceSeconds: UInt64
+
     /// Creates AppModel with all services wired together.
     /// - Parameters:
     ///   - settingsManager: Settings manager (injectable for testing).
     ///   - ipcClient: IPC client (injectable for testing).
     ///   - notificationService: Notification service (injectable for testing).
     ///   - processManager: Bridge process manager (injectable for testing).
+    ///   - restartDebounceSeconds: Debounce delay for auto-restart (default 2s).
     init(
         settingsManager: SettingsManager? = nil,
         ipcClient: IPCClientProtocol? = nil,
         notificationService: NotificationService? = nil,
-        processManager: BridgeProcessManager? = nil
+        processManager: BridgeProcessManager? = nil,
+        restartDebounceSeconds: UInt64 = 2
     ) {
         let settings = settingsManager ?? SettingsManager()
         let client = ipcClient ?? BridgeIPCClient()
@@ -47,6 +52,7 @@ final class AppModel: ObservableObject {
             }
         }
 
+        self.restartDebounceSeconds = restartDebounceSeconds
         self.settingsManager = settings
         self.statusViewModel = statusVM
         self.logViewModel = logVM
@@ -80,6 +86,18 @@ final class AppModel: ObservableObject {
         } catch {
             statusViewModel.syncStatus = .error
             statusViewModel.lastError = "Failed to start bridge: \(error.localizedDescription)"
+        }
+    }
+
+    /// Schedule a debounced restart — avoids restarting on every keystroke in settings.
+    func scheduleRestart() {
+        guard isInitialized else { return }
+        restartTask?.cancel()
+        restartTask = Task { [weak self] in
+            guard let self else { return }
+            try? await Task.sleep(nanoseconds: self.restartDebounceSeconds * 1_000_000_000)
+            guard !Task.isCancelled else { return }
+            self.restartBridge()
         }
     }
 

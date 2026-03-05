@@ -25,6 +25,7 @@ final class StatusViewModel: ObservableObject {
     @Published var isSyncing: Bool = false
     @Published var bridgeConnected: Bool = false
     @Published var queueItems: [IPCQueueStatusItem] = []
+    @Published var bridgeVersion: String?
 
     private let ipcClient: IPCClientProtocol
     private let pollInterval: TimeInterval

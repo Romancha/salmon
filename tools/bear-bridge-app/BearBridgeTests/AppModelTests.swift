@@ -141,6 +141,78 @@ final class AppModelTests: XCTestCase {
         wait(for: [expectation], timeout: 1.0)
     }
 
+    // MARK: - Schedule restart (debounced auto-restart)
+
+    func testScheduleRestartDoesNothingBeforeInitialize() {
+        let (model, launcher) = makeAppModel(configured: true)
+        model.scheduleRestart()
+        // Not initialized, so no restart should happen even after waiting
+        let expectation = XCTestExpectation(description: "No restart")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            XCTAssertEqual(launcher.launchCount, 0)
+            expectation.fulfill()
+        }
+        wait(for: [expectation], timeout: 1.0)
+    }
+
+    func testScheduleRestartTriggersRestartAfterDebounce() {
+        let store = MockSettingsStore()
+        let keychain = MockKeychainService()
+        store.storage[SettingsKey.hubURL] = "https://hub.example.com"
+        keychain.storage[TokenKey.hubToken] = "hub-token"
+        keychain.storage[TokenKey.bearToken] = "bear-token"
+        let settings = SettingsManager(store: store, keychain: keychain, loginItemManager: MockLoginItemManager())
+        let mockLauncher = MockProcessLauncher()
+        let binaryPath = "/tmp/fake-bear-bridge"
+        FileManager.default.createFile(atPath: binaryPath, contents: nil)
+        try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: binaryPath)
+        let pm = BridgeProcessManager(binaryPath: binaryPath, environmentProvider: { settings.bridgeEnvironment() }, launcher: mockLauncher)
+        let model = AppModel(settingsManager: settings, ipcClient: MockIPCClient(), processManager: pm, restartDebounceSeconds: 0)
+
+        model.initialize()
+        XCTAssertEqual(mockLauncher.launchCount, 1)
+
+        model.scheduleRestart()
+
+        let expectation = XCTestExpectation(description: "Restart triggered")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            XCTAssertEqual(mockLauncher.launchCount, 2)
+            expectation.fulfill()
+        }
+        wait(for: [expectation], timeout: 1.0)
+    }
+
+    func testScheduleRestartCancelsPreviousRestart() {
+        let store = MockSettingsStore()
+        let keychain = MockKeychainService()
+        store.storage[SettingsKey.hubURL] = "https://hub.example.com"
+        keychain.storage[TokenKey.hubToken] = "hub-token"
+        keychain.storage[TokenKey.bearToken] = "bear-token"
+        let settings = SettingsManager(store: store, keychain: keychain, loginItemManager: MockLoginItemManager())
+        let mockLauncher = MockProcessLauncher()
+        let binaryPath = "/tmp/fake-bear-bridge"
+        FileManager.default.createFile(atPath: binaryPath, contents: nil)
+        try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: binaryPath)
+        let pm = BridgeProcessManager(binaryPath: binaryPath, environmentProvider: { settings.bridgeEnvironment() }, launcher: mockLauncher)
+        let model = AppModel(settingsManager: settings, ipcClient: MockIPCClient(), processManager: pm, restartDebounceSeconds: 0)
+
+        model.initialize()
+        XCTAssertEqual(mockLauncher.launchCount, 1)
+
+        // Rapid fire multiple schedules — only the last one should fire
+        model.scheduleRestart()
+        model.scheduleRestart()
+        model.scheduleRestart()
+
+        let expectation = XCTestExpectation(description: "Only one restart")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            // Initial launch + one debounced restart
+            XCTAssertEqual(mockLauncher.launchCount, 2)
+            expectation.fulfill()
+        }
+        wait(for: [expectation], timeout: 1.0)
+    }
+
     // MARK: - Error handling
 
     func testInitializeWithBinaryNotFoundSetsError() {
