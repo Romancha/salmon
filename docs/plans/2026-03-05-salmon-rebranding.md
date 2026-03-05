@@ -73,13 +73,13 @@ Full rebranding of the project from bear-sync/bear-bridge/BearBridge to Salmon-t
 - [x] Update `deploy/Caddyfile.docker`: domain reference
 
 ### Task 5: Rename CI/CD workflows
-- [ ] Update `.github/workflows/docker-publish.yml`: image name `bear-sync-hub` -> `salmon-hub`
-- [ ] Update `.github/workflows/release-bridge.yml`: all binary names, app names, DMG names
+- [x] Update `.github/workflows/docker-publish.yml`: image name `bear-sync-hub` -> `salmon-hub`
+- [x] Update `.github/workflows/release-bridge.yml`: all binary names, app names, DMG names
   - `bear-bridge` -> `salmon-run`
   - `BearBridge.app` -> `SalmonRun.app`
   - `BearBridge-*.dmg` -> `SalmonRun-*.dmg`
-- [ ] Update `.github/workflows/ci.yml` if it references binary/app names
-- [ ] Verify workflow YAML syntax is valid
+- [x] Update `.github/workflows/ci.yml` if it references binary/app names
+- [x] Verify workflow YAML syntax is valid
 
 ### Task 6: Rename Swift/Xcode project — directory structure
 - [ ] Rename directory `tools/bear-bridge-app/` -> `tools/salmon-run-app/`

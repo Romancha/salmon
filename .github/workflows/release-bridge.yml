@@ -1,4 +1,4 @@
-# Release Bridge workflow — builds, signs, and notarizes bear-bridge + bear-xcall.app + BearBridge.app
+# Release Bridge workflow — builds, signs, and notarizes salmon-run + bear-xcall.app + SalmonRun.app
 #
 # Required GitHub Secrets:
 #   APPLE_CERTIFICATE          — Base64-encoded Developer ID Application .p12 certificate
@@ -51,7 +51,7 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: "0"
           BUILD_VERSION: ${{ steps.version.outputs.version }}
-        run: go build -ldflags "-X main.version=$BUILD_VERSION" -o bin/bear-bridge ./cmd/bridge
+        run: go build -ldflags "-X main.version=$BUILD_VERSION" -o bin/salmon-run ./cmd/bridge
 
       - name: Build bear-xcall.app
         run: |
@@ -60,18 +60,18 @@ jobs:
           swiftc ${{ matrix.swift_extra_flags }} -o bin/bear-xcall.app/Contents/MacOS/bear-xcall tools/bear-xcall/main.swift
           cp tools/bear-xcall/Info.plist bin/bear-xcall.app/Contents/
 
-      - name: Build BearBridge.app
+      - name: Build SalmonRun.app
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           # Inject version into Info.plist
           APP_VERSION="${VERSION#v}"
-          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $APP_VERSION" tools/bear-bridge-app/BearBridge/Info.plist
-          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $APP_VERSION" tools/bear-bridge-app/BearBridge/Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $APP_VERSION" tools/salmon-run-app/SalmonRun/Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $APP_VERSION" tools/salmon-run-app/SalmonRun/Info.plist
 
           # Build Swift app for target architecture
-          xcodebuild -project tools/bear-bridge-app/BearBridge.xcodeproj \
-            -scheme BearBridge -configuration Release \
+          xcodebuild -project tools/salmon-run-app/SalmonRun.xcodeproj \
+            -scheme SalmonRun -configuration Release \
             ARCHS=${{ matrix.swift_arch }} \
             ONLY_ACTIVE_ARCH=NO \
             CONFIGURATION_BUILD_DIR="$PWD/bin/xcodebuild-out" \
@@ -120,12 +120,12 @@ jobs:
           echo "CODESIGN_IDENTITY=$IDENTITY" >> "$GITHUB_ENV"
           echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
 
-      - name: Sign bear-bridge binary
+      - name: Sign salmon-run binary
         run: |
           codesign --force --sign "$CODESIGN_IDENTITY" \
             --options runtime \
             --timestamp \
-            bin/bear-bridge
+            bin/salmon-run
 
       - name: Sign bear-xcall.app
         run: |
@@ -135,42 +135,42 @@ jobs:
             --timestamp \
             bin/bear-xcall.app
 
-      - name: Assemble and sign BearBridge.app
+      - name: Assemble and sign SalmonRun.app
         run: |
           # Assemble .app bundle from xcodebuild output
-          mkdir -p bin/BearBridge.app/Contents/MacOS
-          cp -R bin/xcodebuild-out/BearBridge.app/ bin/BearBridge.app/
+          mkdir -p bin/SalmonRun.app/Contents/MacOS
+          cp -R bin/xcodebuild-out/SalmonRun.app/ bin/SalmonRun.app/
           rm -rf bin/xcodebuild-out
 
           # Embed binaries
-          cp bin/bear-bridge bin/BearBridge.app/Contents/MacOS/
-          cp -R bin/bear-xcall.app bin/BearBridge.app/Contents/MacOS/
+          cp bin/salmon-run bin/SalmonRun.app/Contents/MacOS/
+          cp -R bin/bear-xcall.app bin/SalmonRun.app/Contents/MacOS/
 
           # Sign from inside out to preserve entitlements on nested bundles
           codesign --force --deep --sign "$CODESIGN_IDENTITY" \
             --entitlements tools/bear-xcall/entitlements.plist \
             --options runtime \
             --timestamp \
-            bin/BearBridge.app/Contents/MacOS/bear-xcall.app
+            bin/SalmonRun.app/Contents/MacOS/bear-xcall.app
 
           codesign --force --sign "$CODESIGN_IDENTITY" \
             --options runtime \
             --timestamp \
-            bin/BearBridge.app/Contents/MacOS/bear-bridge
+            bin/SalmonRun.app/Contents/MacOS/salmon-run
 
           codesign --force --sign "$CODESIGN_IDENTITY" \
             --options runtime \
             --timestamp \
-            bin/BearBridge.app
+            bin/SalmonRun.app
 
       - name: Create .dmg disk image
         env:
           VERSION: ${{ steps.version.outputs.version }}
           ARCH_NAME: ${{ matrix.arch_name }}
         run: |
-          DMG_NAME="BearBridge-${VERSION}-${ARCH_NAME}.dmg"
+          DMG_NAME="SalmonRun-${VERSION}-${ARCH_NAME}.dmg"
           chmod +x tools/create-dmg.sh
-          ./tools/create-dmg.sh bin/BearBridge.app "$DMG_NAME"
+          ./tools/create-dmg.sh bin/SalmonRun.app "$DMG_NAME"
           echo "DMG_NAME=${DMG_NAME}" >> "$GITHUB_ENV"
 
       - name: Sign .dmg
@@ -200,8 +200,8 @@ jobs:
           echo "Verifying .dmg signature..."
           codesign --verify --verbose=2 "$DMG_NAME"
 
-          echo "Verifying BearBridge.app signature (inside .dmg build)..."
-          codesign --verify --deep --strict --verbose=2 bin/BearBridge.app
+          echo "Verifying SalmonRun.app signature (inside .dmg build)..."
+          codesign --verify --deep --strict --verbose=2 bin/SalmonRun.app
 
       - name: Generate SHA256 checksum
         run: |
@@ -236,7 +236,7 @@ jobs:
           merge-multiple: true
 
       - name: List release assets
-        run: ls -la BearBridge-*
+        run: ls -la SalmonRun-*
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -244,5 +244,5 @@ jobs:
           generate_release_notes: true
           prerelease: ${{ contains(github.ref_name, '-') }}
           files: |
-            BearBridge-*.dmg
-            BearBridge-*.sha256
+            SalmonRun-*.dmg
+            SalmonRun-*.sha256
