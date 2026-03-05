@@ -55,7 +55,7 @@ struct SettingsWindow: View {
                 HStack {
                     TextField("Hub URL", text: $settings.hubURL)
                         .textFieldStyle(.roundedBorder)
-                        .help("The URL of your bear-sync hub server (e.g. https://hub.example.com)")
+                        .help(Text(verbatim: "The URL of your bear-sync hub server (e.g. https://hub.example.com)"))
                         .onChange(of: settings.hubURL) { _ in
                             scheduleRestart()
                         }
@@ -69,14 +69,14 @@ struct SettingsWindow: View {
                 HStack {
                     SecureField("Hub Token", text: hubTokenBinding)
                         .textFieldStyle(.roundedBorder)
-                        .help("Authentication token for the hub API (bridge scope)")
+                        .help(Text(verbatim: "Authentication token for the hub API (bridge scope)"))
                     validationIcon(isValid: !settings.hubToken.isEmpty)
                 }
 
                 HStack {
                     SecureField("Bear Token", text: bearTokenBinding)
                         .textFieldStyle(.roundedBorder)
-                        .help("Authentication token for Bear note access")
+                        .help(Text(verbatim: "Authentication token for Bear note access"))
                     validationIcon(isValid: !settings.bearToken.isEmpty)
                 }
             } header: {

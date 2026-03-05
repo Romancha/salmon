@@ -82,11 +82,11 @@ Full rebranding of the project from bear-sync/bear-bridge/BearBridge to Salmon-t
 - [x] Verify workflow YAML syntax is valid
 
 ### Task 6: Rename Swift/Xcode project — directory structure
-- [ ] Rename directory `tools/bear-bridge-app/` -> `tools/salmon-run-app/`
-- [ ] Rename directory `tools/salmon-run-app/BearBridge/` -> `tools/salmon-run-app/SalmonRun/`
-- [ ] Rename directory `tools/salmon-run-app/BearBridgeTests/` -> `tools/salmon-run-app/SalmonRunTests/`
-- [ ] Rename `BearBridge.xcodeproj` -> `SalmonRun.xcodeproj`
-- [ ] Rename Swift files that have "BearBridge" in their name (e.g., `BearBridgeApp.swift` -> `SalmonRunApp.swift`)
+- [x] Rename directory `tools/bear-bridge-app/` -> `tools/salmon-run-app/`
+- [x] Rename directory `tools/salmon-run-app/BearBridge/` -> `tools/salmon-run-app/SalmonRun/`
+- [x] Rename directory `tools/salmon-run-app/BearBridgeTests/` -> `tools/salmon-run-app/SalmonRunTests/`
+- [x] Rename `BearBridge.xcodeproj` -> `SalmonRun.xcodeproj`
+- [x] Rename Swift files that have "BearBridge" in their name (e.g., `BearBridgeApp.swift` -> `SalmonRunApp.swift`)
 
 ### Task 7: Update Swift source code
 - [ ] Update all Swift files: class/struct/enum names containing "BearBridge" -> "SalmonRun"
