@@ -1,6 +1,10 @@
-# bear-sync
+# Salmon
 
-Syncs Bear notes with external consumers. Two components: **hub** (API server on VPS) and **bridge** (Mac agent that reads Bear SQLite).
+Syncs Bear notes with external consumers. Two components: **hub** (API server on VPS) and **salmon-run** (Mac agent that reads Bear SQLite).
+
+## Why Salmon?
+
+Bear catches salmon — Bear.app is the source of truth for notes, and Salmon is the data that flows through the system. The salmon run (upstream migration) represents the bridge pulling data from Bear to the hub. The hub serves data downstream to consumers like a salmon stream. The bidirectional flow of data — notes flowing upstream from Bear to consumers, and write operations flowing back downstream to Bear — mirrors the salmon lifecycle.
 
 ## Architecture
 
@@ -8,11 +12,11 @@ Syncs Bear notes with external consumers. Two components: **hub** (API server on
 
 **Bear** — source of truth for all note content. Stores notes in a local SQLite database (Core Data schema). The bridge reads this database directly and applies writes via Bear's x-callback-url scheme.
 
-**Bridge** (`bin/bear-bridge`) — Mac agent that runs on the same machine as Bear. Runs in daemon mode (`--daemon`) with a continuous sync loop, managed by BearBridge.app. Reads Bear's SQLite, detects changes since the last run, pushes them to the hub, and pulls pending write operations from the hub to apply back to Bear via bear-xcall.
+**Salmon Run** (`bin/salmon-run`) — Mac agent that runs on the same machine as Bear. Runs in daemon mode (`--daemon`) with a continuous sync loop, managed by SalmonRun.app. Reads Bear's SQLite, detects changes since the last run, pushes them to the hub, and pulls pending write operations from the hub to apply back to Bear via bear-xcall.
 
-**BearBridge.app** — native macOS menu bar application that wraps the bridge binary. Provides a GUI for monitoring sync status, viewing logs, triggering manual syncs, and configuring settings. The bridge runs as a managed child process in daemon mode.
+**SalmonRun.app** — native macOS menu bar application that wraps the salmon-run binary. Provides a GUI for monitoring sync status, viewing logs, triggering manual syncs, and configuring settings. The bridge runs as a managed child process in daemon mode.
 
-**Hub** (`bin/bear-sync-hub`) — API server that runs on a VPS. Acts as a read replica of Bear's notes and exposes a REST API for external consumers. Holds a write queue for consumer-initiated changes that need to propagate back to Bear.
+**Hub** (`bin/salmon-hub`) — API server that runs on a VPS. Acts as a read replica of Bear's notes and exposes a REST API for external consumers. Holds a write queue for consumer-initiated changes that need to propagate back to Bear.
 
 **Consumers** — external applications that read and write notes via the hub API. Each consumer is identified by name and authenticated with its own token. Multiple consumers can be configured simultaneously. Consumers communicate only with the hub; never touch Bear or the bridge directly.
 
@@ -22,19 +26,19 @@ Syncs Bear notes with external consumers. Two components: **hub** (API server on
 graph TB
     subgraph mac["Mac (user's machine)"]
         Bear["Bear.app\n(SQLite source of truth)"]
-        BearBridgeApp["BearBridge.app\n(menu bar UI)"]
-        Bridge["bear-bridge --daemon\n(sync loop)"]
+        SalmonRunApp["SalmonRun.app\n(menu bar UI)"]
+        Bridge["salmon-run --daemon\n(sync loop)"]
         bearxcall["bear-xcall CLI\n(x-callback-url executor)"]
     end
 
     subgraph vps["VPS"]
         Caddy["Caddy\n(TLS reverse proxy)"]
-        Hub["bear-sync-hub\n(REST API + SQLite)"]
+        Hub["salmon-hub\n(REST API + SQLite)"]
     end
 
     Consumer["Consumer\n(API client)"]
 
-    BearBridgeApp -- "manages process\nstdout + IPC socket" --> Bridge
+    SalmonRunApp -- "manages process\nstdout + IPC socket" --> Bridge
     Bridge -- "reads Bear SQLite\n(read-only)" --> Bear
     Bridge -- "applies writes via\nbear:// URL scheme" --> bearxcall
     bearxcall -- "x-callback-url" --> Bear
@@ -85,7 +89,7 @@ All mutating consumer endpoints require an `Idempotency-Key` header. Encrypted n
 ## Prerequisites
 
 - Go 1.26+
-- Xcode Command Line Tools (for building bear-xcall and BearBridge.app on macOS; provides `swiftc`)
+- Xcode Command Line Tools (for building bear-xcall and SalmonRun.app on macOS; provides `swiftc`)
 - Bear.app (for bridge)
 - bear-xcall CLI (built via `make build-xcall`, for bridge write operations; source in `tools/bear-xcall/`)
 
@@ -95,7 +99,7 @@ All mutating consumer endpoints require an `Idempotency-Key` header. Encrypted n
 make build
 ```
 
-Binaries are placed in `bin/bear-sync-hub`, `bin/bear-bridge`, `bin/bear-xcall.app`, and `bin/BearBridge.app` (macOS only).
+Binaries are placed in `bin/salmon-hub`, `bin/salmon-run`, `bin/bear-xcall.app`, and `bin/SalmonRun.app` (macOS only).
 
 ## Hub Setup
 
@@ -103,20 +107,20 @@ Binaries are placed in `bin/bear-sync-hub`, `bin/bear-bridge`, `bin/bear-xcall.a
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `HUB_HOST` | No | `127.0.0.1` | Listen host (`0.0.0.0` for Docker) |
-| `HUB_PORT` | No | `7433` | Listen port |
-| `HUB_DB_PATH` | Yes | — | Path to SQLite database file |
-| `HUB_CONSUMER_TOKENS` | Yes | — | Consumer tokens in `name:token` format, comma-separated (e.g. `openclaw:secret1,myapp:secret2`) |
-| `HUB_BRIDGE_TOKEN` | Yes | — | Bearer token for bridge sync access |
-| `HUB_ATTACHMENTS_DIR` | No | `attachments` | Directory for attachment file storage |
+| `SALMON_HUB_HOST` | No | `127.0.0.1` | Listen host (`0.0.0.0` for Docker) |
+| `SALMON_HUB_PORT` | No | `7433` | Listen port |
+| `SALMON_HUB_DB_PATH` | Yes | — | Path to SQLite database file |
+| `SALMON_HUB_CONSUMER_TOKENS` | Yes | — | Consumer tokens in `name:token` format, comma-separated (e.g. `openclaw:secret1,myapp:secret2`) |
+| `SALMON_HUB_BRIDGE_TOKEN` | Yes | — | Bearer token for bridge sync access |
+| `SALMON_HUB_ATTACHMENTS_DIR` | No | `attachments` | Directory for attachment file storage |
 
 ### Running
 
 ```
-export HUB_DB_PATH=/opt/bear-sync/data/hub.db
-export HUB_CONSUMER_TOKENS="openclaw:secret1,myapp:secret2"
-export HUB_BRIDGE_TOKEN=<token>
-./bin/bear-sync-hub
+export SALMON_HUB_DB_PATH=/opt/salmon/data/hub.db
+export SALMON_HUB_CONSUMER_TOKENS="openclaw:secret1,myapp:secret2"
+export SALMON_HUB_BRIDGE_TOKEN=<token>
+./bin/salmon-hub
 ```
 
 The hub listens on `127.0.0.1:PORT` (localhost only). Use a reverse proxy (e.g. Caddy) for TLS termination.
@@ -124,12 +128,12 @@ The hub listens on `127.0.0.1:PORT` (localhost only). Use a reverse proxy (e.g. 
 ### Systemd (production)
 
 ```
-sudo cp deploy/bear-sync-hub.service /etc/systemd/system/
-sudo systemctl enable bear-sync-hub
-sudo systemctl start bear-sync-hub
+sudo cp deploy/salmon-hub.service /etc/systemd/system/
+sudo systemctl enable salmon-hub
+sudo systemctl start salmon-hub
 ```
 
-Create `/opt/bear-sync/.env` with the environment variables above.
+Create `/opt/salmon/.env` with the environment variables above.
 
 ### Docker Compose (production)
 
@@ -142,9 +146,9 @@ cp .env.example .env
 2. Set your domain in `.env`:
 
 ```
-HUB_CONSUMER_TOKENS="openclaw:secret1,myapp:secret2"
-HUB_BRIDGE_TOKEN=<token>
-DOMAIN=bear-sync.example.com
+SALMON_HUB_CONSUMER_TOKENS="openclaw:secret1,myapp:secret2"
+SALMON_HUB_BRIDGE_TOKEN=<token>
+DOMAIN=salmon.example.com
 ```
 
 3. Start the stack:
@@ -176,8 +180,8 @@ Data is persisted in Docker named volumes (`hub-data` for SQLite + attachments).
 The hub container runs as non-root user `hub` (UID 1000). When using bind mounts, ensure the host directory is owned by UID 1000, otherwise SQLite will fail with `unable to open database file: out of memory (14)`:
 
 ```
-mkdir -p /volume1/docker/bear_hub/attachments
-chown -R 1000:1000 /volume1/docker/bear_hub
+mkdir -p /volume1/docker/salmon_hub/attachments
+chown -R 1000:1000 /volume1/docker/salmon_hub
 ```
 
 This is not needed for Docker named volumes — they inherit permissions from the image automatically.
@@ -188,32 +192,32 @@ This is not needed for Docker named volumes — they inherit permissions from th
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `BRIDGE_HUB_URL` | Yes | — | Hub API URL (e.g. `https://bear-sync.example.com`) |
-| `BRIDGE_HUB_TOKEN` | Yes | — | Bearer token matching `HUB_BRIDGE_TOKEN` |
-| `BEAR_TOKEN` | Yes | — | Token for Bear x-callback-url API (any string, e.g. `openssl rand -base64 32`; Bear will prompt to allow access on first use) |
-| `BRIDGE_STATE_PATH` | No | `~/.bear-bridge-state.json` | Path to bridge state file |
-| `BEAR_DB_DIR` | No | `~/Library/Group Containers/9K33E3U3T4.net.shinyfrog.bear/Application Data` | Path to Bear Application Data directory |
-| `BRIDGE_SYNC_INTERVAL` | No | `300` | Sync interval in seconds (daemon mode only) |
-| `BRIDGE_IPC_SOCKET` | No | `~/.bear-bridge.sock` | Unix socket path for IPC (daemon mode only) |
+| `SALMON_HUB_URL` | Yes | — | Hub API URL (e.g. `https://salmon.example.com`) |
+| `SALMON_HUB_TOKEN` | Yes | — | Bearer token matching `SALMON_HUB_BRIDGE_TOKEN` |
+| `SALMON_BEAR_TOKEN` | Yes | — | Token for Bear x-callback-url API (any string, e.g. `openssl rand -base64 32`; Bear will prompt to allow access on first use) |
+| `SALMON_STATE_PATH` | No | `~/.salmon-state.json` | Path to bridge state file |
+| `SALMON_BEAR_DB_DIR` | No | `~/Library/Group Containers/9K33E3U3T4.net.shinyfrog.bear/Application Data` | Path to Bear Application Data directory |
+| `SALMON_SYNC_INTERVAL` | No | `300` | Sync interval in seconds (daemon mode only) |
+| `SALMON_IPC_SOCKET` | No | `~/.salmon.sock` | Unix socket path for IPC (daemon mode only) |
 
 ### Running
 
 ```
-export BRIDGE_HUB_URL=https://bear-sync.example.com
-export BRIDGE_HUB_TOKEN=<token>
-export BEAR_TOKEN=<token>
-./bin/bear-bridge
+export SALMON_HUB_URL=https://salmon.example.com
+export SALMON_HUB_TOKEN=<token>
+export SALMON_BEAR_TOKEN=<token>
+./bin/salmon-run
 ```
 
 CLI flags:
 - `--daemon` — run continuously with periodic sync (default interval: 5 minutes)
 - `--version` — print version and exit
 
-The recommended way to run the bridge is via the [Menu Bar App](#menu-bar-app-bearbridgeapp), which manages the bridge in daemon mode with a GUI.
+The recommended way to run the bridge is via the [Menu Bar App](#menu-bar-app-salmonrunapp), which manages the bridge in daemon mode with a GUI.
 
-## Menu Bar App (BearBridge.app)
+## Menu Bar App (SalmonRun.app)
 
-BearBridge.app is a native macOS menu bar application (macOS 13+) that manages the bridge as a child process in daemon mode and provides a GUI for monitoring and configuration.
+SalmonRun.app is a native macOS menu bar application (macOS 13+) that manages the bridge as a child process in daemon mode and provides a GUI for monitoring and configuration.
 
 ### Menu Bar UI
 
@@ -233,7 +237,7 @@ The app lives in the macOS menu bar with a sync icon that changes color based on
 │ ▸ View Logs...          │  ← opens log viewer window
 │ ▸ Settings...           │  ← opens settings window
 │ ─────────────────────── │
-│ ▸ Quit Bear Bridge      │
+│ ▸ Quit Salmon Run       │
 └─────────────────────────┘
 ```
 
@@ -253,12 +257,12 @@ Settings are accessible from the menu bar popup via "Settings...":
 
 | Tab | Setting | Storage | Description |
 |---|---|---|---|
-| Connection | Hub URL | UserDefaults | URL of your bear-sync hub server |
-| Connection | Hub Token | Keychain | Bridge authentication token (matches `HUB_BRIDGE_TOKEN`) |
+| Connection | Hub URL | UserDefaults | URL of your Salmon hub server |
+| Connection | Hub Token | Keychain | Bridge authentication token (matches `SALMON_HUB_BRIDGE_TOKEN`) |
 | Connection | Bear Token | Keychain | Token for Bear x-callback-url API |
 | Sync | Sync interval | UserDefaults | How often to sync (1-30 minutes, default 5) |
 | Sync | Sync on launch | Always on | Automatically syncs when the app starts |
-| General | Launch at Login | SMAppService | Auto-start BearBridge.app on login |
+| General | Launch at Login | SMAppService | Auto-start SalmonRun.app on login |
 | General | Notifications | UserDefaults | Show macOS notifications on sync errors |
 
 Tokens are stored securely in the macOS Keychain. All other settings use UserDefaults. The app generates environment variables for the bridge process from these settings.
@@ -267,10 +271,10 @@ Tokens are stored securely in the macOS Keychain. All other settings use UserDef
 
 Download the .dmg for your architecture from the [Releases](../../releases) page:
 
-- `BearBridge-vX.Y.Z-arm64.dmg` (Apple Silicon)
-- `BearBridge-vX.Y.Z-amd64.dmg` (Intel)
+- `SalmonRun-vX.Y.Z-arm64.dmg` (Apple Silicon)
+- `SalmonRun-vX.Y.Z-amd64.dmg` (Intel)
 
-Open the .dmg and drag BearBridge.app to `/Applications`. Launch from Applications and configure your Hub URL and tokens in Settings.
+Open the .dmg and drag SalmonRun.app to `/Applications`. Launch from Applications and configure your Hub URL and tokens in Settings.
 
 From source:
 
@@ -288,7 +292,7 @@ make uninstall-app
 ### Build
 
 ```
-make build-app       # Build BearBridge.app (includes bridge + bear-xcall)
+make build-app       # Build SalmonRun.app (includes bridge + bear-xcall)
 make test-app        # Run Swift tests
 ```
 
@@ -320,9 +324,9 @@ For a quick start guide with curl examples and integration details, see [docs/co
 make test          # run all tests
 make test-race     # run tests with race detector
 make test-xcall    # run bear-xcall manual tests (macOS + Bear)
-make test-app      # run BearBridge Swift tests (macOS only)
+make test-app      # run SalmonRun Swift tests (macOS only)
 make build-xcall   # build bear-xcall .app bundle (macOS only)
-make build-app     # build BearBridge.app menu bar app (macOS only)
+make build-app     # build SalmonRun.app menu bar app (macOS only)
 make lint          # run golangci-lint
 make fmt           # format code
 make tidy          # go mod tidy
@@ -334,8 +338,8 @@ make swagger       # generate Swagger docs (swag init)
 GitHub Actions runs automatically:
 
 - **CI** (push/PR to main): lint, test, test with race detector
-- **Docker Publish** (push tag `v*`): builds multi-platform hub image (`linux/amd64`, `linux/arm64`) and pushes to `ghcr.io/romancha/bear-sync-hub`
-- **Release Bridge** (push tag `v*`): builds, signs, notarizes, and publishes BearBridge.app as .dmg for macOS (`arm64`, `amd64`) as GitHub Release assets
+- **Docker Publish** (push tag `v*`): builds multi-platform hub image (`linux/amd64`, `linux/arm64`) and pushes to `ghcr.io/romancha/salmon-hub`
+- **Release Bridge** (push tag `v*`): builds, signs, notarizes, and publishes SalmonRun.app as .dmg for macOS (`arm64`, `amd64`) as GitHub Release assets
 
 ### Publishing a release
 

@@ -125,16 +125,16 @@ Full rebranding of the project from bear-sync/bear-bridge/BearBridge to Salmon-t
 - [x] Update any Makefile references if the bundle ID is used
 
 ### Task 12: Update README.md with Salmon branding and metaphor
-- [ ] Rewrite README header and description with Salmon branding
-- [ ] Add "Why Salmon?" section explaining the metaphor:
+- [x] Rewrite README header and description with Salmon branding
+- [x] Add "Why Salmon?" section explaining the metaphor:
   - Bear catches salmon = Bear.app is the source of notes
   - Salmon run (upstream migration) = bridge pulling data from Bear to hub
   - Salmon stream = hub serving data to consumers
   - The bidirectional flow of data mirrors salmon lifecycle
-- [ ] Update all binary names, paths, commands throughout README
-- [ ] Update installation instructions (DMG names, binary names)
-- [ ] Update deployment section (service name, paths, Docker image)
-- [ ] Update environment variable documentation with new names
+- [x] Update all binary names, paths, commands throughout README
+- [x] Update installation instructions (DMG names, binary names)
+- [x] Update deployment section (service name, paths, Docker image)
+- [x] Update environment variable documentation with new names
 
 ### Task 13: Update CLAUDE.md
 - [ ] Update project name and description
