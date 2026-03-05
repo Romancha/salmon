@@ -175,12 +175,12 @@
 - [x] Run tests — must pass before next task
 
 ### Task 12: Integrate app into distribution workflow
-- [ ] Update `release-bridge.yml` to build menu bar app (`xcodebuild` on macOS runner)
-- [ ] Sign app with Developer ID Application certificate
-- [ ] Notarize the .app bundle
-- [ ] Include `BearBridge.app` in release archive alongside bear-bridge CLI
-- [ ] Update `install.sh` to handle .app installation (copy to `/Applications/` or `~/Applications/`)
-- [ ] Verify full pipeline with pre-release tag
+- [x] Update `release-bridge.yml` to build menu bar app (`xcodebuild` on macOS runner)
+- [x] Sign app with Developer ID Application certificate
+- [x] Notarize the .app bundle
+- [x] Include `BearBridge.app` in release archive alongside bear-bridge CLI
+- [x] Update `install.sh` to handle .app installation (copy to `/Applications/` or `~/Applications/`)
+- [x] Verify full pipeline with pre-release tag
 
 ### Task 13: Verify acceptance criteria
 - [ ] Verify: menu bar icon appears and shows correct status

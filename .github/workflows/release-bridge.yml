@@ -1,4 +1,4 @@
-# Release Bridge workflow — builds, signs, and notarizes bear-bridge + bear-xcall.app
+# Release Bridge workflow — builds, signs, and notarizes bear-bridge + bear-xcall.app + BearBridge.app
 #
 # Required GitHub Secrets:
 #   APPLE_CERTIFICATE          — Base64-encoded Developer ID Application .p12 certificate
@@ -29,9 +29,11 @@ jobs:
           - goarch: arm64
             arch_name: arm64
             swift_extra_flags: "-target arm64-apple-macosx11.0"
+            swift_arch: arm64
           - goarch: amd64
             arch_name: amd64
             swift_extra_flags: "-target x86_64-apple-macosx10.15"
+            swift_arch: x86_64
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -57,6 +59,19 @@ jobs:
           # shellcheck disable=SC2086
           swiftc ${{ matrix.swift_extra_flags }} -o bin/bear-xcall.app/Contents/MacOS/bear-xcall tools/bear-xcall/main.swift
           cp tools/bear-xcall/Info.plist bin/bear-xcall.app/Contents/
+
+      - name: Build BearBridge.app
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          # Inject version into Info.plist
+          APP_VERSION="${VERSION#v}"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $APP_VERSION" tools/bear-bridge-app/Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $APP_VERSION" tools/bear-bridge-app/Info.plist
+
+          # Build Swift app for target architecture
+          cd tools/bear-bridge-app
+          swift build -c release --arch ${{ matrix.swift_arch }}
 
       - name: Import code signing certificate
         env:
@@ -115,6 +130,24 @@ jobs:
             --timestamp \
             bin/bear-xcall.app
 
+      - name: Assemble and sign BearBridge.app
+        run: |
+          # Assemble .app bundle
+          mkdir -p bin/BearBridge.app/Contents/MacOS
+          SWIFT_BIN_PATH=$(cd tools/bear-bridge-app && swift build -c release --arch ${{ matrix.swift_arch }} --show-bin-path)
+          cp "$SWIFT_BIN_PATH/BearBridge" bin/BearBridge.app/Contents/MacOS/
+          cp tools/bear-bridge-app/Info.plist bin/BearBridge.app/Contents/
+
+          # Embed signed binaries
+          cp bin/bear-bridge bin/BearBridge.app/Contents/MacOS/
+          cp -R bin/bear-xcall.app bin/BearBridge.app/Contents/MacOS/
+
+          # Sign the outer app (embedded items already signed individually)
+          codesign --force --sign "$CODESIGN_IDENTITY" \
+            --options runtime \
+            --timestamp \
+            bin/BearBridge.app
+
       - name: Notarize binaries
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -126,6 +159,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/notarize-payload"
           cp bin/bear-bridge "$RUNNER_TEMP/notarize-payload/"
           cp -R bin/bear-xcall.app "$RUNNER_TEMP/notarize-payload/"
+          cp -R bin/BearBridge.app "$RUNNER_TEMP/notarize-payload/"
           ditto -c -k "$RUNNER_TEMP/notarize-payload" "$NOTARIZE_ZIP"
 
           # Submit for notarization and wait
@@ -139,6 +173,7 @@ jobs:
         run: |
           # Stapling only works on .app bundles and disk images, not standalone binaries
           xcrun stapler staple bin/bear-xcall.app
+          xcrun stapler staple bin/BearBridge.app
 
       - name: Verify signatures
         run: |
@@ -147,6 +182,9 @@ jobs:
 
           echo "Verifying bear-xcall.app signature..."
           codesign --verify --deep --strict --verbose=2 bin/bear-xcall.app
+
+          echo "Verifying BearBridge.app signature..."
+          codesign --verify --deep --strict --verbose=2 bin/BearBridge.app
 
       - name: Create release archive
         env:
@@ -158,6 +196,7 @@ jobs:
           mkdir -p "${ARCHIVE_DIR}"
           cp bin/bear-bridge "${ARCHIVE_DIR}/"
           cp -R bin/bear-xcall.app "${ARCHIVE_DIR}/"
+          cp -R bin/BearBridge.app "${ARCHIVE_DIR}/"
           cp deploy/com.romancha.bear-bridge.plist "${ARCHIVE_DIR}/"
           cp deploy/bear-bridge-wrapper.sh "${ARCHIVE_DIR}/"
           cp deploy/.env.bridge.example "${ARCHIVE_DIR}/"
