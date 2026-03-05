@@ -82,7 +82,7 @@ ifeq ($(shell uname),Darwin)
 	rm -rf bin/xcodebuild-out
 	cp bin/$(BINARY_BRIDGE) bin/SalmonRun.app/Contents/MacOS/$(BINARY_BRIDGE)
 	cp -R bin/bear-xcall.app bin/SalmonRun.app/Contents/MacOS/
-	codesign --force --deep --sign "$(CODESIGN_IDENTITY)" --entitlements $(ENTITLEMENTS_SRC) --options runtime bin/SalmonRun.app/Contents/MacOS/bear-xcall.app
+	codesign --force --sign "$(CODESIGN_IDENTITY)" --entitlements $(ENTITLEMENTS_SRC) --options runtime bin/SalmonRun.app/Contents/MacOS/bear-xcall.app
 	codesign --force --sign "$(CODESIGN_IDENTITY)" --options runtime bin/SalmonRun.app/Contents/MacOS/$(BINARY_BRIDGE)
 	codesign --force --sign "$(CODESIGN_IDENTITY)" --options runtime bin/SalmonRun.app
 else

@@ -28,11 +28,11 @@ jobs:
         include:
           - goarch: arm64
             arch_name: arm64
-            swift_extra_flags: "-target arm64-apple-macosx11.0"
+            swift_extra_flags: "-target arm64-apple-macosx14.0"
             swift_arch: arm64
           - goarch: amd64
             arch_name: amd64
-            swift_extra_flags: "-target x86_64-apple-macosx10.15"
+            swift_extra_flags: "-target x86_64-apple-macosx14.0"
             swift_arch: x86_64
     runs-on: macos-latest
     steps:
@@ -129,7 +129,7 @@ jobs:
 
       - name: Sign bear-xcall.app
         run: |
-          codesign --force --deep --sign "$CODESIGN_IDENTITY" \
+          codesign --force --sign "$CODESIGN_IDENTITY" \
             --entitlements tools/bear-xcall/entitlements.plist \
             --options runtime \
             --timestamp \
@@ -147,7 +147,7 @@ jobs:
           cp -R bin/bear-xcall.app bin/SalmonRun.app/Contents/MacOS/
 
           # Sign from inside out to preserve entitlements on nested bundles
-          codesign --force --deep --sign "$CODESIGN_IDENTITY" \
+          codesign --force --sign "$CODESIGN_IDENTITY" \
             --entitlements tools/bear-xcall/entitlements.plist \
             --options runtime \
             --timestamp \
@@ -178,6 +178,10 @@ jobs:
           codesign --force --sign "$CODESIGN_IDENTITY" \
             --timestamp \
             "$DMG_NAME"
+
+      - name: Verify Gatekeeper acceptance
+        run: |
+          spctl --assess --type execute --verbose=2 bin/SalmonRun.app
 
       - name: Notarize .dmg
         env:
