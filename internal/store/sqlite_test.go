@@ -1275,3 +1275,45 @@ func TestStore_CleanupOnClose(t *testing.T) {
 	_, err = os.Stat(dbPath)
 	require.NoError(t, err)
 }
+
+func TestPendingBearColumnsExistAndNullable(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	// Create a note without setting pending_bear fields — they should default to NULL.
+	require.NoError(t, s.CreateNote(ctx, &models.Note{
+		ID:    "pending-bear-col-test",
+		Title: "Test",
+		Body:  "Body",
+	}))
+
+	// Verify columns exist and are NULL by default.
+	var pendingTitle, pendingBody sql.NullString
+	err := s.DB().QueryRowContext(ctx,
+		"SELECT pending_bear_title, pending_bear_body FROM notes WHERE id = ?",
+		"pending-bear-col-test",
+	).Scan(&pendingTitle, &pendingBody)
+	require.NoError(t, err)
+	assert.False(t, pendingTitle.Valid, "pending_bear_title should be NULL by default")
+	assert.False(t, pendingBody.Valid, "pending_bear_body should be NULL by default")
+
+	// Verify fields round-trip through CreateNote → GetNote.
+	note, err := s.GetNote(ctx, "pending-bear-col-test")
+	require.NoError(t, err)
+	assert.Nil(t, note.PendingBearTitle, "PendingBearTitle should be nil from NULL")
+	assert.Nil(t, note.PendingBearBody, "PendingBearBody should be nil from NULL")
+
+	// Verify we can write non-NULL values and read them back.
+	_, err = s.DB().ExecContext(ctx,
+		"UPDATE notes SET pending_bear_title = ?, pending_bear_body = ? WHERE id = ?",
+		"Bear Title", "Bear Body", "pending-bear-col-test",
+	)
+	require.NoError(t, err)
+
+	note, err = s.GetNote(ctx, "pending-bear-col-test")
+	require.NoError(t, err)
+	require.NotNil(t, note.PendingBearTitle)
+	assert.Equal(t, "Bear Title", *note.PendingBearTitle)
+	require.NotNil(t, note.PendingBearBody)
+	assert.Equal(t, "Bear Body", *note.PendingBearBody)
+}

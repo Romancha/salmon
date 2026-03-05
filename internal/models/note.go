@@ -49,6 +49,10 @@ type Note struct {
 	HubModifiedAt string `json:"hub_modified_at,omitempty"`
 	BearRaw       string `json:"bear_raw,omitempty"`
 
+	// Field-level conflict detection: Bear's title/body at the moment sync_status transitioned to pending_to_bear.
+	PendingBearTitle *string `json:"-"`
+	PendingBearBody  *string `json:"-"`
+
 	// Joined data (populated by queries, not stored directly)
 	Tags      []Tag      `json:"tags,omitempty"`
 	Backlinks []Backlink `json:"backlinks,omitempty"`

@@ -116,7 +116,9 @@ CREATE TABLE IF NOT EXISTS notes (
     encrypted_data      BLOB,
     sync_status         TEXT DEFAULT 'synced',
     hub_modified_at     TEXT,
-    bear_raw            TEXT
+    bear_raw            TEXT,
+    pending_bear_title  TEXT,
+    pending_bear_body   TEXT
 );
 CREATE TABLE IF NOT EXISTS tags (
     id                      TEXT PRIMARY KEY,
@@ -473,12 +475,13 @@ func (s *SQLiteStore) CreateNote(ctx context.Context, note *models.Note) error {
 		created_at, modified_at, archived_at, encrypted_at, locked_at,
 		pinned_at, trashed_at, order_date, conflict_id_date,
 		last_editing_device, conflict_id, encryption_id, encrypted_data,
-		sync_status, hub_modified_at, bear_raw
+		sync_status, hub_modified_at, bear_raw,
+		pending_bear_title, pending_bear_body
 	) VALUES (
 		?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
 		?, ?, ?, ?, ?, ?, ?, ?, ?,
 		?, ?, ?, ?, ?, ?, ?, ?, ?,
-		?, ?, ?, ?, ?, ?, ?
+		?, ?, ?, ?, ?, ?, ?, ?, ?
 	)`
 
 	if _, err := s.db.ExecContext(ctx, query, noteValues(note)...); err != nil {
@@ -499,7 +502,8 @@ func (s *SQLiteStore) UpdateNote(ctx context.Context, note *models.Note) error {
 		locked_at = ?, pinned_at = ?, trashed_at = ?, order_date = ?,
 		conflict_id_date = ?, last_editing_device = ?, conflict_id = ?,
 		encryption_id = ?, encrypted_data = ?, sync_status = ?,
-		hub_modified_at = ?, bear_raw = ?
+		hub_modified_at = ?, bear_raw = ?,
+		pending_bear_title = ?, pending_bear_body = ?
 	WHERE id = ?`
 
 	vals := noteValues(note)
@@ -914,7 +918,8 @@ func updateExistingNote(
 		locked_at = ?, pinned_at = ?, trashed_at = ?, order_date = ?,
 		conflict_id_date = ?, last_editing_device = ?, conflict_id = ?,
 		encryption_id = ?, encrypted_data = ?, sync_status = ?,
-		hub_modified_at = ?, bear_raw = ?
+		hub_modified_at = ?, bear_raw = ?,
+		pending_bear_title = ?, pending_bear_body = ?
 	WHERE id = ?`
 
 	vals := noteValues(note)
@@ -945,12 +950,13 @@ func insertNewNote(ctx context.Context, tx *sql.Tx, note *models.Note) error {
 		created_at, modified_at, archived_at, encrypted_at, locked_at,
 		pinned_at, trashed_at, order_date, conflict_id_date,
 		last_editing_device, conflict_id, encryption_id, encrypted_data,
-		sync_status, hub_modified_at, bear_raw
+		sync_status, hub_modified_at, bear_raw,
+		pending_bear_title, pending_bear_body
 	) VALUES (
 		?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
 		?, ?, ?, ?, ?, ?, ?, ?, ?,
 		?, ?, ?, ?, ?, ?, ?, ?, ?,
-		?, ?, ?, ?, ?, ?, ?
+		?, ?, ?, ?, ?, ?, ?, ?, ?
 	)`
 
 	if _, err := tx.ExecContext(ctx, query, noteValues(note)...); err != nil {

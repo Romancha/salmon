@@ -19,6 +19,7 @@ var noteColumnList = []string{
 	"pinned_at", "trashed_at", "order_date", "conflict_id_date",
 	"last_editing_device", "conflict_id", "encryption_id", "encrypted_data",
 	"sync_status", "hub_modified_at", "bear_raw",
+	"pending_bear_title", "pending_bear_body",
 }
 
 func noteColumns() string {
@@ -71,6 +72,8 @@ type noteScanner struct {
 	SyncStatus         sql.NullString
 	HubModifiedAt      sql.NullString
 	BearRaw            sql.NullString
+	PendingBearTitle   sql.NullString
+	PendingBearBody    sql.NullString
 }
 
 func (ns *noteScanner) dest() []any {
@@ -85,6 +88,7 @@ func (ns *noteScanner) dest() []any {
 		&ns.ConflictIDDate, &ns.LastEditingDevice, &ns.ConflictID,
 		&ns.EncryptionID, &ns.EncryptedData, &ns.SyncStatus,
 		&ns.HubModifiedAt, &ns.BearRaw,
+		&ns.PendingBearTitle, &ns.PendingBearBody,
 	}
 }
 
@@ -130,6 +134,14 @@ func (ns *noteScanner) toNote() models.Note {
 		s := ns.BearID.String
 		n.BearID = &s
 	}
+	if ns.PendingBearTitle.Valid {
+		s := ns.PendingBearTitle.String
+		n.PendingBearTitle = &s
+	}
+	if ns.PendingBearBody.Valid {
+		s := ns.PendingBearBody.String
+		n.PendingBearBody = &s
+	}
 
 	return n
 }
@@ -162,6 +174,7 @@ func noteValues(n *models.Note) []any {
 		n.PinnedAt, n.TrashedAt, n.OrderDate, n.ConflictIDDate,
 		n.LastEditingDevice, n.ConflictID, n.EncryptionID, n.EncryptedData,
 		n.SyncStatus, n.HubModifiedAt, n.BearRaw,
+		n.PendingBearTitle, n.PendingBearBody,
 	}
 }
 
