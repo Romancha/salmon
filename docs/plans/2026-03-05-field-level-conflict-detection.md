@@ -95,14 +95,14 @@ Replace timestamp-only conflict detection with field-level content comparison. C
 
 ### Task 7: Verify acceptance criteria
 
-- [ ] Verify: metadata-only Bear changes don't trigger conflict
-- [ ] Verify: content changes on non-intersecting fields don't trigger conflict
-- [ ] Verify: content changes on intersecting fields DO trigger conflict
-- [ ] Verify: create flow (no pending_bear base) falls back to timestamp-based detection
-- [ ] Run full test suite (`make test`)
-- [ ] Run race detector (`make test-race`)
-- [ ] Run linter (`make lint`)
-- [ ] Verify test coverage does not decrease (`make test-coverage`)
+- [x] Verify: metadata-only Bear changes don't trigger conflict
+- [x] Verify: content changes on non-intersecting fields don't trigger conflict
+- [x] Verify: content changes on intersecting fields DO trigger conflict
+- [x] Verify: create flow (no pending_bear base) falls back to timestamp-based detection
+- [x] Run full test suite (`make test`)
+- [x] Run race detector (`make test-race`)
+- [x] Run linter (`make lint`)
+- [x] Verify test coverage does not decrease (`make test-coverage`)
 
 ### Task 8: [Final] Update documentation
 
