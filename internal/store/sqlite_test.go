@@ -1317,3 +1317,77 @@ func TestPendingBearColumnsExistAndNullable(t *testing.T) {
 	require.NotNil(t, note.PendingBearBody)
 	assert.Equal(t, "Bear Body", *note.PendingBearBody)
 }
+
+func TestAckApplied_ClearsPendingBearFields(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	// Create a note with pending_bear fields populated (simulating consumer update).
+	require.NoError(t, s.CreateNote(ctx, &models.Note{
+		ID:               "n-clear-pending",
+		Title:            "Consumer Title",
+		Body:             "Consumer Body",
+		SyncStatus:       "pending_to_bear",
+		PendingBearTitle: strPtr("Original Bear Title"),
+		PendingBearBody:  strPtr("Original Bear Body"),
+	}))
+
+	// Enqueue a write and process it.
+	item, err := s.EnqueueWrite(ctx, "key-clear-pending", "update", "n-clear-pending", `{"title":"Consumer Title"}`, "")
+	require.NoError(t, err)
+
+	_, err = s.LeaseQueueItems(ctx, "bridge-1", 5*time.Minute)
+	require.NoError(t, err)
+
+	// Ack as applied — no other pending items.
+	err = s.AckQueueItems(ctx, []models.SyncAckItem{
+		{QueueID: item.ID, IdempotencyKey: "key-clear-pending", Status: "applied"},
+	})
+	require.NoError(t, err)
+
+	// Verify: sync_status is synced AND pending_bear fields are cleared.
+	note, err := s.GetNote(ctx, "n-clear-pending")
+	require.NoError(t, err)
+	assert.Equal(t, "synced", note.SyncStatus)
+	assert.Nil(t, note.PendingBearTitle, "PendingBearTitle should be NULL after ack applied")
+	assert.Nil(t, note.PendingBearBody, "PendingBearBody should be NULL after ack applied")
+}
+
+func TestAckApplied_PreservesPendingBearFieldsWhenOtherPending(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	// Create a note with pending_bear fields populated.
+	require.NoError(t, s.CreateNote(ctx, &models.Note{
+		ID:               "n-keep-pending",
+		Title:            "Consumer Title",
+		Body:             "Consumer Body",
+		SyncStatus:       "pending_to_bear",
+		PendingBearTitle: strPtr("Bear Title"),
+		PendingBearBody:  strPtr("Bear Body"),
+	}))
+
+	// Enqueue TWO writes for the same note.
+	item1, err := s.EnqueueWrite(ctx, "key-keep-1", "update", "n-keep-pending", `{"title":"T1"}`, "")
+	require.NoError(t, err)
+	_, err = s.EnqueueWrite(ctx, "key-keep-2", "update", "n-keep-pending", `{"body":"B2"}`, "")
+	require.NoError(t, err)
+
+	// Lease and ack only the first one.
+	_, err = s.LeaseQueueItems(ctx, "bridge-1", 5*time.Minute)
+	require.NoError(t, err)
+
+	err = s.AckQueueItems(ctx, []models.SyncAckItem{
+		{QueueID: item1.ID, IdempotencyKey: "key-keep-1", Status: "applied"},
+	})
+	require.NoError(t, err)
+
+	// Verify: sync_status stays pending_to_bear AND pending_bear fields are preserved.
+	note, err := s.GetNote(ctx, "n-keep-pending")
+	require.NoError(t, err)
+	assert.Equal(t, "pending_to_bear", note.SyncStatus)
+	require.NotNil(t, note.PendingBearTitle, "PendingBearTitle should be preserved when other pending items exist")
+	assert.Equal(t, "Bear Title", *note.PendingBearTitle)
+	require.NotNil(t, note.PendingBearBody, "PendingBearBody should be preserved when other pending items exist")
+	assert.Equal(t, "Bear Body", *note.PendingBearBody)
+}

@@ -62,10 +62,10 @@ Replace timestamp-only conflict detection with field-level content comparison. C
 
 ### Task 3: Clear pending_bear columns on sync_status transition to synced
 
-- [ ] Write test: after ack applied with no other pending items, verify `pending_bear_title` and `pending_bear_body` are cleared (empty/NULL)
-- [ ] Write test: after ack applied with other pending items, verify pending_bear fields are NOT cleared (sync_status stays pending_to_bear)
-- [ ] In `ackApplied()` (`sqlite.go`): when setting `sync_status = 'synced'`, also clear `pending_bear_title` and `pending_bear_body`
-- [ ] Run tests — must pass before next task
+- [x] Write test: after ack applied with no other pending items, verify `pending_bear_title` and `pending_bear_body` are cleared (empty/NULL)
+- [x] Write test: after ack applied with other pending items, verify pending_bear fields are NOT cleared (sync_status stays pending_to_bear)
+- [x] In `ackApplied()` (`sqlite.go`): when setting `sync_status = 'synced'`, also clear `pending_bear_title` and `pending_bear_body`
+- [x] Run tests — must pass before next task
 
 ### Task 4: Field-level conflict detection in updateExistingNote()
 

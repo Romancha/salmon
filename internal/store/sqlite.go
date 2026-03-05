@@ -1644,47 +1644,62 @@ func ackApplied(ctx context.Context, tx *sql.Tx, item *models.SyncAckItem, now s
 		item.QueueID,
 	).Scan(&noteID)
 	if err == nil && noteID.Valid && noteID.String != "" {
-		// Check if other pending/processing queue items exist for this note.
-		// If so, keep sync_status as pending_to_bear to protect hub content from Bear delta overwrites.
-		var otherPending int
-		if err := tx.QueryRowContext(ctx,
-			"SELECT COUNT(*) FROM write_queue WHERE note_id = ? AND id != ? AND status IN ('pending', 'processing')",
-			noteID.String, item.QueueID,
-		).Scan(&otherPending); err != nil {
-			return fmt.Errorf("check other pending queue items: %w", err)
-		}
+		return ackUpdateNoteStatus(ctx, tx, item, noteID.String)
+	}
 
-		switch {
-		case item.ConflictResolved:
-			// Bridge handled a conflict item: clear conflict status only if still in conflict
-			// and no other consumers have pending writes.
-			if otherPending == 0 {
-				if _, err := tx.ExecContext(ctx,
-					"UPDATE notes SET sync_status = 'synced' WHERE id = ? AND sync_status = 'conflict'",
-					noteID.String,
-				); err != nil {
-					return fmt.Errorf("clear conflict status on ack: %w", err)
-				}
+	return nil
+}
+
+func ackUpdateNoteStatus(ctx context.Context, tx *sql.Tx, item *models.SyncAckItem, noteID string) error {
+	// Check if other pending/processing queue items exist for this note.
+	// If so, keep sync_status as pending_to_bear to protect hub content from Bear delta overwrites.
+	var otherPending int
+	if err := tx.QueryRowContext(ctx,
+		"SELECT COUNT(*) FROM write_queue WHERE note_id = ? AND id != ? AND status IN ('pending', 'processing')",
+		noteID, item.QueueID,
+	).Scan(&otherPending); err != nil {
+		return fmt.Errorf("check other pending queue items: %w", err)
+	}
+
+	switch {
+	case item.ConflictResolved:
+		// Bridge handled a conflict item: clear conflict status only if still in conflict
+		// and no other consumers have pending writes.
+		if otherPending == 0 {
+			if _, err := tx.ExecContext(ctx,
+				"UPDATE notes SET sync_status = 'synced', pending_bear_title = NULL, pending_bear_body = NULL "+
+					"WHERE id = ? AND sync_status = 'conflict'",
+				noteID,
+			); err != nil {
+				return fmt.Errorf("clear conflict status on ack: %w", err)
 			}
-		case item.BearID != "":
-			newStatus := "synced"
-			if otherPending > 0 {
-				newStatus = syncStatusPendingToBear
-			}
+		}
+	case item.BearID != "":
+		if otherPending > 0 {
 			if _, err := tx.ExecContext(ctx,
 				"UPDATE notes SET bear_id = ?, sync_status = ? WHERE id = ? AND sync_status != 'conflict'",
-				item.BearID, newStatus, noteID.String,
+				item.BearID, syncStatusPendingToBear, noteID,
 			); err != nil {
 				return fmt.Errorf("set bear_id on ack: %w", err)
 			}
-		default:
-			if otherPending == 0 {
-				if _, err := tx.ExecContext(ctx,
-					"UPDATE notes SET sync_status = 'synced' WHERE id = ? AND sync_status != 'conflict'",
-					noteID.String,
-				); err != nil {
-					return fmt.Errorf("reset sync_status on ack: %w", err)
-				}
+		} else {
+			if _, err := tx.ExecContext(ctx,
+				"UPDATE notes SET bear_id = ?, sync_status = 'synced', "+
+					"pending_bear_title = NULL, pending_bear_body = NULL "+
+					"WHERE id = ? AND sync_status != 'conflict'",
+				item.BearID, noteID,
+			); err != nil {
+				return fmt.Errorf("set bear_id on ack: %w", err)
+			}
+		}
+	default:
+		if otherPending == 0 {
+			if _, err := tx.ExecContext(ctx,
+				"UPDATE notes SET sync_status = 'synced', pending_bear_title = NULL, pending_bear_body = NULL "+
+					"WHERE id = ? AND sync_status != 'conflict'",
+				noteID,
+			); err != nil {
+				return fmt.Errorf("reset sync_status on ack: %w", err)
 			}
 		}
 	}
