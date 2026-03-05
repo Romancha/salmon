@@ -86,18 +86,18 @@ Three improvements to the BearBridge menu bar app:
 - [x] Verify all existing tests pass
 
 ### Task 4: Redesign app architecture — adopt MeetAlert patterns
-- [ ] Create `AppModel.swift` — central @StateObject managing all services (like MeetAlert's AppModel)
+- [x] Create `AppModel.swift` — central @StateObject managing all services (like MeetAlert's AppModel)
   - Owns: StatusViewModel, LogViewModel, SettingsManager, BridgeProcessManager, NotificationService, BridgeIPCClient
   - Single dependency injection point via @EnvironmentObject
-- [ ] Create `AppRoot.swift` wrapper view for environment injection (like MeetAlert)
-- [ ] Refactor `BearBridgeApp.swift`:
+- [x] Create `AppRoot.swift` wrapper view for environment injection (like MeetAlert)
+- [x] Refactor `BearBridgeApp.swift`:
   - Use `@StateObject AppModel` instead of individual service instances
   - Use `MenuBarExtra(.window)` with `AppRoot` wrapping
   - Use `Settings { }` scene for settings (native macOS settings window)
   - Remove manual window management (openWindow, Notification-based window opening)
-- [ ] Migrate ViewModels to use `@MainActor` consistently
-- [ ] Update all tests for new architecture
-- [ ] Verify all tests pass
+- [x] Migrate ViewModels to use `@MainActor` consistently
+- [x] Update all tests for new architecture
+- [x] Verify all tests pass
 
 ### Task 5: Redesign Menu Bar popup UI
 Based on MeetAlert patterns — clean sections, proper styling, native macOS feel.

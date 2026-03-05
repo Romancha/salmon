@@ -77,6 +77,7 @@ final class MockLoginItemManager: LoginItemManager {
 
 // MARK: - SettingsManager Tests
 
+@MainActor
 final class SettingsManagerTests: XCTestCase {
 
     private func makeManager(

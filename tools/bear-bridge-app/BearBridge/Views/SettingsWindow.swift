@@ -1,7 +1,8 @@
 import SwiftUI
 
 struct SettingsWindow: View {
-    @ObservedObject var settings: SettingsManager
+    @EnvironmentObject var appModel: AppModel
+    @EnvironmentObject var settings: SettingsManager
 
     var body: some View {
         TabView {
@@ -127,7 +128,7 @@ struct SettingsWindow: View {
     private var restartBridgeButton: some View {
         Section {
             Button("Restart Bridge to Apply Changes") {
-                NotificationCenter.default.post(name: .restartBridge, object: nil)
+                appModel.restartBridge()
             }
             .font(.caption)
         }

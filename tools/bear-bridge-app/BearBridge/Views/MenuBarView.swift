@@ -1,10 +1,10 @@
 import SwiftUI
 
 struct MenuBarView: View {
-    @ObservedObject var viewModel: StatusViewModel
-    @ObservedObject var logViewModel: LogViewModel
-    @ObservedObject var settingsManager: SettingsManager
-    let processManager: BridgeProcessManager
+    @EnvironmentObject var appModel: AppModel
+    @EnvironmentObject var viewModel: StatusViewModel
+    @EnvironmentObject var logViewModel: LogViewModel
+    @EnvironmentObject var settingsManager: SettingsManager
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
@@ -43,14 +43,14 @@ struct MenuBarView: View {
     private var syncButton: some View {
         Button {
             Task {
-                if processManager.state == .stopped {
+                if appModel.processManager.state == .stopped {
                     guard settingsManager.isConfigured else {
                         viewModel.lastError = "Configure connection settings before syncing"
                         viewModel.syncStatus = .error
                         return
                     }
                     do {
-                        try processManager.start()
+                        try appModel.processManager.start()
                         try? await Task.sleep(nanoseconds: 1_000_000_000)
                     } catch {
                         viewModel.lastError = "Failed to start bridge: \(error.localizedDescription)"
@@ -120,7 +120,7 @@ struct MenuBarView: View {
                 Label("View Logs...", systemImage: "doc.text")
             }
             Button {
-                openWindow(id: "settings")
+                NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
             } label: {
                 Label("Settings...", systemImage: "gear")
             }
@@ -129,7 +129,7 @@ struct MenuBarView: View {
 
     private var quitButton: some View {
         Button {
-            processManager.stop()
+            appModel.shutdown()
             NSApplication.shared.terminate(nil)
         } label: {
             Text("Quit Bear Bridge")

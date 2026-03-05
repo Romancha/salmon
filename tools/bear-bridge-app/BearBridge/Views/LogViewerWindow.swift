@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct LogViewerWindow: View {
-    @ObservedObject var viewModel: LogViewModel
+    @EnvironmentObject var viewModel: LogViewModel
 
     var body: some View {
         VStack(spacing: 0) {

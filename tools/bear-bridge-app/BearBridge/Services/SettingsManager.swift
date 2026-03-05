@@ -51,6 +51,7 @@ struct SystemLoginItemManager: LoginItemManager {
 /// Manages all app settings: UserDefaults for non-sensitive values, Keychain for tokens.
 ///
 /// Provides `bridgeEnvironment()` to generate environment variables for the bridge process.
+@MainActor
 final class SettingsManager: ObservableObject {
 
     static let defaultSyncIntervalMinutes = 5
