@@ -23,13 +23,13 @@ clawhub install bear-salmon-notes
 Copy the skill folder to your OpenClaw skills directory:
 
 ```bash
-cp -r tools/consumer/bear-salmon-notes ~/.openclaw/workspace/skills/bear-salmon-notes
+cp -r tools/consumer/openclaw/bear-salmon-notes ~/.openclaw/workspace/skills/bear-salmon-notes
 ```
 
 Or create a symlink for development:
 
 ```bash
-ln -s "$(pwd)/tools/consumer/bear-salmon-notes" ~/.openclaw/workspace/skills/bear-salmon-notes
+ln -s "$(pwd)/tools/consumer/openclaw/bear-salmon-notes" ~/.openclaw/workspace/skills/bear-salmon-notes
 ```
 
 ## Configuration

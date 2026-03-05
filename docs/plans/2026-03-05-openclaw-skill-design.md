@@ -6,7 +6,7 @@ Create an OpenClaw skill (`bear-salmon-notes`) that allows the OpenClaw AI assis
 
 ## Location
 
-`tools/consumer/bear-salmon-notes/`
+`tools/consumer/openclaw/bear-salmon-notes/`
 
 ## Files
 
