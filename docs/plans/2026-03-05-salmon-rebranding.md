@@ -108,10 +108,10 @@ Full rebranding of the project from bear-sync/bear-bridge/BearBridge to Salmon-t
 - [x] Run `make build-app` to verify Xcode project builds
 
 ### Task 9: Update Swift tests
-- [ ] Rename test files containing "BearBridge" -> "SalmonRun"
-- [ ] Update test class names and import statements
-- [ ] Update test assertions that reference old names/paths
-- [ ] Run `make test-app` - must pass before next task
+- [x] Rename test files containing "BearBridge" -> "SalmonRun"
+- [x] Update test class names and import statements
+- [x] Update test assertions that reference old names/paths
+- [x] Run `make test-app` - must pass before next task
 
 ### Task 10: Update Makefile app-related targets
 - [ ] Update `build-app` target: project path, scheme name
