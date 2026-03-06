@@ -179,10 +179,6 @@ jobs:
             --timestamp \
             "$DMG_NAME"
 
-      - name: Verify Gatekeeper acceptance
-        run: |
-          spctl --assess --type execute --verbose=2 bin/SalmonRun.app
-
       - name: Notarize .dmg
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -198,6 +194,10 @@ jobs:
       - name: Staple notarization ticket
         run: |
           xcrun stapler staple "$DMG_NAME"
+
+      - name: Verify Gatekeeper acceptance
+        run: |
+          spctl --assess --type execute --verbose=2 bin/SalmonRun.app
 
       - name: Verify signatures
         run: |

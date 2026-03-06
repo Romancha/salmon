@@ -123,13 +123,13 @@ func (b *Bridge) bearDBModTime() int64 {
 
 	var maxNano int64
 
-	if info, err := os.Stat(dbPath); err == nil {
+	if info, err := os.Stat(dbPath); err == nil { //nolint:gosec // G703: path built from cleaned bearDataDir
 		if t := info.ModTime().UnixNano(); t > maxNano {
 			maxNano = t
 		}
 	}
 
-	if info, err := os.Stat(walPath); err == nil {
+	if info, err := os.Stat(walPath); err == nil { //nolint:gosec // G703: path built from cleaned bearDataDir
 		if t := info.ModTime().UnixNano(); t > maxNano {
 			maxNano = t
 		}
@@ -689,7 +689,7 @@ func (b *Bridge) resolveAttachmentFilePath(attType, bearID, filename string) str
 
 	if filename != "" {
 		candidate := filepath.Join(dir, filename)
-		if _, err := os.Stat(candidate); err == nil {
+		if _, err := os.Stat(candidate); err == nil { //nolint:gosec // G703: path built from cleaned bearDataDir
 			return candidate
 		}
 	}

@@ -9,6 +9,7 @@ import (
 	"os"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -204,9 +205,11 @@ func TestServer_QuitCommand(t *testing.T) {
 	require.NoError(t, json.Unmarshal(resp, &ok))
 	assert.True(t, ok.Ok)
 
-	provider.mu.Lock()
-	assert.True(t, provider.shutdownCalled)
-	provider.mu.Unlock()
+	assert.Eventually(t, func() bool {
+		provider.mu.Lock()
+		defer provider.mu.Unlock()
+		return provider.shutdownCalled
+	}, time.Second, 10*time.Millisecond)
 }
 
 func TestServer_UnknownCommand(t *testing.T) {
