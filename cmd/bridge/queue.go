@@ -202,6 +202,7 @@ func (b *Bridge) handleConflictItem(ctx context.Context, item *models.WriteQueue
 func (b *Bridge) extractConflictContent(ctx context.Context, item *models.WriteQueueItem) (title, body string) {
 	var payloadMap map[string]any
 	if err := json.Unmarshal([]byte(item.Payload), &payloadMap); err != nil {
+		b.logger.Warn("failed to parse conflict item payload", "queue_id", item.ID, "error", err)
 		return "", ""
 	}
 
@@ -296,9 +297,11 @@ func (b *Bridge) applyUpdate(ctx context.Context, item *models.WriteQueueItem) (
 	}
 
 	// Duplicate-safe: check if note already has the desired body.
+	// Return the current modified_at so the hub can seed expected_bear_modified_at for echo detection,
+	// even when this is a reprocessed item after lease expiry.
 	if payload.Body != "" && note.Body == payload.Body {
 		b.logger.Info("update already applied (body matches)", "bear_id", note.UUID)
-		return "", nil
+		return bearModifiedAtFromNote(note), nil
 	}
 
 	body := payload.Body

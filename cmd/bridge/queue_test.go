@@ -498,10 +498,11 @@ func TestProcessQueue_ConflictCreatesConflictNote(t *testing.T) {
 	assert.Equal(t, "[Conflict] Original Note", xcall.calls[0].title)
 	assert.Equal(t, "consumer body", xcall.calls[0].body)
 
-	// Should have acked as applied.
+	// Should have acked as applied with ConflictResolved set.
 	require.Len(t, hub.ackItems, 1)
 	assert.Equal(t, "applied", hub.ackItems[0].Status)
 	assert.Equal(t, "", hub.ackItems[0].BearID)
+	assert.True(t, hub.ackItems[0].ConflictResolved, "conflict resolution must be signalled to hub")
 }
 
 func TestProcessQueue_ConflictWithTitleInPayload(t *testing.T) {
@@ -530,6 +531,7 @@ func TestProcessQueue_ConflictWithTitleInPayload(t *testing.T) {
 
 	require.Len(t, hub.ackItems, 1)
 	assert.Equal(t, "applied", hub.ackItems[0].Status)
+	assert.True(t, hub.ackItems[0].ConflictResolved, "conflict resolution must be signalled to hub")
 }
 
 func TestProcessQueue_ConflictXCallFails(t *testing.T) {

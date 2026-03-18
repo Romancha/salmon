@@ -1546,51 +1546,29 @@ func (s *SQLiteStore) EnqueueWrite(
 	ctx context.Context,
 	idempotencyKey, action, noteID, payload, consumerID string,
 ) (*models.WriteQueueItem, error) {
+	// Use a transaction to serialize the idempotency check, coalesce check, and INSERT.
+	// Without a transaction, two concurrent EnqueueWrite calls for the same note could both
+	// observe "no pending item" and both INSERT, creating duplicate items.
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("begin enqueue tx: %w", err)
+	}
+
+	defer func() { _ = tx.Rollback() }() // no-op after commit
+
 	// Check idempotency: look for existing item by primary or secondary key.
-	existing, err := scanWriteQueueRow(s.db.QueryRowContext(ctx,
+	existing, err := scanWriteQueueRow(tx.QueryRowContext(ctx,
 		"SELECT "+writeQueueColumns()+" FROM write_queue"+
 			" WHERE (idempotency_key = ? OR secondary_idempotency_key = ?) AND consumer_id = ?",
 		idempotencyKey, idempotencyKey, consumerID,
 	))
 	if err == nil {
-		// If the existing item failed, reset it to pending so it can be retried.
-		// The WHERE clause includes status = 'failed' to prevent a race where two concurrent
-		// retries both observe 'failed' but only one actually resets the item.
-		if existing.Status == "failed" {
-			res, err := s.db.ExecContext(ctx,
-				`UPDATE write_queue SET status = 'pending', action = ?, note_id = ?, payload = ?,
-				processing_by = NULL, lease_until = NULL, applied_at = NULL, error = NULL
-				WHERE id = ? AND status = 'failed'`,
-				action, noteID, payload, existing.ID,
-			)
-			if err != nil {
-				return nil, fmt.Errorf("reset failed queue item: %w", err)
-			}
-
-			rowsAffected, _ := res.RowsAffected() //nolint:errcheck // SQLite always supports RowsAffected
-			if rowsAffected == 0 {
-				// Another goroutine already reset this item; re-read and return as idempotent hit.
-				item, err := scanWriteQueueRow(s.db.QueryRowContext(ctx,
-					"SELECT "+writeQueueColumns()+" FROM write_queue WHERE id = ?", existing.ID,
-				))
-				if err != nil {
-					return nil, fmt.Errorf("read concurrently reset queue item: %w", err)
-				}
-
-				return &item, nil
-			}
-
-			item, err := scanWriteQueueRow(s.db.QueryRowContext(ctx,
-				"SELECT "+writeQueueColumns()+" FROM write_queue WHERE id = ?", existing.ID,
-			))
-			if err != nil {
-				return nil, fmt.Errorf("read reset queue item: %w", err)
-			}
-
-			return &item, nil
+		item, err := handleIdempotencyHit(ctx, tx, &existing, action, noteID, payload)
+		if err != nil {
+			return nil, err
 		}
 
-		return &existing, nil
+		return item, nil
 	}
 
 	if !errors.Is(err, sql.ErrNoRows) {
@@ -1600,17 +1578,21 @@ func (s *SQLiteStore) EnqueueWrite(
 	// Queue coalescing: if there's an existing pending update for the same note, merge into it
 	// instead of creating a second item. This prevents false conflicts from rapid sequential writes.
 	if action == "update" && noteID != "" {
-		coalesced, coalesceErr := s.coalesceUpdate(ctx, idempotencyKey, noteID, payload, consumerID)
+		coalesced, coalesceErr := coalesceUpdateTx(ctx, tx, idempotencyKey, noteID, payload, consumerID)
 		if coalesceErr != nil {
 			return nil, fmt.Errorf("coalesce update: %w", coalesceErr)
 		}
 
 		if coalesced != nil {
+			if err := tx.Commit(); err != nil {
+				return nil, fmt.Errorf("commit enqueue tx: %w", err)
+			}
+
 			return coalesced, nil
 		}
 	}
 
-	result, err := s.db.ExecContext(ctx,
+	result, err := tx.ExecContext(ctx,
 		`INSERT INTO write_queue (idempotency_key, action, note_id, payload, consumer_id)
 		VALUES (?, ?, ?, ?, ?)`,
 		idempotencyKey, action, noteID, payload, consumerID,
@@ -1621,24 +1603,83 @@ func (s *SQLiteStore) EnqueueWrite(
 
 	id, _ := result.LastInsertId() //nolint:errcheck // SQLite always supports LastInsertId
 
-	item, err := scanWriteQueueRow(s.db.QueryRowContext(ctx,
+	item, err := scanWriteQueueRow(tx.QueryRowContext(ctx,
 		"SELECT "+writeQueueColumns()+" FROM write_queue WHERE id = ?", id,
 	))
 	if err != nil {
 		return nil, fmt.Errorf("read enqueued item: %w", err)
 	}
 
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit enqueue tx: %w", err)
+	}
+
 	return &item, nil
 }
 
-// coalesceUpdate checks for an existing pending update queue item for the same note and consumer.
-// If found, it merges the new payload into the existing item and stores the new idempotency key
-// as the secondary key. Returns nil if no coalescing candidate was found.
-func (s *SQLiteStore) coalesceUpdate(
-	ctx context.Context, newKey, noteID, payload, consumerID string,
+// handleIdempotencyHit processes an existing queue item found by idempotency key lookup.
+// If the item failed, it resets it to pending for retry. Otherwise returns the existing item as-is.
+func handleIdempotencyHit(
+	ctx context.Context, tx *sql.Tx, existing *models.WriteQueueItem,
+	action, noteID, payload string,
+) (*models.WriteQueueItem, error) {
+	if existing.Status == "failed" {
+		res, err := tx.ExecContext(ctx,
+			`UPDATE write_queue SET status = 'pending', action = ?, note_id = ?, payload = ?,
+			processing_by = NULL, lease_until = NULL, applied_at = NULL, error = NULL
+			WHERE id = ? AND status = 'failed'`,
+			action, noteID, payload, existing.ID,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("reset failed queue item: %w", err)
+		}
+
+		rowsAffected, _ := res.RowsAffected() //nolint:errcheck // SQLite always supports RowsAffected
+		if rowsAffected == 0 {
+			// Another goroutine already reset this item; re-read and return as idempotent hit.
+			item, err := scanWriteQueueRow(tx.QueryRowContext(ctx,
+				"SELECT "+writeQueueColumns()+" FROM write_queue WHERE id = ?", existing.ID,
+			))
+			if err != nil {
+				return nil, fmt.Errorf("read concurrently reset queue item: %w", err)
+			}
+
+			if err := tx.Commit(); err != nil {
+				return nil, fmt.Errorf("commit enqueue tx: %w", err)
+			}
+
+			return &item, nil
+		}
+
+		item, err := scanWriteQueueRow(tx.QueryRowContext(ctx,
+			"SELECT "+writeQueueColumns()+" FROM write_queue WHERE id = ?", existing.ID,
+		))
+		if err != nil {
+			return nil, fmt.Errorf("read reset queue item: %w", err)
+		}
+
+		if err := tx.Commit(); err != nil {
+			return nil, fmt.Errorf("commit enqueue tx: %w", err)
+		}
+
+		return &item, nil
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit enqueue tx: %w", err)
+	}
+
+	return existing, nil
+}
+
+// coalesceUpdateTx checks for an existing pending update queue item for the same note and consumer
+// within the given transaction. If found, it merges the new payload into the existing item and
+// stores the new idempotency key as the secondary key. Returns nil if no coalescing candidate was found.
+func coalesceUpdateTx(
+	ctx context.Context, tx *sql.Tx, newKey, noteID, payload, consumerID string,
 ) (*models.WriteQueueItem, error) {
 	var existingID int64
-	err := s.db.QueryRowContext(ctx,
+	err := tx.QueryRowContext(ctx,
 		"SELECT id FROM write_queue WHERE note_id = ? AND action = 'update' AND status = 'pending' AND consumer_id = ? LIMIT 1",
 		noteID, consumerID,
 	).Scan(&existingID)
@@ -1652,7 +1693,7 @@ func (s *SQLiteStore) coalesceUpdate(
 
 	// Coalesce: update payload and store new idempotency key as secondary.
 	// The WHERE status = 'pending' guard prevents updating an item that was leased between the SELECT and UPDATE.
-	res, execErr := s.db.ExecContext(ctx,
+	res, execErr := tx.ExecContext(ctx,
 		"UPDATE write_queue SET payload = ?, secondary_idempotency_key = ? WHERE id = ? AND status = 'pending'",
 		payload, newKey, existingID,
 	)
@@ -1666,7 +1707,7 @@ func (s *SQLiteStore) coalesceUpdate(
 		return nil, nil
 	}
 
-	item, err := scanWriteQueueRow(s.db.QueryRowContext(ctx,
+	item, err := scanWriteQueueRow(tx.QueryRowContext(ctx,
 		"SELECT "+writeQueueColumns()+" FROM write_queue WHERE id = ?", existingID,
 	))
 	if err != nil {
@@ -1966,7 +2007,8 @@ func ackUpdateNoteStatus(ctx context.Context, tx *sql.Tx, item *models.SyncAckIt
 			}
 		}
 	default:
-		if otherPending == 0 {
+		switch {
+		case otherPending == 0:
 			if _, err := tx.ExecContext(ctx,
 				"UPDATE notes SET sync_status = 'synced', "+
 					"pending_bear_title = NULL, pending_bear_body = NULL, expected_bear_modified_at = NULL "+
@@ -1975,12 +2017,21 @@ func ackUpdateNoteStatus(ctx context.Context, tx *sql.Tx, item *models.SyncAckIt
 			); err != nil {
 				return fmt.Errorf("reset sync_status on ack: %w", err)
 			}
-		} else if item.BearModifiedAt != "" {
+		case item.BearModifiedAt != "":
 			if _, err := tx.ExecContext(ctx,
 				"UPDATE notes SET expected_bear_modified_at = ? WHERE id = ? AND sync_status != 'conflict'",
 				item.BearModifiedAt, noteID,
 			); err != nil {
 				return fmt.Errorf("set expected_bear_modified_at on ack: %w", err)
+			}
+		default:
+			// BearModifiedAt is empty (bridge couldn't read Bear DB after apply).
+			// Clear any stale expected_bear_modified_at to prevent false echo detection.
+			if _, err := tx.ExecContext(ctx,
+				"UPDATE notes SET expected_bear_modified_at = NULL WHERE id = ? AND sync_status != 'conflict'",
+				noteID,
+			); err != nil {
+				return fmt.Errorf("clear stale expected_bear_modified_at on ack: %w", err)
 			}
 		}
 	}

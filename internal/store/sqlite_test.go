@@ -2042,6 +2042,54 @@ func TestWriteQueue_CoalesceNoPendingItem(t *testing.T) {
 	assert.Equal(t, "", item.SecondaryIdempotencyKey)
 }
 
+func TestCoalesceCreateUpdate_ProcessingNotCoalesced(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	// Create a note and enqueue a create action.
+	require.NoError(t, s.CreateNote(ctx, &models.Note{
+		ID:         "n-proc",
+		Title:      "Title",
+		Body:       "Body",
+		SyncStatus: "pending_to_bear",
+	}))
+	_, err := s.EnqueueWrite(ctx, "key-create", "create", "n-proc",
+		`{"title":"Title","body":"Body"}`, "consumer-a")
+	require.NoError(t, err)
+
+	// Lease the item (transitions to processing).
+	_, err = s.LeaseQueueItems(ctx, "bridge-1", 5*time.Minute)
+	require.NoError(t, err)
+
+	// Attempt create→update coalesce while item is processing: must return nil.
+	coalesced, err := s.CoalesceCreateUpdate(ctx, "key-update", "n-proc",
+		`{"title":"New Title"}`, "consumer-a")
+	require.NoError(t, err)
+	assert.Nil(t, coalesced, "must not coalesce into an in-flight (processing) create item")
+}
+
+func TestCoalesceCreateUpdate_CrossConsumerIsolation(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	// Consumer A has a pending create.
+	require.NoError(t, s.CreateNote(ctx, &models.Note{
+		ID:         "n-cross",
+		Title:      "Title",
+		Body:       "Body",
+		SyncStatus: "pending_to_bear",
+	}))
+	_, err := s.EnqueueWrite(ctx, "key-create-a", "create", "n-cross",
+		`{"title":"Title","body":"Body"}`, "consumer-a")
+	require.NoError(t, err)
+
+	// Consumer B attempts create→update coalesce: must return nil (not their item).
+	coalesced, err := s.CoalesceCreateUpdate(ctx, "key-update-b", "n-cross",
+		`{"title":"B Title"}`, "consumer-b")
+	require.NoError(t, err)
+	assert.Nil(t, coalesced, "consumer-b must not coalesce into consumer-a's create item")
+}
+
 // --- Acceptance Tests ---
 
 // TestAcceptance_RapidUpdateCoalescing verifies Problem 1: rapid sequential consumer
