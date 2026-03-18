@@ -1651,11 +1651,19 @@ func (s *SQLiteStore) coalesceUpdate(
 	}
 
 	// Coalesce: update payload and store new idempotency key as secondary.
-	if _, err := s.db.ExecContext(ctx,
+	// The WHERE status = 'pending' guard prevents updating an item that was leased between the SELECT and UPDATE.
+	res, execErr := s.db.ExecContext(ctx,
 		"UPDATE write_queue SET payload = ?, secondary_idempotency_key = ? WHERE id = ? AND status = 'pending'",
 		payload, newKey, existingID,
-	); err != nil {
-		return nil, fmt.Errorf("update coalesced item: %w", err)
+	)
+	if execErr != nil {
+		return nil, fmt.Errorf("update coalesced item: %w", execErr)
+	}
+
+	affected, _ := res.RowsAffected() //nolint:errcheck // SQLite always supports RowsAffected
+	if affected == 0 {
+		// Item was leased between SELECT and UPDATE — fall through to insert a new item.
+		return nil, nil
 	}
 
 	item, err := scanWriteQueueRow(s.db.QueryRowContext(ctx,
@@ -1710,11 +1718,19 @@ func (s *SQLiteStore) CoalesceCreateUpdate(
 
 	merged, _ := json.Marshal(createMap) //nolint:errcheck // marshaling a map cannot fail
 
-	if _, execErr := s.db.ExecContext(ctx,
+	// The WHERE status = 'pending' guard prevents updating an item that was leased between the SELECT and UPDATE.
+	res, execErr := s.db.ExecContext(ctx,
 		"UPDATE write_queue SET payload = ?, secondary_idempotency_key = ? WHERE id = ? AND status = 'pending'",
 		string(merged), newKey, existingID,
-	); execErr != nil {
+	)
+	if execErr != nil {
 		return nil, fmt.Errorf("update coalesced create item: %w", execErr)
+	}
+
+	affected, _ := res.RowsAffected() //nolint:errcheck // SQLite always supports RowsAffected
+	if affected == 0 {
+		// Item was leased between SELECT and UPDATE — fall through to insert a new item.
+		return nil, nil
 	}
 
 	item, scanErr := scanWriteQueueRow(s.db.QueryRowContext(ctx,
