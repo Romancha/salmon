@@ -94,19 +94,37 @@ Run these checks before committing (in order):
 - `conflict`: set when a Bear push arrives for a `pending_to_bear` note where Bear changed a content field (title/body) that the consumer also changed; bridge creates a `[Conflict] Title` note in Bear instead of applying the queue item
 - Transitions: `synced` → `pending_to_bear` (on enqueue) → `synced` (on ack with "applied") or `conflict` (on conflicting Bear push)
 
+### Echo detection
+
+After bridge applies a queue item to Bear, it reads Bear's `modified_at` and reports it back in the ack (`BearModifiedAt` field on `SyncAckItem`). Hub stores this as `expected_bear_modified_at` on the note. When the next Bear delta push arrives:
+
+- If `modified_at` matches `expected_bear_modified_at` → the push is an echo of our own write; skip conflict detection, stay `pending_to_bear`, clear `expected_bear_modified_at` (consumed)
+- If `modified_at` does not match (or `expected_bear_modified_at` is NULL) → proceed to normal `detectContentConflict` logic
+
+This prevents false conflicts when Bear's `modified_at` changes solely because bridge applied a consumer write via x-callback-url.
+
+### Queue coalescing
+
+Prevents false conflicts from rapid sequential consumer writes by merging pending queue items:
+
+- Update-update: if a `pending` update item already exists for the same note, `EnqueueWrite` updates the existing item's payload instead of creating a new item. Both idempotency keys resolve to the same item (via `secondary_idempotency_key` column).
+- Create-update: if a `pending` create item exists for a note (BearID is nil), `updateNote` handler merges the new title/body into the existing create item's payload via `CoalesceCreateUpdate`, avoiding a separate update item.
+- In-flight items (`processing` status) are never coalesced — a new item is created instead.
+
 ### Field-level conflict detection
 
 When a note transitions to `pending_to_bear`, Bear's current title/body are saved to `pending_bear_title`/`pending_bear_body` columns (the "base" snapshot). On the next Bear delta push:
 
-1. If `modified_at` unchanged → no conflict (as before)
-2. If `modified_at` changed and `pending_bear` fields are NULL (create flow) → timestamp-based conflict (fallback)
-3. If `modified_at` changed and `pending_bear` fields exist → field-level comparison:
+1. If `modified_at` matches `expected_bear_modified_at` → echo of our own write, skip conflict detection (see Echo detection above)
+2. If `modified_at` unchanged → no conflict (as before)
+3. If `modified_at` changed and `pending_bear` fields are NULL (create flow) → timestamp-based conflict (fallback)
+4. If `modified_at` changed and `pending_bear` fields exist → field-level comparison:
    - Bear changed title = `bearDelta.Title != pending_bear_title`
    - Consumer changed title = `hub.Title != pending_bear_title`
    - Conflict only if Bear AND consumer both changed the same field (title or body)
    - Metadata-only changes (modified_at, pinned, etc.) never trigger conflict
 
-`pending_bear_title`/`pending_bear_body` are cleared when `sync_status` transitions back to `synced` (ack applied).
+`pending_bear_title`/`pending_bear_body` are cleared when `sync_status` transitions back to `synced` (ack applied). `expected_bear_modified_at` is also cleared on `synced` transition.
 
 ## Database
 

@@ -136,9 +136,9 @@ Hub:      modified_at changed + pending_to_bear → detectContentConflict → FA
 - [x] verify test coverage does not decrease: `make test-coverage`
 
 ### Task 8: [Final] Update documentation
-- [ ] update `CLAUDE.md` sync_status lifecycle section with echo detection and coalescing behavior
-- [ ] update field-level conflict detection section to mention `expected_bear_modified_at`
-- [ ] regenerate mocks if Store interface changed: `make generate`
+- [x] update `CLAUDE.md` sync_status lifecycle section with echo detection and coalescing behavior
+- [x] update field-level conflict detection section to mention `expected_bear_modified_at`
+- [x] regenerate mocks if Store interface changed: `make generate`
 
 ## Technical Details
 
