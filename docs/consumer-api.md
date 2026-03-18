@@ -102,7 +102,7 @@ Returns HTTP 200 with the updated note.
 
 Constraints:
 - Cannot update encrypted notes (403)
-- Cannot update notes not yet synced to Bear (409)
+- Cannot update notes not yet synced to Bear (409), unless the note has a pending create queue item (update is merged into the pending create)
 - Cannot update notes with unresolved conflicts (409)
 
 ### Trash Note

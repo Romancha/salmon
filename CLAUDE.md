@@ -126,7 +126,7 @@ When a note transitions to `pending_to_bear`, Bear's current title/body are save
 
 `pending_bear_title`/`pending_bear_body` are cleared when `sync_status` transitions back to `synced` (ack applied). `expected_bear_modified_at` is also cleared on `synced` transition.
 
-## Database
+## Bear Database
 
 - Bear SQLite uses Core Data epoch timestamps (float64 seconds since 2001-01-01)
 - Conversion: `unix_ts = core_data_ts + 978307200` (defined as `mapper.CoreDataEpochOffset`)
