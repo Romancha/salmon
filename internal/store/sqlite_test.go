@@ -1541,10 +1541,10 @@ func TestAckApplied_PreservesPendingBearFieldsWhenOtherPending(t *testing.T) {
 		PendingBearBody:  strPtr("Bear Body"),
 	}))
 
-	// Enqueue TWO writes for the same note.
+	// Enqueue TWO writes for the same note (different actions to avoid coalescing).
 	item1, err := s.EnqueueWrite(ctx, "key-keep-1", "update", "n-keep-pending", `{"title":"T1"}`, "")
 	require.NoError(t, err)
-	_, err = s.EnqueueWrite(ctx, "key-keep-2", "update", "n-keep-pending", `{"body":"B2"}`, "")
+	_, err = s.EnqueueWrite(ctx, "key-keep-2", "add_tag", "n-keep-pending", `{"tag":"test"}`, "")
 	require.NoError(t, err)
 
 	// Lease and ack only the first one.
@@ -1788,11 +1788,13 @@ func TestAckApplied_ExpectedBearModifiedAtBehavior(t *testing.T) {
 				ExpectedBearModifiedAt: tt.presetEBMA,
 			}))
 
-			// Enqueue N writes for the same note.
+			// Enqueue N writes for the same note (alternate actions to avoid coalescing).
+			actions := []string{"update", "add_tag", "trash"}
 			var firstItemID int64
 			for i := range tt.numQueueItems {
+				action := actions[i%len(actions)]
 				item, err := s.EnqueueWrite(ctx,
-					fmt.Sprintf("key-%s-%d", tt.noteID, i), "update", tt.noteID,
+					fmt.Sprintf("key-%s-%d", tt.noteID, i), action, tt.noteID,
 					fmt.Sprintf(`{"title":"T%d"}`, i), "")
 				require.NoError(t, err)
 				if i == 0 {
@@ -1947,4 +1949,95 @@ func TestProcessSyncPush_EchoDetection(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestWriteQueue_CoalesceUpdatePending(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	// First update: creates a new pending item.
+	item1, err := s.EnqueueWrite(ctx, "key-1", "update", "n1", `{"body":"v1"}`, "consumer-a")
+	require.NoError(t, err)
+	assert.Equal(t, "pending", item1.Status)
+	assert.Equal(t, `{"body":"v1"}`, item1.Payload)
+
+	// Second update for same note: should coalesce into item1.
+	item2, err := s.EnqueueWrite(ctx, "key-2", "update", "n1", `{"body":"v2"}`, "consumer-a")
+	require.NoError(t, err)
+	assert.Equal(t, item1.ID, item2.ID, "should return same queue item")
+	assert.Equal(t, `{"body":"v2"}`, item2.Payload, "payload should be updated")
+	assert.Equal(t, "key-1", item2.IdempotencyKey, "original idempotency key preserved")
+	assert.Equal(t, "key-2", item2.SecondaryIdempotencyKey, "secondary key stored")
+}
+
+func TestWriteQueue_CoalesceUpdateProcessing(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	// First update: create and lease it (processing).
+	item1, err := s.EnqueueWrite(ctx, "key-1", "update", "n1", `{"body":"v1"}`, "consumer-a")
+	require.NoError(t, err)
+	_, err = s.LeaseQueueItems(ctx, "bridge-1", 5*time.Minute)
+	require.NoError(t, err)
+
+	// Second update for same note while first is processing: must create NEW item.
+	item2, err := s.EnqueueWrite(ctx, "key-2", "update", "n1", `{"body":"v2"}`, "consumer-a")
+	require.NoError(t, err)
+	assert.NotEqual(t, item1.ID, item2.ID, "must create new item for in-flight")
+	assert.Equal(t, `{"body":"v2"}`, item2.Payload)
+	assert.Equal(t, "key-2", item2.IdempotencyKey)
+}
+
+func TestWriteQueue_CoalesceUpdateAppliedFailed(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	// Create an update item and set its status to applied directly.
+	item1, err := s.EnqueueWrite(ctx, "key-1", "update", "n1", `{"body":"v1"}`, "consumer-a")
+	require.NoError(t, err)
+	_, err = s.DB().ExecContext(ctx, "UPDATE write_queue SET status = 'applied' WHERE id = ?", item1.ID)
+	require.NoError(t, err)
+
+	// New update for same note: must create NEW item (applied items are not coalesced).
+	item2, err := s.EnqueueWrite(ctx, "key-2", "update", "n1", `{"body":"v2"}`, "consumer-a")
+	require.NoError(t, err)
+	assert.NotEqual(t, item1.ID, item2.ID, "must create new item when existing is applied")
+}
+
+func TestWriteQueue_CoalescePreservesOriginalKey(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	// First update.
+	item1, err := s.EnqueueWrite(ctx, "key-orig", "update", "n1", `{"body":"v1"}`, "consumer-a")
+	require.NoError(t, err)
+
+	// Second update (coalesces).
+	_, err = s.EnqueueWrite(ctx, "key-new", "update", "n1", `{"body":"v2"}`, "consumer-a")
+	require.NoError(t, err)
+
+	// Original key still resolves to the item.
+	got1, err := s.GetQueueItemByIdempotencyKey(ctx, "key-orig", "consumer-a")
+	require.NoError(t, err)
+	require.NotNil(t, got1)
+	assert.Equal(t, item1.ID, got1.ID)
+	assert.Equal(t, `{"body":"v2"}`, got1.Payload)
+
+	// New (secondary) key also resolves to the same item.
+	got2, err := s.GetQueueItemByIdempotencyKey(ctx, "key-new", "consumer-a")
+	require.NoError(t, err)
+	require.NotNil(t, got2)
+	assert.Equal(t, item1.ID, got2.ID)
+}
+
+func TestWriteQueue_CoalesceNoPendingItem(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	// No existing pending item: creates new item (unchanged behavior).
+	item, err := s.EnqueueWrite(ctx, "key-1", "update", "n1", `{"body":"v1"}`, "consumer-a")
+	require.NoError(t, err)
+	assert.Equal(t, "pending", item.Status)
+	assert.Equal(t, "key-1", item.IdempotencyKey)
+	assert.Equal(t, "", item.SecondaryIdempotencyKey)
 }

@@ -106,14 +106,14 @@ Hub:      modified_at changed + pending_to_bear → detectContentConflict → FA
 - [x] run tests — must pass before next task
 
 ### Task 5: Queue coalescing for update→update
-- [ ] write test in `internal/store/sqlite_test.go`: `EnqueueWrite` with action `update` for a note that has an existing `pending` update item → updates existing item's payload, returns existing item
-- [ ] write test: `EnqueueWrite` with action `update` for a note that has existing `processing` update item → creates NEW item (don't touch in-flight items)
-- [ ] write test: `EnqueueWrite` with action `update` for a note that has existing `applied`/`failed` update item → creates NEW item
-- [ ] write test: coalesced item preserves original `idempotency_key`, new key also resolves to same item
-- [ ] write test: `EnqueueWrite` with action `update` for a note with NO existing pending item → creates new item (unchanged behavior)
-- [ ] in `EnqueueWrite` (line ~1531): after idempotency check, before INSERT, add: `SELECT id, payload FROM write_queue WHERE note_id = ? AND action = 'update' AND status = 'pending' LIMIT 1`
-- [ ] if found: UPDATE existing item's `payload` with new payload; also insert a mapping row or update existing to allow both idempotency keys to resolve (simplest: update the existing item's payload and return it; store the new idempotency_key→existing_item_id mapping)
-- [ ] run tests — must pass before next task
+- [x] write test in `internal/store/sqlite_test.go`: `EnqueueWrite` with action `update` for a note that has an existing `pending` update item → updates existing item's payload, returns existing item
+- [x] write test: `EnqueueWrite` with action `update` for a note that has existing `processing` update item → creates NEW item (don't touch in-flight items)
+- [x] write test: `EnqueueWrite` with action `update` for a note that has existing `applied`/`failed` update item → creates NEW item
+- [x] write test: coalesced item preserves original `idempotency_key`, new key also resolves to same item
+- [x] write test: `EnqueueWrite` with action `update` for a note with NO existing pending item → creates new item (unchanged behavior)
+- [x] in `EnqueueWrite` (line ~1531): after idempotency check, before INSERT, add: `SELECT id, payload FROM write_queue WHERE note_id = ? AND action = 'update' AND status = 'pending' LIMIT 1`
+- [x] if found: UPDATE existing item's `payload` with new payload; also insert a mapping row or update existing to allow both idempotency keys to resolve (simplest: update the existing item's payload and return it; store the new idempotency_key→existing_item_id mapping)
+- [x] run tests — must pass before next task
 
 ### Task 6: Queue coalescing for create→update (merge into create)
 - [ ] write test: consumer creates note (queue item: create, pending), then calls `updateNote` → existing create item's payload is updated with new title/body, no second item created

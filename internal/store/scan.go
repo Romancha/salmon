@@ -516,7 +516,7 @@ func backlinkValues(b *models.Backlink) []any {
 var writeQueueColumnList = []string{
 	"id", "idempotency_key", "action", "note_id", "payload",
 	"created_at", "status", "processing_by", "lease_until",
-	"applied_at", "error", "consumer_id",
+	"applied_at", "error", "consumer_id", "secondary_idempotency_key",
 }
 
 func writeQueueColumns() string {
@@ -543,15 +543,16 @@ type writeQueueScanner struct {
 	ProcessingBy   sql.NullString
 	LeaseUntil     sql.NullString
 	AppliedAt      sql.NullString
-	Error          sql.NullString
-	ConsumerID     sql.NullString
+	Error                   sql.NullString
+	ConsumerID              sql.NullString
+	SecondaryIdempotencyKey sql.NullString
 }
 
 func (ws *writeQueueScanner) dest() []any {
 	return []any{
 		&ws.ID, &ws.IdempotencyKey, &ws.Action, &ws.NoteID, &ws.Payload,
 		&ws.CreatedAt, &ws.Status, &ws.ProcessingBy, &ws.LeaseUntil,
-		&ws.AppliedAt, &ws.Error, &ws.ConsumerID,
+		&ws.AppliedAt, &ws.Error, &ws.ConsumerID, &ws.SecondaryIdempotencyKey,
 	}
 }
 
@@ -567,8 +568,9 @@ func (ws *writeQueueScanner) toItem() models.WriteQueueItem {
 		ProcessingBy:   ws.ProcessingBy.String,
 		LeaseUntil:     ws.LeaseUntil.String,
 		AppliedAt:      ws.AppliedAt.String,
-		Error:          ws.Error.String,
-		ConsumerID:     ws.ConsumerID.String,
+		Error:                   ws.Error.String,
+		ConsumerID:              ws.ConsumerID.String,
+		SecondaryIdempotencyKey: ws.SecondaryIdempotencyKey.String,
 	}
 }
 

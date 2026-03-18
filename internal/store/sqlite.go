@@ -212,7 +212,8 @@ CREATE TABLE IF NOT EXISTS write_queue (
     lease_until     TEXT,
     applied_at      TEXT,
     error           TEXT,
-    consumer_id     TEXT NOT NULL DEFAULT '',
+    consumer_id                TEXT NOT NULL DEFAULT '',
+    secondary_idempotency_key  TEXT,
     UNIQUE(idempotency_key, consumer_id)
 );
 CREATE TABLE IF NOT EXISTS sync_meta (
@@ -269,6 +270,11 @@ END;
 	// Migrate existing notes table: add pending_bear_title/body columns if missing.
 	if err := s.migratePendingBearColumns(ctx); err != nil {
 		return fmt.Errorf("migrate pending_bear columns: %w", err)
+	}
+
+	// Migrate existing write_queue table: add secondary_idempotency_key column if missing.
+	if err := s.migrateWriteQueueSecondaryKey(ctx); err != nil {
+		return fmt.Errorf("migrate write_queue secondary key: %w", err)
 	}
 
 	return nil
@@ -381,6 +387,30 @@ CREATE INDEX IF NOT EXISTS idx_write_queue_lease ON write_queue(status, lease_un
 
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit write_queue migration: %w", err)
+	}
+
+	return nil
+}
+
+// migrateWriteQueueSecondaryKey adds the secondary_idempotency_key column to write_queue
+// for queue coalescing. When consecutive updates are coalesced into one queue item,
+// the second idempotency key is stored here so both keys resolve to the same item.
+func (s *SQLiteStore) migrateWriteQueueSecondaryKey(ctx context.Context) error {
+	var ddlSQL sql.NullString
+	if err := s.db.QueryRowContext(ctx,
+		"SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'write_queue'",
+	).Scan(&ddlSQL); err != nil {
+		return fmt.Errorf("read write_queue DDL: %w", err)
+	}
+
+	if ddlSQL.Valid && strings.Contains(ddlSQL.String, "secondary_idempotency_key") {
+		return nil
+	}
+
+	if _, err := s.db.ExecContext(ctx,
+		"ALTER TABLE write_queue ADD COLUMN secondary_idempotency_key TEXT",
+	); err != nil {
+		return fmt.Errorf("add secondary_idempotency_key column: %w", err)
 	}
 
 	return nil
@@ -1497,8 +1527,9 @@ func (s *SQLiteStore) GetQueueItemByIdempotencyKey(
 	ctx context.Context, key, consumerID string,
 ) (*models.WriteQueueItem, error) {
 	item, err := scanWriteQueueRow(s.db.QueryRowContext(ctx,
-		"SELECT "+writeQueueColumns()+" FROM write_queue WHERE idempotency_key = ? AND consumer_id = ?",
-		key, consumerID,
+		"SELECT "+writeQueueColumns()+" FROM write_queue"+
+			" WHERE (idempotency_key = ? OR secondary_idempotency_key = ?) AND consumer_id = ?",
+		key, key, consumerID,
 	))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -1514,9 +1545,11 @@ func (s *SQLiteStore) EnqueueWrite(
 	ctx context.Context,
 	idempotencyKey, action, noteID, payload, consumerID string,
 ) (*models.WriteQueueItem, error) {
+	// Check idempotency: look for existing item by primary or secondary key.
 	existing, err := scanWriteQueueRow(s.db.QueryRowContext(ctx,
-		"SELECT "+writeQueueColumns()+" FROM write_queue WHERE idempotency_key = ? AND consumer_id = ?",
-		idempotencyKey, consumerID,
+		"SELECT "+writeQueueColumns()+" FROM write_queue"+
+			" WHERE (idempotency_key = ? OR secondary_idempotency_key = ?) AND consumer_id = ?",
+		idempotencyKey, idempotencyKey, consumerID,
 	))
 	if err == nil {
 		// If the existing item failed, reset it to pending so it can be retried.
@@ -1563,6 +1596,19 @@ func (s *SQLiteStore) EnqueueWrite(
 		return nil, fmt.Errorf("check idempotency: %w", err)
 	}
 
+	// Queue coalescing: if there's an existing pending update for the same note, merge into it
+	// instead of creating a second item. This prevents false conflicts from rapid sequential writes.
+	if action == "update" && noteID != "" {
+		coalesced, coalesceErr := s.coalesceUpdate(ctx, idempotencyKey, noteID, payload, consumerID)
+		if coalesceErr != nil {
+			return nil, fmt.Errorf("coalesce update: %w", coalesceErr)
+		}
+
+		if coalesced != nil {
+			return coalesced, nil
+		}
+	}
+
 	result, err := s.db.ExecContext(ctx,
 		`INSERT INTO write_queue (idempotency_key, action, note_id, payload, consumer_id)
 		VALUES (?, ?, ?, ?, ?)`,
@@ -1579,6 +1625,43 @@ func (s *SQLiteStore) EnqueueWrite(
 	))
 	if err != nil {
 		return nil, fmt.Errorf("read enqueued item: %w", err)
+	}
+
+	return &item, nil
+}
+
+// coalesceUpdate checks for an existing pending update queue item for the same note and consumer.
+// If found, it merges the new payload into the existing item and stores the new idempotency key
+// as the secondary key. Returns nil if no coalescing candidate was found.
+func (s *SQLiteStore) coalesceUpdate(
+	ctx context.Context, newKey, noteID, payload, consumerID string,
+) (*models.WriteQueueItem, error) {
+	var existingID int64
+	err := s.db.QueryRowContext(ctx,
+		"SELECT id FROM write_queue WHERE note_id = ? AND action = 'update' AND status = 'pending' AND consumer_id = ? LIMIT 1",
+		noteID, consumerID,
+	).Scan(&existingID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("find pending update: %w", err)
+	}
+
+	// Coalesce: update payload and store new idempotency key as secondary.
+	if _, err := s.db.ExecContext(ctx,
+		"UPDATE write_queue SET payload = ?, secondary_idempotency_key = ? WHERE id = ? AND status = 'pending'",
+		payload, newKey, existingID,
+	); err != nil {
+		return nil, fmt.Errorf("update coalesced item: %w", err)
+	}
+
+	item, err := scanWriteQueueRow(s.db.QueryRowContext(ctx,
+		"SELECT "+writeQueueColumns()+" FROM write_queue WHERE id = ?", existingID,
+	))
+	if err != nil {
+		return nil, fmt.Errorf("read coalesced item: %w", err)
 	}
 
 	return &item, nil

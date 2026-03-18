@@ -14,8 +14,9 @@ type WriteQueueItem struct {
 	ProcessingBy   string `json:"processing_by,omitempty"`
 	LeaseUntil     string `json:"lease_until,omitempty"`
 	AppliedAt      string `json:"applied_at,omitempty"`
-	Error          string `json:"error,omitempty"`
-	ConsumerID     string `json:"consumer_id,omitempty"`
+	Error                   string `json:"error,omitempty"`
+	ConsumerID              string `json:"consumer_id,omitempty"`
+	SecondaryIdempotencyKey string `json:"secondary_idempotency_key,omitempty"`
 
 	// NoteSyncStatus is populated during lease to indicate the associated note's sync_status.
 	// Not stored in DB — filled by JOIN during LeaseQueueItems.
