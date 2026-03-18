@@ -95,15 +95,15 @@ Hub:      modified_at changed + pending_to_bear → detectContentConflict → FA
 - [x] run tests — must pass before next task
 
 ### Task 4: Echo detection in `updateExistingNote`
-- [ ] write test: Bear delta push with `modified_at` matching `expected_bear_modified_at` while note is `pending_to_bear` → skip conflict detection, stay `pending_to_bear`
-- [ ] write test: Bear delta push with `modified_at` NOT matching `expected_bear_modified_at` while `pending_to_bear` → proceed to `detectContentConflict` as before
-- [ ] write test: Bear delta push with `expected_bear_modified_at` NULL → proceed to `detectContentConflict` as before (backward compat)
-- [ ] write test: after echo is recognized, `expected_bear_modified_at` is cleared (consumed)
-- [ ] modify `updateExistingNote` signature to accept `expectedBearModifiedAt *string`
-- [ ] add echo detection logic before `detectContentConflict` call (line ~923): if `expectedBearModifiedAt != nil && note.ModifiedAt == *expectedBearModifiedAt`, set `newSyncStatus = syncStatusPendingToBear` and clear `expected_bear_modified_at` without calling `detectContentConflict`
-- [ ] update `upsertNote` to pass `expectedBearModifiedAt` from the existing note row to `updateExistingNote`
-- [ ] add `expected_bear_modified_at` to the SELECT in `upsertNote` (line ~874-909)
-- [ ] run tests — must pass before next task
+- [x] write test: Bear delta push with `modified_at` matching `expected_bear_modified_at` while note is `pending_to_bear` → skip conflict detection, stay `pending_to_bear`
+- [x] write test: Bear delta push with `modified_at` NOT matching `expected_bear_modified_at` while `pending_to_bear` → proceed to `detectContentConflict` as before
+- [x] write test: Bear delta push with `expected_bear_modified_at` NULL → proceed to `detectContentConflict` as before (backward compat)
+- [x] write test: after echo is recognized, `expected_bear_modified_at` is cleared (consumed)
+- [x] modify `updateExistingNote` signature to accept `expectedBearModifiedAt *string`
+- [x] add echo detection logic before `detectContentConflict` call (line ~923): if `expectedBearModifiedAt != nil && note.ModifiedAt == *expectedBearModifiedAt`, set `newSyncStatus = syncStatusPendingToBear` and clear `expected_bear_modified_at` without calling `detectContentConflict`
+- [x] update `upsertNote` to pass `expectedBearModifiedAt` from the existing note row to `updateExistingNote`
+- [x] add `expected_bear_modified_at` to the SELECT in `upsertNote` (line ~874-909)
+- [x] run tests — must pass before next task
 
 ### Task 5: Queue coalescing for update→update
 - [ ] write test in `internal/store/sqlite_test.go`: `EnqueueWrite` with action `update` for a note that has an existing `pending` update item → updates existing item's payload, returns existing item

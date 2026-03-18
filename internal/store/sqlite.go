@@ -887,16 +887,19 @@ func upsertNote(ctx context.Context, tx *sql.Tx, note *models.Note) error {
 	var existingModifiedAt string
 	var existingTitle, existingBody string
 	var pendingBearTitle, pendingBearBody sql.NullString
+	var expectedBearModifiedAt sql.NullString
 
 	if note.BearID != nil && *note.BearID != "" {
 		err := tx.QueryRowContext(ctx,
 			`SELECT id, sync_status, COALESCE(modified_at, ''),
 				COALESCE(title, ''), COALESCE(body, ''),
-				pending_bear_title, pending_bear_body
+				pending_bear_title, pending_bear_body,
+				expected_bear_modified_at
 			FROM notes WHERE bear_id = ?`, *note.BearID,
 		).Scan(&existingID, &existingSyncStatus, &existingModifiedAt,
 			&existingTitle, &existingBody,
-			&pendingBearTitle, &pendingBearBody)
+			&pendingBearTitle, &pendingBearBody,
+			&expectedBearModifiedAt)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("lookup note by bear_id: %w", err)
 		}
@@ -910,9 +913,13 @@ func upsertNote(ctx context.Context, tx *sql.Tx, note *models.Note) error {
 		if pendingBearBody.Valid {
 			pbb = &pendingBearBody.String
 		}
+		var ebma *string
+		if expectedBearModifiedAt.Valid {
+			ebma = &expectedBearModifiedAt.String
+		}
 
 		return updateExistingNote(ctx, tx, note, existingID, existingSyncStatus, existingModifiedAt,
-			existingTitle, existingBody, pbt, pbb)
+			existingTitle, existingBody, pbt, pbb, ebma)
 	}
 
 	return insertNewNote(ctx, tx, note)
@@ -927,11 +934,25 @@ func updateExistingNote(
 	ctx context.Context, tx *sql.Tx, note *models.Note,
 	existingID, existingSyncStatus, existingModifiedAt string,
 	hubTitle, hubBody string, pendingBearTitle, pendingBearBody *string,
+	expectedBearModifiedAt *string,
 ) error {
 	if existingSyncStatus == syncStatusPendingToBear {
 		newSyncStatus := syncStatusPendingToBear
-		if note.ModifiedAt != "" && existingModifiedAt != "" && note.ModifiedAt != existingModifiedAt {
+		var clearExpectedBearModifiedAt bool
+
+		// Echo detection: if the incoming modified_at matches expected_bear_modified_at,
+		// this delta push is an echo of our own write — skip conflict detection.
+		if expectedBearModifiedAt != nil && note.ModifiedAt == *expectedBearModifiedAt {
+			clearExpectedBearModifiedAt = true
+		} else if note.ModifiedAt != "" && existingModifiedAt != "" && note.ModifiedAt != existingModifiedAt {
 			newSyncStatus = detectContentConflict(note, hubTitle, hubBody, pendingBearTitle, pendingBearBody)
+		}
+
+		var ebmaVal any
+		if clearExpectedBearModifiedAt {
+			ebmaVal = nil
+		} else {
+			ebmaVal = expectedBearModifiedAt
 		}
 
 		query := `UPDATE notes SET
@@ -944,7 +965,7 @@ func updateExistingNote(
 			locked_at = ?, pinned_at = ?, trashed_at = ?, order_date = ?,
 			conflict_id_date = ?, last_editing_device = ?, conflict_id = ?,
 			encryption_id = ?, encrypted_data = ?, bear_raw = ?,
-			sync_status = ?
+			sync_status = ?, expected_bear_modified_at = ?
 		WHERE id = ?`
 
 		if _, err := tx.ExecContext(ctx, query,
@@ -957,7 +978,7 @@ func updateExistingNote(
 			note.LockedAt, note.PinnedAt, note.TrashedAt, note.OrderDate,
 			note.ConflictIDDate, note.LastEditingDevice, note.ConflictID,
 			note.EncryptionID, note.EncryptedData, note.BearRaw,
-			newSyncStatus,
+			newSyncStatus, ebmaVal,
 			existingID,
 		); err != nil {
 			return fmt.Errorf("update pending_to_bear note: %w", err)

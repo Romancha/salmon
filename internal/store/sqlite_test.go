@@ -1828,3 +1828,123 @@ func TestAckApplied_ExpectedBearModifiedAtBehavior(t *testing.T) {
 		})
 	}
 }
+
+// --- Task 4: Echo detection in updateExistingNote ---
+
+func TestProcessSyncPush_EchoDetection(t *testing.T) {
+	tests := []struct {
+		name                   string
+		expectedBearModifiedAt *string
+		incomingModifiedAt     string
+		existingModifiedAt     string
+		pendingBearTitle       *string
+		pendingBearBody        *string
+		hubTitle               string
+		hubBody                string
+		bearTitle              string
+		bearBody               string
+		wantSyncStatus         string
+		wantEBMANil            bool
+	}{
+		{
+			name:                   "echo detected: modified_at matches expected_bear_modified_at",
+			expectedBearModifiedAt: strPtr("2025-01-01T11:00:00Z"),
+			incomingModifiedAt:     "2025-01-01T11:00:00Z",
+			existingModifiedAt:     "2025-01-01T10:00:00Z",
+			pendingBearTitle:       strPtr("Original Title"),
+			pendingBearBody:        strPtr("Original Body"),
+			hubTitle:               "Consumer Title",
+			hubBody:                "Consumer Body",
+			bearTitle:              "Consumer Title",
+			bearBody:               "Consumer Body",
+			wantSyncStatus:         "pending_to_bear",
+			wantEBMANil:            true,
+		},
+		{
+			name:                   "no echo: modified_at does not match expected_bear_modified_at",
+			expectedBearModifiedAt: strPtr("2025-01-01T11:00:00Z"),
+			incomingModifiedAt:     "2025-01-01T12:00:00Z",
+			existingModifiedAt:     "2025-01-01T10:00:00Z",
+			pendingBearTitle:       strPtr("Original Title"),
+			pendingBearBody:        strPtr("Original Body"),
+			hubTitle:               "Consumer Title",
+			hubBody:                "Consumer Body",
+			bearTitle:              "Original Title",
+			bearBody:               "Bear Edited Body",
+			wantSyncStatus:         "conflict",
+			wantEBMANil:            false,
+		},
+		{
+			name:                   "backward compat: expected_bear_modified_at NULL proceeds to conflict detection",
+			expectedBearModifiedAt: nil,
+			incomingModifiedAt:     "2025-01-01T11:00:00Z",
+			existingModifiedAt:     "2025-01-01T10:00:00Z",
+			pendingBearTitle:       strPtr("Original Title"),
+			pendingBearBody:        strPtr("Original Body"),
+			hubTitle:               "Consumer Title",
+			hubBody:                "Consumer Body",
+			bearTitle:              "Original Title",
+			bearBody:               "Bear Edited Body",
+			wantSyncStatus:         "conflict",
+			wantEBMANil:            true,
+		},
+		{
+			name:                   "echo clears expected_bear_modified_at",
+			expectedBearModifiedAt: strPtr("2025-01-01T11:00:00Z"),
+			incomingModifiedAt:     "2025-01-01T11:00:00Z",
+			existingModifiedAt:     "2025-01-01T10:00:00Z",
+			pendingBearTitle:       strPtr("Title"),
+			pendingBearBody:        strPtr("Body"),
+			hubTitle:               "Title",
+			hubBody:                "Body",
+			bearTitle:              "Title",
+			bearBody:               "Body",
+			wantSyncStatus:         "pending_to_bear",
+			wantEBMANil:            true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := newTestStore(t)
+			ctx := context.Background()
+			bearID := "bear-echo-" + tt.name
+
+			require.NoError(t, s.CreateNote(ctx, &models.Note{
+				ID:                     "n-echo",
+				BearID:                 &bearID,
+				Title:                  tt.hubTitle,
+				Body:                   tt.hubBody,
+				SyncStatus:             "pending_to_bear",
+				ModifiedAt:             tt.existingModifiedAt,
+				PendingBearTitle:       tt.pendingBearTitle,
+				PendingBearBody:        tt.pendingBearBody,
+				ExpectedBearModifiedAt: tt.expectedBearModifiedAt,
+			}))
+
+			req := models.SyncPushRequest{
+				Notes: []models.Note{
+					{
+						BearID:     &bearID,
+						Title:      tt.bearTitle,
+						Body:       tt.bearBody,
+						ModifiedAt: tt.incomingModifiedAt,
+						SyncStatus: "synced",
+					},
+				},
+			}
+			require.NoError(t, s.ProcessSyncPush(ctx, req))
+
+			got, err := s.GetNote(ctx, "n-echo")
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantSyncStatus, got.SyncStatus)
+			if tt.wantEBMANil {
+				assert.Nil(t, got.ExpectedBearModifiedAt,
+					"expected_bear_modified_at should be cleared")
+			} else {
+				assert.NotNil(t, got.ExpectedBearModifiedAt,
+					"expected_bear_modified_at should be preserved")
+			}
+		})
+	}
+}
