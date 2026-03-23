@@ -2364,3 +2364,131 @@ func TestAcceptance_RealConflictStillDetected(t *testing.T) {
 	assert.Equal(t, "Same Title", got.Title, "hub title preserved")
 	assert.Equal(t, "Consumer Changed Body", got.Body, "consumer body preserved")
 }
+
+// TestAcceptance_CreateThenUpdate_NoFalseConflict verifies the full create→ack→update→Bear delta
+// push flow does NOT produce a false conflict. The key scenario: consumer creates a note via the API,
+// bridge applies the create and acks with BearModifiedAt, consumer then updates the note, and Bear's
+// first delta push arrives. Because expected_bear_modified_at is preserved on the create ack, echo
+// detection fires and the delta push is treated as an echo of the create — no conflict.
+func TestAcceptance_CreateThenUpdate_NoFalseConflict(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	// Step 1: Consumer creates a note via the API.
+	require.NoError(t, s.CreateNote(ctx, &models.Note{
+		ID:         "n-create-update",
+		Title:      "My Health",
+		Body:       "Initial body content",
+		SyncStatus: "pending_to_bear",
+		ModifiedAt: "2025-06-15T10:00:00Z",
+	}))
+
+	createItem, err := s.EnqueueWrite(ctx, "key-create", "create", "n-create-update",
+		`{"title":"My Health","body":"Initial body content","tags":["#health"]}`, "consumer-a")
+	require.NoError(t, err)
+
+	// Step 2: Bridge leases and processes the create.
+	_, err = s.LeaseQueueItems(ctx, "bridge-1", 5*time.Minute)
+	require.NoError(t, err)
+
+	// Step 3: Bridge acks with BearID and BearModifiedAt (Bear created the note at this timestamp).
+	bearID := "bear-created-uuid"
+	bearModifiedAt := "2025-06-15T10:00:05Z"
+	require.NoError(t, s.AckQueueItems(ctx, []models.SyncAckItem{
+		{QueueID: createItem.ID, IdempotencyKey: "key-create", Status: "applied",
+			BearID: bearID, BearModifiedAt: bearModifiedAt},
+	}))
+
+	// Verify: note is synced with bear_id and expected_bear_modified_at preserved.
+	got, err := s.GetNote(ctx, "n-create-update")
+	require.NoError(t, err)
+	assert.Equal(t, "synced", got.SyncStatus)
+	require.NotNil(t, got.BearID)
+	assert.Equal(t, bearID, *got.BearID)
+	require.NotNil(t, got.ExpectedBearModifiedAt, "expected_bear_modified_at should be preserved on create ack")
+	assert.Equal(t, bearModifiedAt, *got.ExpectedBearModifiedAt)
+
+	// Step 4: Consumer updates the note (BearID is now set, takes normal update path).
+	updatedBody := "Initial body content\n\n## TODO\n- Revaccination in 2026"
+	pendingBearTitle := "My Health"
+	pendingBearBody := "Initial body content"
+	got.Title = "My Health"
+	got.Body = updatedBody
+	got.SyncStatus = "pending_to_bear"
+	got.PendingBearTitle = &pendingBearTitle
+	got.PendingBearBody = &pendingBearBody
+	require.NoError(t, s.UpdateNote(ctx, got))
+
+	_, err = s.EnqueueWrite(ctx, "key-update", "update", "n-create-update",
+		`{"body":"`+updatedBody+`","bear_id":"`+bearID+`"}`, "consumer-a")
+	require.NoError(t, err)
+
+	// Step 5: Bear delta push arrives with the note from the create. Bear may have slightly
+	// reformatted the body (e.g., added trailing newline). The key is that modified_at matches
+	// expected_bear_modified_at, so echo detection fires.
+	bearBody := "Initial body content\n" // Bear added a trailing newline.
+	req := models.SyncPushRequest{
+		Notes: []models.Note{
+			{
+				BearID:     &bearID,
+				Title:      "My Health",
+				Body:       bearBody,
+				ModifiedAt: bearModifiedAt, // Matches expected_bear_modified_at.
+				SyncStatus: "synced",
+			},
+		},
+	}
+	require.NoError(t, s.ProcessSyncPush(ctx, req))
+
+	// Verify: NO conflict — echo detection recognized this as our own write.
+	got, err = s.GetNote(ctx, "n-create-update")
+	require.NoError(t, err)
+	assert.Equal(t, "pending_to_bear", got.SyncStatus,
+		"should stay pending_to_bear (echo of create, update still pending), NOT conflict")
+	assert.Equal(t, "My Health", got.Title, "hub title preserved")
+	assert.Equal(t, updatedBody, got.Body, "consumer's updated body preserved")
+	assert.Nil(t, got.ExpectedBearModifiedAt, "expected_bear_modified_at consumed by echo detection")
+}
+
+// TestAcceptance_CreateAck_SetsSnapshotWhenOtherPending verifies that when a create is acked
+// with other pending queue items, pending_bear_title/body are set from the current hub values.
+func TestAcceptance_CreateAck_SetsSnapshotWhenOtherPending(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	// Create a note via API (no BearID, pending_bear_* are NULL).
+	require.NoError(t, s.CreateNote(ctx, &models.Note{
+		ID:         "n-create-addtag",
+		Title:      "Tagged Note",
+		Body:       "Some body",
+		SyncStatus: "pending_to_bear",
+	}))
+
+	// Enqueue create + add_tag (separate items, not coalesced).
+	createItem, err := s.EnqueueWrite(ctx, "key-c", "create", "n-create-addtag",
+		`{"title":"Tagged Note","body":"Some body"}`, "consumer-a")
+	require.NoError(t, err)
+	_, err = s.EnqueueWrite(ctx, "key-t", "add_tag", "n-create-addtag",
+		`{"tag":"#test"}`, "consumer-a")
+	require.NoError(t, err)
+
+	// Bridge leases both, processes create first.
+	_, err = s.LeaseQueueItems(ctx, "bridge-1", 5*time.Minute)
+	require.NoError(t, err)
+
+	// Ack create with BearID. add_tag is still processing → otherPending > 0.
+	bearID := "bear-tagged-note"
+	require.NoError(t, s.AckQueueItems(ctx, []models.SyncAckItem{
+		{QueueID: createItem.ID, IdempotencyKey: "key-c", Status: "applied",
+			BearID: bearID, BearModifiedAt: "2025-06-15T10:00:05Z"},
+	}))
+
+	// Verify: pending_bear_* are set (not NULL) and reflect the hub's current title/body.
+	got, err := s.GetNote(ctx, "n-create-addtag")
+	require.NoError(t, err)
+	assert.Equal(t, "pending_to_bear", got.SyncStatus)
+	require.NotNil(t, got.PendingBearTitle, "pending_bear_title should be set when otherPending > 0")
+	assert.Equal(t, "Tagged Note", *got.PendingBearTitle)
+	require.NotNil(t, got.PendingBearBody, "pending_bear_body should be set when otherPending > 0")
+	assert.Equal(t, "Some body", *got.PendingBearBody)
+}

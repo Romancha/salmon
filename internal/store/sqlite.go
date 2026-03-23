@@ -1989,19 +1989,34 @@ func ackUpdateNoteStatus(ctx context.Context, tx *sql.Tx, item *models.SyncAckIt
 		}
 	case item.BearID != "":
 		if otherPending > 0 {
+			// Other queue items remain for this note. Keep pending_to_bear and set pending_bear
+			// snapshot so detectContentConflict can do field-level comparison instead of the
+			// unconditional-conflict fallback for nil pending_bear fields.
+			var hubTitle, hubBody string
+			if err := tx.QueryRowContext(ctx,
+				"SELECT COALESCE(title, ''), COALESCE(body, '') FROM notes WHERE id = ?", noteID,
+			).Scan(&hubTitle, &hubBody); err != nil {
+				return fmt.Errorf("read note for pending bear snapshot: %w", err)
+			}
+
 			if _, err := tx.ExecContext(ctx,
-				"UPDATE notes SET bear_id = ?, sync_status = ?, expected_bear_modified_at = ? "+
+				"UPDATE notes SET bear_id = ?, sync_status = ?, expected_bear_modified_at = ?, "+
+					"pending_bear_title = ?, pending_bear_body = ? "+
 					"WHERE id = ? AND sync_status != 'conflict'",
-				item.BearID, syncStatusPendingToBear, toNullString(item.BearModifiedAt), noteID,
+				item.BearID, syncStatusPendingToBear, toNullString(item.BearModifiedAt),
+				hubTitle, hubBody, noteID,
 			); err != nil {
 				return fmt.Errorf("set bear_id on ack: %w", err)
 			}
 		} else {
+			// No other queue items. Transition to synced but preserve expected_bear_modified_at
+			// so echo detection works if a consumer enqueues a write before the first Bear delta
+			// push arrives (preventing false conflicts from Bear reformatting the created content).
 			if _, err := tx.ExecContext(ctx,
 				"UPDATE notes SET bear_id = ?, sync_status = 'synced', "+
-					"pending_bear_title = NULL, pending_bear_body = NULL, expected_bear_modified_at = NULL "+
+					"pending_bear_title = NULL, pending_bear_body = NULL, expected_bear_modified_at = ? "+
 					"WHERE id = ? AND sync_status != 'conflict'",
-				item.BearID, noteID,
+				item.BearID, toNullString(item.BearModifiedAt), noteID,
 			); err != nil {
 				return fmt.Errorf("set bear_id on ack: %w", err)
 			}

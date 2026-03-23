@@ -172,16 +172,16 @@ func (b *Bridge) handleConflictItem(ctx context.Context, item *models.WriteQueue
 	b.logger.Warn("conflict detected for queue item, creating conflict note",
 		"queue_id", item.ID, "action", item.Action, "note_id", item.NoteID)
 
-	// Extract the consumer content from the payload.
-	title, body := b.extractConflictContent(ctx, item)
+	// Extract the consumer content and original note tags from the payload.
+	title, body, tags := b.extractConflictContent(ctx, item)
 	if title == "" {
 		title = "Untitled"
 	}
 
 	conflictTitle := "[Conflict] " + title
 
-	// Create a conflict note in Bear via bear-xcall.
-	bearID, err := b.xcall.Create(ctx, b.bearToken, conflictTitle, body, nil)
+	// Create a conflict note in Bear via bear-xcall, preserving the original note's tags.
+	bearID, err := b.xcall.Create(ctx, b.bearToken, conflictTitle, body, tags)
 	if err != nil {
 		ack.Status = "failed"
 		ack.Error = fmt.Sprintf("create conflict note: %v", err)
@@ -198,12 +198,15 @@ func (b *Bridge) handleConflictItem(ctx context.Context, item *models.WriteQueue
 		"queue_id", item.ID, "conflict_bear_id", bearID, "conflict_title", conflictTitle)
 }
 
-// extractConflictContent extracts the title and body from a queue item's payload for conflict resolution.
-func (b *Bridge) extractConflictContent(ctx context.Context, item *models.WriteQueueItem) (title, body string) {
+// extractConflictContent extracts title, body, and tags from a queue item's payload for conflict resolution.
+// Tags are fetched from Bear SQLite using the original note's bear_id.
+func (b *Bridge) extractConflictContent(
+	ctx context.Context, item *models.WriteQueueItem,
+) (title, body string, tags []string) {
 	var payloadMap map[string]any
 	if err := json.Unmarshal([]byte(item.Payload), &payloadMap); err != nil {
 		b.logger.Warn("failed to parse conflict item payload", "queue_id", item.ID, "error", err)
-		return "", ""
+		return "", "", nil
 	}
 
 	if t, ok := payloadMap["title"].(string); ok {
@@ -214,17 +217,26 @@ func (b *Bridge) extractConflictContent(ctx context.Context, item *models.WriteQ
 		body = bd
 	}
 
+	bearID, _ := payloadMap["bear_id"].(string)
+
 	// If no title in payload, try to get it from the original Bear note using bear_id.
-	if title == "" {
-		if bearID, ok := payloadMap["bear_id"].(string); ok && bearID != "" {
-			note, err := b.db.NoteByUUID(ctx, bearID)
-			if err == nil && note != nil {
-				title = note.Title
-			}
+	if title == "" && bearID != "" {
+		note, err := b.db.NoteByUUID(ctx, bearID)
+		if err == nil && note != nil {
+			title = note.Title
 		}
 	}
 
-	return title, body
+	// Fetch tags from the original Bear note so the conflict copy preserves them.
+	if bearID != "" {
+		var err error
+		tags, err = b.db.NoteTagTitles(ctx, bearID)
+		if err != nil {
+			b.logger.Warn("failed to read tags for conflict note", "bear_id", bearID, "error", err)
+		}
+	}
+
+	return title, body, tags
 }
 
 // applyCreate creates a new note in Bear via bear-xcall and returns the bear_id and bear's modified_at.
