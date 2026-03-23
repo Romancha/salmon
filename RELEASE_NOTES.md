@@ -1,5 +1,15 @@
 # Release Notes
 
+## Version 0.4.1 — 23 Mar 2026
+
+### 🐞 Fixes
+
+- Fix false conflicts on create→update flow: preserve `expected_bear_modified_at` on create ack so echo detection works when a consumer updates a note before Bear's first delta push arrives.
+- Fix missing `pending_bear_title`/`pending_bear_body` snapshot when create is acked with other pending queue items (e.g. `add_tag`), preventing unconditional conflict fallback.
+- Copy original note's tags to `[Conflict]` copy notes — previously conflict copies were created without tags.
+
+---
+
 ## Version 0.4.0 — 18 Mar 2026
 
 ### 🎉 Major Features
