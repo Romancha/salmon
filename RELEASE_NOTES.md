@@ -7,6 +7,7 @@
 - Fix false conflicts on create→update flow: preserve `expected_bear_modified_at` on create ack so echo detection works when a consumer updates a note before Bear's first delta push arrives.
 - Fix missing `pending_bear_title`/`pending_bear_body` snapshot when create is acked with other pending queue items (e.g. `add_tag`), preventing unconditional conflict fallback.
 - Copy original note's tags to `[Conflict]` copy notes — previously conflict copies were created without tags.
+- Fix SalmonRun.app showing "1.0" instead of actual version: inject version via xcodebuild build settings instead of PlistBuddy (which was ignored by `GENERATE_INFOPLIST_FILE`).
 
 ---
 
