@@ -159,3 +159,10 @@ When a note transitions to `pending_to_bear`, Bear's current title/body are save
 - `.github/workflows/ci.yml` — lint, test, test-race on push/PR
 - `.github/workflows/docker-publish.yml` — builds and pushes hub Docker image on v* tag
 - `.github/workflows/release-bridge.yml` — builds, signs, notarizes, and publishes SalmonRun.app as .dmg disk images on v* tag (arm64 + amd64)
+
+## Versioning
+
+- Versions are derived from **git tags** (`v0.4.1` → `0.4.1`), not hardcoded in source files
+- Bridge binary version: injected via `go build -ldflags "-X main.version=..."` (see Makefile, `make build VERSION=vX.Y.Z`)
+- SalmonRun.app version: `Info.plist` stores `0.0.0` as placeholder; CI (`release-bridge.yml`) overwrites `CFBundleVersion`/`CFBundleShortVersionString` from the git tag at build time
+- No manual version bumps needed — just create a git tag and push it
