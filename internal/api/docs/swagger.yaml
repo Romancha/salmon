@@ -69,6 +69,21 @@ definitions:
         example: Updated Title
         type: string
     type: object
+  models.AttachmentInfo:
+    properties:
+      file_size:
+        type: integer
+      filename:
+        type: string
+      height:
+        type: integer
+      id:
+        type: string
+      type:
+        type: string
+      width:
+        type: integer
+    type: object
   models.Backlink:
     properties:
       bear_id:
@@ -99,6 +114,10 @@ definitions:
         type: integer
       archived_at:
         type: string
+      attachments:
+        items:
+          $ref: '#/definitions/models.AttachmentInfo'
+        type: array
       backlinks:
         items:
           $ref: '#/definitions/models.Backlink'
@@ -255,6 +274,8 @@ definitions:
         description: JSON with operation data
         type: string
       processing_by:
+        type: string
+      secondary_idempotency_key:
         type: string
       status:
         description: pending | processing | applied | failed
@@ -466,7 +487,8 @@ paths:
       tags:
       - Notes
     get:
-      description: Returns a single note by ID, including body, tags, and backlinks.
+      description: Returns a single note by ID, including body, tags, attachments,
+        and backlinks.
       parameters:
       - description: Note ID
         in: path

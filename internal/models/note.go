@@ -58,6 +58,21 @@ type Note struct {
 	ExpectedBearModifiedAt *string `json:"-"`
 
 	// Joined data (populated by queries, not stored directly)
-	Tags      []Tag      `json:"tags,omitempty"`
-	Backlinks []Backlink `json:"backlinks,omitempty"`
+	Tags        []Tag            `json:"tags,omitempty"`
+	Attachments []AttachmentInfo `json:"attachments,omitempty"`
+	Backlinks   []Backlink       `json:"backlinks,omitempty"`
+}
+
+// StripInternal zeroes out fields that should not appear in consumer API responses.
+// Because these fields carry omitempty, zeroing makes them vanish from JSON output.
+func (n *Note) StripInternal() {
+	n.BearRaw = ""
+	n.EncryptedData = nil
+	n.HubModifiedAt = ""
+	for i := range n.Tags {
+		n.Tags[i].StripInternal()
+	}
+	for i := range n.Backlinks {
+		n.Backlinks[i].StripInternal()
+	}
 }

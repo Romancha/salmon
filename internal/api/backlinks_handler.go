@@ -45,5 +45,9 @@ func (s *Server) listBacklinks(w http.ResponseWriter, r *http.Request) {
 		backlinks = []models.Backlink{}
 	}
 
+	for i := range backlinks {
+		backlinks[i].StripInternal()
+	}
+
 	writeJSON(w, http.StatusOK, backlinks)
 }

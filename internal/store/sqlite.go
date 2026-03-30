@@ -506,6 +506,13 @@ func (s *SQLiteStore) ListNotes(ctx context.Context, filter NoteFilter) ([]model
 		}
 
 		notes[i].Tags = tags
+
+		attachments, attErr := s.ListAttachmentsByNote(ctx, notes[i].ID)
+		if attErr != nil {
+			return nil, fmt.Errorf("load attachments for note %s: %w", notes[i].ID, attErr)
+		}
+
+		notes[i].Attachments = models.AttachmentsToInfo(attachments)
 	}
 
 	return notes, nil
@@ -529,6 +536,13 @@ func (s *SQLiteStore) GetNote(ctx context.Context, id string) (*models.Note, err
 	}
 
 	n.Tags = tags
+
+	attachments, err := s.ListAttachmentsByNote(ctx, n.ID)
+	if err != nil {
+		return nil, fmt.Errorf("load attachments for note %s: %w", n.ID, err)
+	}
+
+	n.Attachments = models.AttachmentsToInfo(attachments)
 
 	backlinks, err := s.ListBacklinksByNote(ctx, n.ID)
 	if err != nil {
@@ -660,6 +674,13 @@ func (s *SQLiteStore) SearchNotes(
 		}
 
 		notes[i].Tags = tags
+
+		attachments, attErr := s.ListAttachmentsByNote(ctx, notes[i].ID)
+		if attErr != nil {
+			return nil, fmt.Errorf("load attachments for note %s: %w", notes[i].ID, attErr)
+		}
+
+		notes[i].Attachments = models.AttachmentsToInfo(attachments)
 	}
 
 	return notes, nil

@@ -42,7 +42,8 @@ Key fields returned by note endpoints:
 | `has_images` | int | 1 if has image attachments |
 | `todo_completed` | int | Count of completed todos |
 | `todo_incompleted` | int | Count of incomplete todos |
-| `tags` | Tag[] | Attached tags (in get/search responses) |
+| `tags` | Tag[] | Attached tags (in get/search/list responses) |
+| `attachments` | AttachmentInfo[] | Attached files/images/videos (in get/search/list responses) |
 | `backlinks` | Backlink[] | Notes linking to this one (in get response) |
 
 ### Tag
@@ -62,6 +63,17 @@ Key fields returned by note endpoints:
 | `linked_by_id` | string | Note ID that contains the link |
 | `linking_to_id` | string | Note ID being linked to |
 | `title` | string | Link anchor text |
+
+### AttachmentInfo
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Hub UUID (use for `GET /api/attachments/{id}` download) |
+| `type` | string | `file`, `image`, or `video` |
+| `filename` | string | Original filename |
+| `file_size` | int | File size in bytes |
+| `width` | int | Image/video width in pixels |
+| `height` | int | Image/video height in pixels |
 
 ### WriteQueueItem (returned by write operations)
 
@@ -95,6 +107,9 @@ Key fields returned by note endpoints:
     "todo_incompleted": 3,
     "tags": [
       {"id": "f1e2d3c4-b5a6-7890-fedc-ba0987654321", "title": "work/meetings"}
+    ],
+    "attachments": [
+      {"id": "d4e5f6a7-b8c9-0123-4567-890abcdef012", "type": "image", "filename": "photo.jpg", "file_size": 245760, "width": 1920, "height": 1080}
     ]
   }
 ]
@@ -145,7 +160,7 @@ curl -s -H "Authorization: Bearer $SALMON_CONSUMER_TOKEN" \
   "$SALMON_HUB_URL/api/notes/NOTE_ID" | jq
 ```
 
-Returns the full note with `body`, `tags`, and `backlinks`.
+Returns the full note with `body`, `tags`, `attachments`, and `backlinks`.
 
 ### Search notes
 
@@ -158,6 +173,8 @@ Parameters:
 - `q` (required) — full-text search query
 - `tag` — filter by tag name
 - `limit` — max results (default 20, max 200)
+
+Search results include the full note `body` (unlike list responses where body is omitted).
 
 ### Create note
 

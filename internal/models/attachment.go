@@ -50,3 +50,39 @@ type Attachment struct {
 
 	BearRaw string `json:"bear_raw,omitempty"`
 }
+
+// AttachmentInfo is a slim representation of Attachment for consumer API responses.
+type AttachmentInfo struct {
+	ID       string `json:"id"`
+	Type     string `json:"type"`
+	Filename string `json:"filename,omitempty"`
+	FileSize int64  `json:"file_size,omitempty"`
+	Width    int    `json:"width,omitempty"`
+	Height   int    `json:"height,omitempty"`
+}
+
+// ToInfo converts an Attachment to its slim consumer API representation.
+func (a *Attachment) ToInfo() AttachmentInfo {
+	return AttachmentInfo{
+		ID:       a.ID,
+		Type:     a.Type,
+		Filename: a.Filename,
+		FileSize: a.FileSize,
+		Width:    a.Width,
+		Height:   a.Height,
+	}
+}
+
+// AttachmentsToInfo converts a slice of Attachments to AttachmentInfo.
+func AttachmentsToInfo(attachments []Attachment) []AttachmentInfo {
+	if len(attachments) == 0 {
+		return nil
+	}
+
+	infos := make([]AttachmentInfo, len(attachments))
+	for i := range attachments {
+		infos[i] = attachments[i].ToInfo()
+	}
+
+	return infos
+}

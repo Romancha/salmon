@@ -28,3 +28,8 @@ type Tag struct {
 
 	BearRaw string `json:"bear_raw,omitempty"`
 }
+
+// StripInternal zeroes out fields that should not appear in consumer API responses.
+func (t *Tag) StripInternal() {
+	t.BearRaw = ""
+}

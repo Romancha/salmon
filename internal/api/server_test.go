@@ -349,6 +349,59 @@ func TestGetNote(t *testing.T) {
 	assert.Equal(t, "full body", result["body"])
 }
 
+func TestGetNote_StripsInternalFields(t *testing.T) {
+	ts, s := setupServer(t)
+
+	require.NoError(t, s.CreateNote(t.Context(), &models.Note{
+		ID: "note-1", Title: "Test Note", Body: "body", SyncStatus: "synced",
+		BearRaw: `{"raw":"data"}`, EncryptedData: []byte("secret"), HubModifiedAt: "2025-01-01T00:00:00Z",
+	}))
+
+	// Add tag with BearRaw via sync push.
+	require.NoError(t, s.CreateTag(t.Context(), &models.Tag{ID: "t1", Title: "work", BearRaw: "tag-raw"}))
+
+	_, err := s.DB().ExecContext(t.Context(), "INSERT INTO note_tags (note_id, tag_id) VALUES (?, ?)", "note-1", "t1")
+	require.NoError(t, err)
+
+	resp := doRequest(t, ts, http.MethodGet, "/api/notes/note-1", nil, consumerToken, nil)
+
+	result := readBody(t, resp)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Equal(t, "Test Note", result["title"])
+
+	// Internal fields must be absent.
+	assert.Nil(t, result["bear_raw"], "bear_raw should not be exposed")
+	assert.Nil(t, result["encrypted_data"], "encrypted_data should not be exposed")
+	assert.Nil(t, result["hub_modified_at"], "hub_modified_at should not be exposed")
+
+	// Tags should also have bear_raw stripped.
+	tags, ok := result["tags"].([]any)
+	require.True(t, ok)
+	require.Len(t, tags, 1)
+	tag := tags[0].(map[string]any)
+	assert.Nil(t, tag["bear_raw"], "tag bear_raw should not be exposed")
+
+	// sync_status and bear_id should still be present.
+	assert.Equal(t, "synced", result["sync_status"])
+}
+
+func TestListNotes_StripsInternalFields(t *testing.T) {
+	ts, s := setupServer(t)
+
+	require.NoError(t, s.CreateNote(t.Context(), &models.Note{
+		ID: "note-1", Title: "Note", Body: "body",
+		BearRaw: `{"raw":"data"}`, HubModifiedAt: "2025-01-01T00:00:00Z",
+	}))
+
+	resp := doRequest(t, ts, http.MethodGet, "/api/notes", nil, consumerToken, nil)
+
+	result := readBodySlice(t, resp)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Len(t, result, 1)
+	assert.Nil(t, result[0]["bear_raw"], "bear_raw should not be exposed in list")
+	assert.Nil(t, result[0]["hub_modified_at"], "hub_modified_at should not be exposed in list")
+}
+
 func TestGetNote_NotFound(t *testing.T) {
 	ts, _ := setupServer(t)
 
@@ -374,6 +427,70 @@ func TestSearchNotes(t *testing.T) {
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Len(t, result, 1)
 	assert.Equal(t, "Golang Tutorial", result[0]["title"])
+}
+
+func TestGetNote_WithAttachments(t *testing.T) {
+	ts, s := setupServer(t)
+
+	require.NoError(t, s.CreateNote(t.Context(), &models.Note{
+		ID: "note-1", Title: "Note with file", Body: "body", SyncStatus: "synced",
+	}))
+
+	bearID := "bear-att-api"
+	require.NoError(t, s.ProcessSyncPush(t.Context(), models.SyncPushRequest{
+		Attachments: []models.Attachment{
+			{ID: "att-1", BearID: &bearID, NoteID: "note-1", Type: "image", Filename: "photo.jpg", FileSize: 1024, Width: 640, Height: 480},
+		},
+	}))
+
+	resp := doRequest(t, ts, http.MethodGet, "/api/notes/note-1", nil, consumerToken, nil)
+
+	result := readBody(t, resp)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	attachments, ok := result["attachments"].([]any)
+	require.True(t, ok, "attachments should be an array")
+	require.Len(t, attachments, 1)
+
+	att := attachments[0].(map[string]any)
+	assert.Equal(t, "att-1", att["id"])
+	assert.Equal(t, "image", att["type"])
+	assert.Equal(t, "photo.jpg", att["filename"])
+	assert.Equal(t, float64(1024), att["file_size"])
+	assert.Equal(t, float64(640), att["width"])
+	assert.Equal(t, float64(480), att["height"])
+	assert.Nil(t, att["bear_raw"], "internal fields should not be exposed")
+	assert.Nil(t, att["file_path"], "internal fields should not be exposed")
+	assert.Nil(t, att["note_id"], "note_id should not be in attachment info")
+}
+
+func TestListNotes_WithAttachments(t *testing.T) {
+	ts, s := setupServer(t)
+
+	require.NoError(t, s.CreateNote(t.Context(), &models.Note{
+		ID: "note-1", Title: "Note", Body: "body", SyncStatus: "synced",
+	}))
+
+	bearID := "bear-att-list-api"
+	require.NoError(t, s.ProcessSyncPush(t.Context(), models.SyncPushRequest{
+		Attachments: []models.Attachment{
+			{ID: "att-1", BearID: &bearID, NoteID: "note-1", Type: "file", Filename: "doc.pdf", FileSize: 2048},
+		},
+	}))
+
+	resp := doRequest(t, ts, http.MethodGet, "/api/notes", nil, consumerToken, nil)
+
+	result := readBodySlice(t, resp)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Len(t, result, 1)
+
+	attachments, ok := result[0]["attachments"].([]any)
+	require.True(t, ok, "attachments should be present in list response")
+	require.Len(t, attachments, 1)
+
+	att := attachments[0].(map[string]any)
+	assert.Equal(t, "att-1", att["id"])
+	assert.Equal(t, "file", att["type"])
 }
 
 func TestSearchNotes_MissingQuery(t *testing.T) {
@@ -638,6 +755,22 @@ func TestListTags_WithData(t *testing.T) {
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Len(t, result, 1)
 	assert.Equal(t, "go/programming", result[0]["title"])
+}
+
+func TestListTags_StripsInternalFields(t *testing.T) {
+	ts, s := setupServer(t)
+
+	require.NoError(t, s.CreateTag(t.Context(), &models.Tag{
+		ID: "tag-1", Title: "work", BearRaw: `{"raw":"tag-data"}`,
+	}))
+
+	resp := doRequest(t, ts, http.MethodGet, "/api/tags", nil, consumerToken, nil)
+
+	result := readBodySlice(t, resp)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Len(t, result, 1)
+	assert.Equal(t, "work", result[0]["title"])
+	assert.Nil(t, result[0]["bear_raw"], "bear_raw should not be exposed")
 }
 
 func TestAddTag(t *testing.T) {

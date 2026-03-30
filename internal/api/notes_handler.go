@@ -93,9 +93,10 @@ func (s *Server) listNotes(w http.ResponseWriter, r *http.Request) {
 		notes = []models.Note{}
 	}
 
-	// Strip body from list response.
+	// Strip body and internal fields from list response.
 	for i := range notes {
 		notes[i].Body = ""
+		notes[i].StripInternal()
 	}
 
 	writeJSON(w, http.StatusOK, notes)
@@ -146,12 +147,16 @@ func (s *Server) searchNotes(w http.ResponseWriter, r *http.Request) {
 		notes = []models.Note{}
 	}
 
+	for i := range notes {
+		notes[i].StripInternal()
+	}
+
 	writeJSON(w, http.StatusOK, notes)
 }
 
 // getNote godoc
 // @Summary Get a note
-// @Description Returns a single note by ID, including body, tags, and backlinks.
+// @Description Returns a single note by ID, including body, tags, attachments, and backlinks.
 // @Tags Notes
 // @Produce json
 // @Param id path string true "Note ID"
@@ -175,6 +180,8 @@ func (s *Server) getNote(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "note not found")
 		return
 	}
+
+	note.StripInternal()
 
 	writeJSON(w, http.StatusOK, note)
 }
@@ -223,6 +230,7 @@ func (s *Server) createNote(w http.ResponseWriter, r *http.Request) {
 		if isRetryableQueueItem(existing, err) {
 			note, _ := s.store.GetNote(r.Context(), existing.NoteID) //nolint:errcheck // best-effort lookup
 			if note != nil {
+				note.StripInternal()
 				writeJSON(w, http.StatusCreated, note)
 			} else {
 				// Queue item exists but note lookup failed — still return success to avoid duplicates.
@@ -281,12 +289,15 @@ func (s *Server) createNote(w http.ResponseWriter, r *http.Request) {
 		}
 		existingNote, _ := s.store.GetNote(r.Context(), queueItem.NoteID) //nolint:errcheck // best-effort lookup
 		if existingNote != nil {
+			existingNote.StripInternal()
 			writeJSON(w, http.StatusCreated, existingNote)
 		} else {
 			writeJSON(w, http.StatusCreated, map[string]string{"id": queueItem.NoteID, "status": "accepted"})
 		}
 		return
 	}
+
+	note.StripInternal()
 
 	writeJSON(w, http.StatusCreated, note)
 }
@@ -357,6 +368,7 @@ func (s *Server) updateNote(w http.ResponseWriter, r *http.Request) {
 	if idempotencyKey != "" {
 		existing, err := s.store.GetQueueItemByIdempotencyKey(r.Context(), idempotencyKey, consumerID)
 		if isRetryableQueueItem(existing, err) {
+			note.StripInternal()
 			writeJSON(w, http.StatusOK, note)
 			return
 		}
@@ -428,6 +440,8 @@ func (s *Server) updateNote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	note.StripInternal()
+
 	writeJSON(w, http.StatusOK, note)
 }
 
@@ -483,6 +497,7 @@ func (s *Server) trashNote(w http.ResponseWriter, r *http.Request) {
 	if idempotencyKey != "" {
 		existing, err := s.store.GetQueueItemByIdempotencyKey(r.Context(), idempotencyKey, consumerID)
 		if isRetryableQueueItem(existing, err) {
+			note.StripInternal()
 			writeJSON(w, http.StatusOK, note)
 			return
 		}
@@ -533,6 +548,8 @@ func (s *Server) trashNote(w http.ResponseWriter, r *http.Request) {
 		writeInternalError(w, "failed to enqueue write", err)
 		return
 	}
+
+	note.StripInternal()
 
 	writeJSON(w, http.StatusOK, note)
 }
@@ -587,6 +604,7 @@ func (s *Server) archiveNote(w http.ResponseWriter, r *http.Request) {
 	if idempotencyKey != "" {
 		existing, err := s.store.GetQueueItemByIdempotencyKey(r.Context(), idempotencyKey, consumerID)
 		if isRetryableQueueItem(existing, err) {
+			note.StripInternal()
 			writeJSON(w, http.StatusOK, note)
 			return
 		}
@@ -633,6 +651,8 @@ func (s *Server) archiveNote(w http.ResponseWriter, r *http.Request) {
 		writeInternalError(w, "failed to enqueue write", err)
 		return
 	}
+
+	note.StripInternal()
 
 	writeJSON(w, http.StatusOK, note)
 }
@@ -834,6 +854,8 @@ func (s *Server) handleCreateUpdateCoalesce(
 		writeInternalError(w, "failed to update note", err)
 		return
 	}
+
+	note.StripInternal()
 
 	writeJSON(w, http.StatusOK, note)
 }

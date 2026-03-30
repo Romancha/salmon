@@ -1094,7 +1094,7 @@ func TestStore_Persistence(t *testing.T) {
 
 // --- Note with tags loaded ---
 
-func TestGetNote_WithTagsAndBacklinks(t *testing.T) {
+func TestGetNote_WithTagsBacklinksAndAttachments(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()
 
@@ -1105,9 +1105,13 @@ func TestGetNote_WithTagsAndBacklinks(t *testing.T) {
 	_, err := s.DB().ExecContext(ctx, "INSERT INTO note_tags (note_id, tag_id) VALUES (?, ?)", "n1", "t1")
 	require.NoError(t, err)
 
+	bearID := "bear-att-1"
 	req := models.SyncPushRequest{
 		Backlinks: []models.Backlink{
 			{ID: "bl1", LinkedByID: "n2", LinkingToID: "n1", Title: "ref"},
+		},
+		Attachments: []models.Attachment{
+			{ID: "att1", BearID: &bearID, NoteID: "n1", Type: "image", Filename: "photo.jpg", FileSize: 2048, Width: 800, Height: 600},
 		},
 	}
 	require.NoError(t, s.ProcessSyncPush(ctx, req))
@@ -1118,6 +1122,72 @@ func TestGetNote_WithTagsAndBacklinks(t *testing.T) {
 	assert.Equal(t, "work", got.Tags[0].Title)
 	require.Len(t, got.Backlinks, 1)
 	assert.Equal(t, "n2", got.Backlinks[0].LinkedByID)
+	require.Len(t, got.Attachments, 1)
+	assert.Equal(t, "att1", got.Attachments[0].ID)
+	assert.Equal(t, "image", got.Attachments[0].Type)
+	assert.Equal(t, "photo.jpg", got.Attachments[0].Filename)
+	assert.Equal(t, int64(2048), got.Attachments[0].FileSize)
+	assert.Equal(t, 800, got.Attachments[0].Width)
+	assert.Equal(t, 600, got.Attachments[0].Height)
+}
+
+func TestListNotes_WithAttachments(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	require.NoError(t, s.CreateNote(ctx, &models.Note{ID: "n1", Title: "Note with image", SyncStatus: "synced"}))
+	require.NoError(t, s.CreateNote(ctx, &models.Note{ID: "n2", Title: "Note without attachments", SyncStatus: "synced"}))
+
+	bearID := "bear-att-list"
+	req := models.SyncPushRequest{
+		Attachments: []models.Attachment{
+			{ID: "att1", BearID: &bearID, NoteID: "n1", Type: "image", Filename: "pic.png", FileSize: 512},
+		},
+	}
+	require.NoError(t, s.ProcessSyncPush(ctx, req))
+
+	notes, err := s.ListNotes(ctx, store.NoteFilter{Limit: 50})
+	require.NoError(t, err)
+	require.Len(t, notes, 2)
+
+	var withAtt, withoutAtt models.Note
+	for _, n := range notes {
+		if n.ID == "n1" {
+			withAtt = n
+		} else {
+			withoutAtt = n
+		}
+	}
+
+	require.Len(t, withAtt.Attachments, 1)
+	assert.Equal(t, "att1", withAtt.Attachments[0].ID)
+	assert.Equal(t, "image", withAtt.Attachments[0].Type)
+	assert.Empty(t, withoutAtt.Attachments)
+}
+
+func TestSearchNotes_WithAttachments(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	require.NoError(t, s.CreateNote(ctx, &models.Note{
+		ID: "n1", Title: "Searchable Note", Body: "unique keyword here", SyncStatus: "synced",
+	}))
+
+	bearID := "bear-att-search"
+	req := models.SyncPushRequest{
+		Attachments: []models.Attachment{
+			{ID: "att1", BearID: &bearID, NoteID: "n1", Type: "file", Filename: "doc.pdf", FileSize: 4096},
+		},
+	}
+	require.NoError(t, s.ProcessSyncPush(ctx, req))
+
+	results, err := s.SearchNotes(ctx, "unique keyword", "", 10)
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+	require.Len(t, results[0].Attachments, 1)
+	assert.Equal(t, "att1", results[0].Attachments[0].ID)
+	assert.Equal(t, "file", results[0].Attachments[0].Type)
+	assert.Equal(t, "doc.pdf", results[0].Attachments[0].Filename)
 }
 
 // --- Conflict Detection ---
@@ -2395,8 +2465,10 @@ func TestAcceptance_CreateThenUpdate_NoFalseConflict(t *testing.T) {
 	bearID := "bear-created-uuid"
 	bearModifiedAt := "2025-06-15T10:00:05Z"
 	require.NoError(t, s.AckQueueItems(ctx, []models.SyncAckItem{
-		{QueueID: createItem.ID, IdempotencyKey: "key-create", Status: "applied",
-			BearID: bearID, BearModifiedAt: bearModifiedAt},
+		{
+			QueueID: createItem.ID, IdempotencyKey: "key-create", Status: "applied",
+			BearID: bearID, BearModifiedAt: bearModifiedAt,
+		},
 	}))
 
 	// Verify: note is synced with bear_id and expected_bear_modified_at preserved.
@@ -2479,8 +2551,10 @@ func TestAcceptance_CreateAck_SetsSnapshotWhenOtherPending(t *testing.T) {
 	// Ack create with BearID. add_tag is still processing → otherPending > 0.
 	bearID := "bear-tagged-note"
 	require.NoError(t, s.AckQueueItems(ctx, []models.SyncAckItem{
-		{QueueID: createItem.ID, IdempotencyKey: "key-c", Status: "applied",
-			BearID: bearID, BearModifiedAt: "2025-06-15T10:00:05Z"},
+		{
+			QueueID: createItem.ID, IdempotencyKey: "key-c", Status: "applied",
+			BearID: bearID, BearModifiedAt: "2025-06-15T10:00:05Z",
+		},
 	}))
 
 	// Verify: pending_bear_* are set (not NULL) and reflect the hub's current title/body.

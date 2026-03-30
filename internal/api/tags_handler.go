@@ -31,6 +31,10 @@ func (s *Server) listTags(w http.ResponseWriter, r *http.Request) {
 		tags = []models.Tag{}
 	}
 
+	for i := range tags {
+		tags[i].StripInternal()
+	}
+
 	writeJSON(w, http.StatusOK, tags)
 }
 

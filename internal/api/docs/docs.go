@@ -326,7 +326,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Returns a single note by ID, including body, tags, and backlinks.",
+                "description": "Returns a single note by ID, including body, tags, attachments, and backlinks.",
                 "produces": [
                     "application/json"
                 ],
@@ -1201,6 +1201,29 @@ const docTemplate = `{
                 }
             }
         },
+        "models.AttachmentInfo": {
+            "type": "object",
+            "properties": {
+                "file_size": {
+                    "type": "integer"
+                },
+                "filename": {
+                    "type": "string"
+                },
+                "height": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "width": {
+                    "type": "integer"
+                }
+            }
+        },
         "models.Backlink": {
             "type": "object",
             "properties": {
@@ -1244,6 +1267,12 @@ const docTemplate = `{
                 },
                 "archived_at": {
                     "type": "string"
+                },
+                "attachments": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.AttachmentInfo"
+                    }
                 },
                 "backlinks": {
                     "type": "array",
@@ -1471,6 +1500,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "processing_by": {
+                    "type": "string"
+                },
+                "secondary_idempotency_key": {
                     "type": "string"
                 },
                 "status": {
