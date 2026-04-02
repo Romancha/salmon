@@ -80,7 +80,7 @@ func handleSearchNotes(ctx context.Context, c *Client, input SearchNotesInput) (
 }
 
 func handleGetNote(ctx context.Context, c *Client, input GetNoteInput) (*mcp.CallToolResult, GetNoteOutput, error) {
-	data, err := c.get(ctx, "/api/notes/"+input.ID, nil)
+	data, err := c.get(ctx, "/api/notes/"+url.PathEscape(input.ID), nil)
 	if err != nil {
 		return nil, GetNoteOutput{}, err
 	}
@@ -175,7 +175,7 @@ func handleListTags(ctx context.Context, c *Client, _ ListTagsInput) (*mcp.CallT
 }
 
 func handleGetAttachment(ctx context.Context, c *Client, input GetAttachmentInput) (*mcp.CallToolResult, GetAttachmentOutput, error) {
-	resp, err := c.getRaw(ctx, "/api/attachments/"+input.ID)
+	resp, err := c.getRaw(ctx, "/api/attachments/"+url.PathEscape(input.ID))
 	if err != nil {
 		return nil, GetAttachmentOutput{}, err
 	}
@@ -207,7 +207,7 @@ func handleSyncStatus(ctx context.Context, c *Client, _ SyncStatusInput) (*mcp.C
 func handleListBacklinks(
 	ctx context.Context, c *Client, input ListBacklinksInput,
 ) (*mcp.CallToolResult, ListBacklinksOutput, error) {
-	data, err := c.get(ctx, "/api/notes/"+input.NoteID+"/backlinks", nil)
+	data, err := c.get(ctx, "/api/notes/"+url.PathEscape(input.NoteID)+"/backlinks", nil)
 	if err != nil {
 		return nil, ListBacklinksOutput{}, err
 	}
@@ -317,7 +317,7 @@ func handleUpdateNote(
 		body["title"] = input.Title
 	}
 
-	data, err := c.putJSON(ctx, "/api/notes/"+input.ID, body)
+	data, err := c.putJSON(ctx, "/api/notes/"+url.PathEscape(input.ID), body)
 	if err != nil {
 		return nil, UpdateNoteOutput{}, err
 	}
@@ -333,7 +333,7 @@ func handleUpdateNote(
 func handleTrashNote(
 	ctx context.Context, c *Client, input TrashNoteInput,
 ) (*mcp.CallToolResult, TrashNoteOutput, error) {
-	data, err := c.delete(ctx, "/api/notes/"+input.ID)
+	data, err := c.delete(ctx, "/api/notes/"+url.PathEscape(input.ID))
 	if err != nil {
 		return nil, TrashNoteOutput{}, err
 	}
@@ -349,7 +349,7 @@ func handleTrashNote(
 func handleArchiveNote(
 	ctx context.Context, c *Client, input ArchiveNoteInput,
 ) (*mcp.CallToolResult, ArchiveNoteOutput, error) {
-	data, err := c.postJSON(ctx, "/api/notes/"+input.ID+"/archive", struct{}{})
+	data, err := c.postJSON(ctx, "/api/notes/"+url.PathEscape(input.ID)+"/archive", struct{}{})
 	if err != nil {
 		return nil, ArchiveNoteOutput{}, err
 	}
@@ -367,7 +367,7 @@ func handleAddTag(
 ) (*mcp.CallToolResult, AddTagOutput, error) {
 	body := map[string]string{"tag": input.Tag}
 
-	data, err := c.postJSON(ctx, "/api/notes/"+input.NoteID+"/tags", body)
+	data, err := c.postJSON(ctx, "/api/notes/"+url.PathEscape(input.NoteID)+"/tags", body)
 	if err != nil {
 		return nil, AddTagOutput{}, err
 	}
@@ -385,7 +385,7 @@ func handleRenameTag(
 ) (*mcp.CallToolResult, RenameTagOutput, error) {
 	body := map[string]string{"new_name": input.NewName}
 
-	data, err := c.putJSON(ctx, "/api/tags/"+input.ID, body)
+	data, err := c.putJSON(ctx, "/api/tags/"+url.PathEscape(input.ID), body)
 	if err != nil {
 		return nil, RenameTagOutput{}, err
 	}
@@ -401,7 +401,7 @@ func handleRenameTag(
 func handleDeleteTag(
 	ctx context.Context, c *Client, input DeleteTagInput,
 ) (*mcp.CallToolResult, DeleteTagOutput, error) {
-	data, err := c.delete(ctx, "/api/tags/"+input.ID)
+	data, err := c.delete(ctx, "/api/tags/"+url.PathEscape(input.ID))
 	if err != nil {
 		return nil, DeleteTagOutput{}, err
 	}
