@@ -116,10 +116,10 @@ MCP (Model Context Protocol) server for the Salmon Hub API. Allows AI assistants
 
 ### Task 8: Update documentation
 
-- [ ] update `README.md` — add "MCP Server" section: what it is, build, configure, connect to clients (Claude Code, OpenClaw)
-- [ ] add MCP server config examples: `.claude/mcp.json` for Claude Code, `openclaw.json` for OpenClaw
-- [ ] update `CLAUDE.md` — add `cmd/mcp/` and `internal/mcp/` to project structure, add `make build-mcp` to commands
-- [ ] update `tools/consumer/openclaw/bear-salmon-notes/README.md` — mention MCP server as preferred alternative
+- [x] update `README.md` — add "MCP Server" section: what it is, build, configure, connect to clients (Claude Code, OpenClaw)
+- [x] add MCP server config examples: `.claude/mcp.json` for Claude Code, `openclaw.json` for OpenClaw
+- [x] update `CLAUDE.md` — add `cmd/mcp/` and `internal/mcp/` to project structure, add `make build-mcp` to commands
+- [x] update `tools/consumer/openclaw/bear-salmon-notes/README.md` — mention MCP server as preferred alternative
 
 ## Technical Details
 

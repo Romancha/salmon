@@ -1,5 +1,7 @@
 # bear-salmon-notes — OpenClaw Skill
 
+> **Prefer the MCP server.** The `salmon-mcp` binary provides the same functionality as a proper MCP tool integration — no shell commands, no approval prompts. See the [MCP Server section](../../../../README.md#mcp-server) in the main README for setup. This skill remains available as a curl-based alternative.
+
 OpenClaw skill for interacting with [Bear](https://bear.app) notes through the [Salmon Hub](https://github.com/romancha/salmon) consumer API.
 
 ## Prerequisites

@@ -99,7 +99,7 @@ All mutating consumer endpoints require an `Idempotency-Key` header. Encrypted n
 make build
 ```
 
-Binaries are placed in `bin/salmon-hub`, `bin/salmon-run`, `bin/bear-xcall.app`, and `bin/SalmonRun.app` (macOS only).
+Binaries are placed in `bin/salmon-hub`, `bin/salmon-run`, `bin/salmon-mcp`, `bin/bear-xcall.app`, and `bin/SalmonRun.app` (macOS only).
 
 ## Hub Setup
 
@@ -306,6 +306,86 @@ make swagger
 
 For a quick start guide with curl examples and integration details, see [docs/consumer-api.md](docs/consumer-api.md).
 
+## MCP Server
+
+The MCP (Model Context Protocol) server allows AI assistants like Claude Code, Cursor, and OpenClaw to interact with Bear notes natively — without shell commands or manual API calls.
+
+The server exposes all 13 consumer API operations as MCP tools over stdio transport.
+
+### Build
+
+```
+make build-mcp
+```
+
+Or build everything (includes MCP server):
+
+```
+make build
+```
+
+### Environment Variables
+
+| Variable | Required | Description |
+|---|---|---|
+| `SALMON_HUB_URL` | Yes | Hub API URL (e.g. `https://salmon.example.com`) |
+| `SALMON_CONSUMER_TOKEN` | Yes | Consumer Bearer token |
+
+### Claude Code
+
+Add to `.claude/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "salmon": {
+      "command": "/path/to/salmon-mcp",
+      "env": {
+        "SALMON_HUB_URL": "https://salmon.example.com",
+        "SALMON_CONSUMER_TOKEN": "your-token"
+      }
+    }
+  }
+}
+```
+
+### OpenClaw
+
+Add to your `openclaw.json` (or use the [OpenClaw skill](tools/consumer/openclaw/bear-salmon-notes/) for a curl-based alternative):
+
+```json
+{
+  "mcpServers": {
+    "salmon": {
+      "command": "/path/to/salmon-mcp",
+      "env": {
+        "SALMON_HUB_URL": "https://salmon.example.com",
+        "SALMON_CONSUMER_TOKEN": "your-token"
+      }
+    }
+  }
+}
+```
+
+### Available Tools
+
+| Tool | Description |
+|---|---|
+| `search_notes` | Full-text search across notes |
+| `get_note` | Get a note by ID (includes tags, attachments, backlinks) |
+| `list_notes` | List notes with optional filters |
+| `list_tags` | List all tags |
+| `get_attachment` | Get attachment content (base64) |
+| `sync_status` | Get sync status metadata |
+| `list_backlinks` | List backlinks for a note |
+| `create_note` | Create a new note |
+| `update_note` | Update note title/body |
+| `trash_note` | Move a note to trash |
+| `archive_note` | Archive a note |
+| `add_tag` | Add a tag to a note |
+| `rename_tag` | Rename a tag |
+| `delete_tag` | Delete a tag |
+
 ## Development
 
 ```
@@ -313,6 +393,7 @@ make test          # run all tests
 make test-race     # run tests with race detector
 make test-xcall    # run bear-xcall manual tests (macOS + Bear)
 make test-app      # run SalmonRun Swift tests (macOS only)
+make build-mcp     # build salmon-mcp binary
 make build-xcall   # build bear-xcall .app bundle (macOS only)
 make build-app     # build SalmonRun.app menu bar app (macOS only)
 make lint          # run golangci-lint

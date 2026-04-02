@@ -6,6 +6,7 @@ Monorepo with two Go binaries for syncing Bear notes with external consumers.
 
 - cmd/hub/ — API server (runs on VPS)
 - cmd/bridge/ — Mac agent that reads Bear SQLite and syncs with hub
+- cmd/mcp/ — MCP server for AI assistant integration (stdio transport)
 - internal/models/ — shared data models (Note, Tag, Attachment, Backlink, WriteQueueItem)
 - internal/mapper/ — Bear SQLite → Hub model mapping
 - internal/beardb/ — Bear SQLite reader (bridge only)
@@ -14,6 +15,7 @@ Monorepo with two Go binaries for syncing Bear notes with external consumers.
 - internal/api/ — HTTP handlers with chi router (hub only); Swagger UI at /api/docs/
 - internal/api/docs/ — generated OpenAPI spec (swag init, committed to repo)
 - internal/xcallback/ — Bear x-callback-url executor via bear-xcall CLI (bridge only)
+- internal/mcp/ — MCP server tools and HTTP client (mcp only)
 - internal/ipc/ — Unix socket IPC server for daemon mode (bridge only)
 - tools/bear-xcall/ — Swift CLI source for bear-xcall .app bundle (macOS only, bridge dependency)
 - tools/salmon-run-app/ — SwiftUI menu bar app (macOS 14+, Xcode project, wraps bridge daemon)
@@ -24,7 +26,8 @@ Monorepo with two Go binaries for syncing Bear notes with external consumers.
 
 ## Commands
 
-- make build — build both binaries to bin/ (accepts VERSION=vX.Y.Z for bridge version injection, default: dev)
+- make build — build all binaries to bin/ (accepts VERSION=vX.Y.Z for bridge version injection, default: dev)
+- make build-mcp — build salmon-mcp binary
 - make test — run all tests
 - make test-coverage — run tests with coverage report
 - make test-race — run tests with race detector
