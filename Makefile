@@ -1,7 +1,8 @@
-.PHONY: build build-xcall build-app test test-coverage test-race test-xcall test-app lint fmt tidy clean generate tools swagger help all dmg
+.PHONY: build build-mcp build-xcall build-app test test-coverage test-race test-xcall test-app lint fmt tidy clean generate tools swagger help all dmg
 
 BINARY_HUB=salmon-hub
 BINARY_BRIDGE=salmon-run
+BINARY_MCP=salmon-mcp
 
 # Version for ldflags injection (default: dev, override with make build VERSION=v1.0.0)
 VERSION ?= dev
@@ -33,6 +34,7 @@ help:
 	@echo ""
 	@echo "  Build:"
 	@echo "    make build          - Build all binaries to bin/ (includes bear-xcall on macOS)"
+	@echo "    make build-mcp      - Build salmon-mcp MCP server binary"
 	@echo "    make build-xcall    - Build bear-xcall Swift CLI .app bundle (macOS only)"
 	@echo "    make build-app      - Build SalmonRun menu bar .app bundle (macOS only)"
 	@echo "    make dmg            - Create SalmonRun .dmg disk image (macOS only)"
@@ -53,10 +55,14 @@ help:
 	@echo "    make swagger        - Generate Swagger docs (swag init)"
 	@echo "    make tools          - Install dev tools"
 
-build: build-xcall
-	@echo "Building $(BINARY_HUB) and $(BINARY_BRIDGE)..."
+build: build-xcall build-mcp
+	@echo "Building $(BINARY_HUB), $(BINARY_BRIDGE), and $(BINARY_MCP)..."
 	go build -o bin/$(BINARY_HUB) ./cmd/hub
 	go build -ldflags "-X main.version=$(VERSION)" -o bin/$(BINARY_BRIDGE) ./cmd/bridge
+
+build-mcp:
+	@echo "Building $(BINARY_MCP)..."
+	go build -o bin/$(BINARY_MCP) ./cmd/mcp
 
 build-xcall:
 ifeq ($(shell uname),Darwin)

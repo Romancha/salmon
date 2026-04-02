@@ -88,13 +88,13 @@ MCP (Model Context Protocol) server for the Salmon Hub API. Allows AI assistants
 
 ### Task 5: Entry point and build
 
-- [ ] create `cmd/mcp/main.go` — read env vars, validate, create client, create MCP server, register tools, `server.Run()` over stdio
-- [ ] fail fast with clear error if `SALMON_HUB_URL` or `SALMON_CONSUMER_TOKEN` is missing
-- [ ] add `build-mcp` target to Makefile: `go build -o bin/salmon-mcp ./cmd/mcp`
-- [ ] add `salmon-mcp` to the main `build` target
-- [ ] write test for env var validation (missing vars → error)
-- [ ] run `make build` — must compile
-- [ ] run `make test` — must pass
+- [x] create `cmd/mcp/main.go` — read env vars, validate, create client, create MCP server, register tools, `server.Run()` over stdio
+- [x] fail fast with clear error if `SALMON_HUB_URL` or `SALMON_CONSUMER_TOKEN` is missing
+- [x] add `build-mcp` target to Makefile: `go build -o bin/salmon-mcp ./cmd/mcp`
+- [x] add `salmon-mcp` to the main `build` target
+- [x] write test for env var validation (missing vars → error)
+- [x] run `make build` — must compile
+- [x] run `make test` — must pass
 
 ### Task 6: CI/CD
 
