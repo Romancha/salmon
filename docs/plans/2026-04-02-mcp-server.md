@@ -47,14 +47,14 @@ MCP (Model Context Protocol) server for the Salmon Hub API. Allows AI assistants
 
 ### Task 1: Project scaffolding and HTTP client
 
-- [ ] add `github.com/modelcontextprotocol/go-sdk` dependency (`go get`)
-- [ ] create `internal/mcp/client.go` — HTTP client struct with `baseURL`, `token`, `http.Client` (30s timeout)
-- [ ] implement helper methods: `get(ctx, path, query) ([]byte, error)`, `postJSON(ctx, path, body) ([]byte, error)`, `putJSON(ctx, path, body) ([]byte, error)`, `delete(ctx, path) ([]byte, error)`
-- [ ] handle HTTP errors: map status codes to descriptive error messages (401 → "invalid token", 404 → "not found", 409 → "conflict/not synced", etc.)
-- [ ] auto-generate `Idempotency-Key` (UUID) for POST/PUT/DELETE requests
-- [ ] create `internal/mcp/types.go` — Input/Output structs for all 13 tools
-- [ ] write tests for HTTP client (`internal/mcp/client_test.go`): success, auth header, error codes, timeout
-- [ ] run `make test` — must pass
+- [x] add `github.com/modelcontextprotocol/go-sdk` dependency (`go get`)
+- [x] create `internal/mcp/client.go` — HTTP client struct with `baseURL`, `token`, `http.Client` (30s timeout)
+- [x] implement helper methods: `get(ctx, path, query) ([]byte, error)`, `postJSON(ctx, path, body) ([]byte, error)`, `putJSON(ctx, path, body) ([]byte, error)`, `delete(ctx, path) ([]byte, error)`
+- [x] handle HTTP errors: map status codes to descriptive error messages (401 → "invalid token", 404 → "not found", 409 → "conflict/not synced", etc.)
+- [x] auto-generate `Idempotency-Key` (UUID) for POST/PUT/DELETE requests
+- [x] create `internal/mcp/types.go` — Input/Output structs for all 13 tools
+- [x] write tests for HTTP client (`internal/mcp/client_test.go`): success, auth header, error codes, timeout
+- [x] run `make test` — must pass
 
 ### Task 2: Read-only tools (notes)
 
