@@ -11,7 +11,11 @@ import (
 	"github.com/romancha/salmon/internal/mcp"
 )
 
+var version = "dev"
+
 func main() {
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, nil)))
+
 	if err := run(); err != nil {
 		slog.Error("fatal error", "error", err)
 		os.Exit(1)
@@ -50,7 +54,7 @@ func run() error {
 
 	server := gomcp.NewServer(&gomcp.Implementation{
 		Name:    "salmon-mcp",
-		Version: "1.0.0",
+		Version: version,
 	}, nil)
 
 	mcp.RegisterTools(server, client)

@@ -62,7 +62,7 @@ build: build-xcall build-mcp
 
 build-mcp:
 	@echo "Building $(BINARY_MCP)..."
-	go build -o bin/$(BINARY_MCP) ./cmd/mcp
+	go build -ldflags "-X main.version=$(VERSION)" -o bin/$(BINARY_MCP) ./cmd/mcp
 
 build-xcall:
 ifeq ($(shell uname),Darwin)
