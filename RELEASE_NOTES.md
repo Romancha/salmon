@@ -1,5 +1,21 @@
 # Release Notes
 
+## Version 0.6.0 — 02 Apr 2026
+
+### 🎉 Major Features
+
+**MCP Server**
+- New `salmon-mcp` binary providing Model Context Protocol (MCP) server for AI assistant integration.
+- All 13 consumer API operations exposed as MCP tools over stdio transport.
+- Works with Claude Code, Cursor, OpenClaw, and any MCP-compatible client.
+- Pre-built binaries for macOS and Linux (arm64 + amd64) published to GitHub Releases.
+
+### 🐞 Fixes
+
+- Fix missing URL path escaping for user-supplied IDs in MCP client requests.
+
+---
+
 ## Version 0.5.0 — 30 Mar 2026
 
 ### 🆕 New
