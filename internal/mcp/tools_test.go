@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -308,6 +309,338 @@ func TestListBacklinks_NoteNotFound(t *testing.T) {
 	})
 
 	_, _, err := handleListBacklinks(context.Background(), c, ListBacklinksInput{NoteID: "missing"})
+	require.Error(t, err)
+	var apiErr *APIError
+	require.ErrorAs(t, err, &apiErr)
+	assert.Equal(t, http.StatusNotFound, apiErr.StatusCode)
+}
+
+// --- Create Note ---
+
+func TestCreateNote_Success(t *testing.T) {
+	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodPost, r.Method)
+		assert.Equal(t, "/api/notes", r.URL.Path)
+		assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
+		assert.NotEmpty(t, r.Header.Get("Idempotency-Key"))
+
+		var body map[string]any
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		assert.Equal(t, "New Note", body["title"])
+		assert.Equal(t, "body text", body["body"])
+		assert.Equal(t, []any{"work", "dev"}, body["tags"])
+
+		w.WriteHeader(http.StatusCreated)
+		w.Write([]byte(`{"id":"new-1","title":"New Note","body":"body text","sync_status":"pending_to_bear"}`))
+	})
+
+	_, out, err := handleCreateNote(context.Background(), c, CreateNoteInput{
+		Title: "New Note",
+		Body:  "body text",
+		Tags:  []string{"work", "dev"},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "new-1", out.ID)
+	assert.Equal(t, "New Note", out.Title)
+	assert.Equal(t, "body text", out.Body)
+}
+
+func TestCreateNote_MinimalParams(t *testing.T) {
+	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		assert.Equal(t, "Title Only", body["title"])
+		assert.Nil(t, body["body"])
+		assert.Nil(t, body["tags"])
+
+		w.WriteHeader(http.StatusCreated)
+		w.Write([]byte(`{"id":"new-2","title":"Title Only"}`))
+	})
+
+	_, out, err := handleCreateNote(context.Background(), c, CreateNoteInput{Title: "Title Only"})
+	require.NoError(t, err)
+	assert.Equal(t, "new-2", out.ID)
+}
+
+func TestCreateNote_APIError(t *testing.T) {
+	c := newTestClient(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte(`{"error":"unauthorized"}`))
+	})
+
+	_, _, err := handleCreateNote(context.Background(), c, CreateNoteInput{Title: "Test"})
+	require.Error(t, err)
+	var apiErr *APIError
+	require.ErrorAs(t, err, &apiErr)
+	assert.Equal(t, http.StatusUnauthorized, apiErr.StatusCode)
+}
+
+// --- Update Note ---
+
+func TestUpdateNote_Success(t *testing.T) {
+	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodPut, r.Method)
+		assert.Equal(t, "/api/notes/note-1", r.URL.Path)
+		assert.NotEmpty(t, r.Header.Get("Idempotency-Key"))
+
+		var body map[string]any
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		assert.Equal(t, "Updated Title", body["title"])
+		assert.Equal(t, "updated body", body["body"])
+
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"id":"note-1","title":"Updated Title","body":"updated body"}`))
+	})
+
+	_, out, err := handleUpdateNote(context.Background(), c, UpdateNoteInput{
+		ID:    "note-1",
+		Title: "Updated Title",
+		Body:  "updated body",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "note-1", out.ID)
+	assert.Equal(t, "Updated Title", out.Title)
+	assert.Equal(t, "updated body", out.Body)
+}
+
+func TestUpdateNote_BodyOnly(t *testing.T) {
+	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		assert.Nil(t, body["title"])
+		assert.Equal(t, "new body", body["body"])
+
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"id":"note-1","body":"new body"}`))
+	})
+
+	_, out, err := handleUpdateNote(context.Background(), c, UpdateNoteInput{ID: "note-1", Body: "new body"})
+	require.NoError(t, err)
+	assert.Equal(t, "note-1", out.ID)
+}
+
+func TestUpdateNote_Forbidden(t *testing.T) {
+	c := newTestClient(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		w.Write([]byte(`{"error":"encrypted notes are read-only"}`))
+	})
+
+	_, _, err := handleUpdateNote(context.Background(), c, UpdateNoteInput{ID: "enc-1", Body: "x"})
+	require.Error(t, err)
+	var apiErr *APIError
+	require.ErrorAs(t, err, &apiErr)
+	assert.Equal(t, http.StatusForbidden, apiErr.StatusCode)
+}
+
+func TestUpdateNote_Conflict(t *testing.T) {
+	c := newTestClient(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusConflict)
+		w.Write([]byte(`{"error":"note not synced to Bear"}`))
+	})
+
+	_, _, err := handleUpdateNote(context.Background(), c, UpdateNoteInput{ID: "unsync-1", Body: "x"})
+	require.Error(t, err)
+	var apiErr *APIError
+	require.ErrorAs(t, err, &apiErr)
+	assert.Equal(t, http.StatusConflict, apiErr.StatusCode)
+}
+
+// --- Trash Note ---
+
+func TestTrashNote_Success(t *testing.T) {
+	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodDelete, r.Method)
+		assert.Equal(t, "/api/notes/note-1", r.URL.Path)
+		assert.NotEmpty(t, r.Header.Get("Idempotency-Key"))
+
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"id":"note-1","title":"Trashed","trashed":1}`))
+	})
+
+	_, out, err := handleTrashNote(context.Background(), c, TrashNoteInput{ID: "note-1"})
+	require.NoError(t, err)
+	assert.Equal(t, "note-1", out.ID)
+	assert.Equal(t, 1, out.Trashed)
+}
+
+func TestTrashNote_Forbidden(t *testing.T) {
+	c := newTestClient(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		w.Write([]byte(`{"error":"encrypted notes are read-only"}`))
+	})
+
+	_, _, err := handleTrashNote(context.Background(), c, TrashNoteInput{ID: "enc-1"})
+	require.Error(t, err)
+	var apiErr *APIError
+	require.ErrorAs(t, err, &apiErr)
+	assert.Equal(t, http.StatusForbidden, apiErr.StatusCode)
+}
+
+func TestTrashNote_Conflict(t *testing.T) {
+	c := newTestClient(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusConflict)
+		w.Write([]byte(`{"error":"note not synced"}`))
+	})
+
+	_, _, err := handleTrashNote(context.Background(), c, TrashNoteInput{ID: "unsync-1"})
+	require.Error(t, err)
+	var apiErr *APIError
+	require.ErrorAs(t, err, &apiErr)
+	assert.Equal(t, http.StatusConflict, apiErr.StatusCode)
+}
+
+// --- Archive Note ---
+
+func TestArchiveNote_Success(t *testing.T) {
+	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodPost, r.Method)
+		assert.Equal(t, "/api/notes/note-1/archive", r.URL.Path)
+		assert.NotEmpty(t, r.Header.Get("Idempotency-Key"))
+
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"id":"note-1","title":"Archived","archived":1}`))
+	})
+
+	_, out, err := handleArchiveNote(context.Background(), c, ArchiveNoteInput{ID: "note-1"})
+	require.NoError(t, err)
+	assert.Equal(t, "note-1", out.ID)
+	assert.Equal(t, 1, out.Archived)
+}
+
+func TestArchiveNote_Forbidden(t *testing.T) {
+	c := newTestClient(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		w.Write([]byte(`{"error":"encrypted notes are read-only"}`))
+	})
+
+	_, _, err := handleArchiveNote(context.Background(), c, ArchiveNoteInput{ID: "enc-1"})
+	require.Error(t, err)
+	var apiErr *APIError
+	require.ErrorAs(t, err, &apiErr)
+	assert.Equal(t, http.StatusForbidden, apiErr.StatusCode)
+}
+
+func TestArchiveNote_Conflict(t *testing.T) {
+	c := newTestClient(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusConflict)
+		w.Write([]byte(`{"error":"note not synced"}`))
+	})
+
+	_, _, err := handleArchiveNote(context.Background(), c, ArchiveNoteInput{ID: "unsync-1"})
+	require.Error(t, err)
+	var apiErr *APIError
+	require.ErrorAs(t, err, &apiErr)
+	assert.Equal(t, http.StatusConflict, apiErr.StatusCode)
+}
+
+// --- Add Tag ---
+
+func TestAddTag_Success(t *testing.T) {
+	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodPost, r.Method)
+		assert.Equal(t, "/api/notes/note-1/tags", r.URL.Path)
+		assert.NotEmpty(t, r.Header.Get("Idempotency-Key"))
+
+		var body map[string]string
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		assert.Equal(t, "work", body["tag"])
+
+		w.WriteHeader(http.StatusCreated)
+		w.Write([]byte(`{"id":1,"action":"add_tag","note_id":"note-1","status":"pending"}`))
+	})
+
+	_, out, err := handleAddTag(context.Background(), c, AddTagInput{NoteID: "note-1", Tag: "work"})
+	require.NoError(t, err)
+	assert.Equal(t, "add_tag", out.Action)
+	assert.Equal(t, "pending", out.Status)
+}
+
+func TestAddTag_Forbidden(t *testing.T) {
+	c := newTestClient(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		w.Write([]byte(`{"error":"encrypted notes are read-only"}`))
+	})
+
+	_, _, err := handleAddTag(context.Background(), c, AddTagInput{NoteID: "enc-1", Tag: "work"})
+	require.Error(t, err)
+	var apiErr *APIError
+	require.ErrorAs(t, err, &apiErr)
+	assert.Equal(t, http.StatusForbidden, apiErr.StatusCode)
+}
+
+func TestAddTag_Conflict(t *testing.T) {
+	c := newTestClient(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusConflict)
+		w.Write([]byte(`{"error":"note not synced"}`))
+	})
+
+	_, _, err := handleAddTag(context.Background(), c, AddTagInput{NoteID: "unsync-1", Tag: "work"})
+	require.Error(t, err)
+	var apiErr *APIError
+	require.ErrorAs(t, err, &apiErr)
+	assert.Equal(t, http.StatusConflict, apiErr.StatusCode)
+}
+
+// --- Rename Tag ---
+
+func TestRenameTag_Success(t *testing.T) {
+	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodPut, r.Method)
+		assert.Equal(t, "/api/tags/tag-1", r.URL.Path)
+		assert.NotEmpty(t, r.Header.Get("Idempotency-Key"))
+
+		var body map[string]string
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		assert.Equal(t, "new-name", body["new_name"])
+
+		w.WriteHeader(http.StatusAccepted)
+		w.Write([]byte(`{"id":2,"action":"rename_tag","status":"pending"}`))
+	})
+
+	_, out, err := handleRenameTag(context.Background(), c, RenameTagInput{ID: "tag-1", NewName: "new-name"})
+	require.NoError(t, err)
+	assert.Equal(t, "rename_tag", out.Action)
+	assert.Equal(t, "pending", out.Status)
+}
+
+func TestRenameTag_NotFound(t *testing.T) {
+	c := newTestClient(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte(`{"error":"tag not found"}`))
+	})
+
+	_, _, err := handleRenameTag(context.Background(), c, RenameTagInput{ID: "missing", NewName: "x"})
+	require.Error(t, err)
+	var apiErr *APIError
+	require.ErrorAs(t, err, &apiErr)
+	assert.Equal(t, http.StatusNotFound, apiErr.StatusCode)
+}
+
+// --- Delete Tag ---
+
+func TestDeleteTag_Success(t *testing.T) {
+	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodDelete, r.Method)
+		assert.Equal(t, "/api/tags/tag-1", r.URL.Path)
+		assert.NotEmpty(t, r.Header.Get("Idempotency-Key"))
+
+		w.WriteHeader(http.StatusAccepted)
+		w.Write([]byte(`{"id":3,"action":"delete_tag","status":"pending"}`))
+	})
+
+	_, out, err := handleDeleteTag(context.Background(), c, DeleteTagInput{ID: "tag-1"})
+	require.NoError(t, err)
+	assert.Equal(t, "delete_tag", out.Action)
+	assert.Equal(t, "pending", out.Status)
+}
+
+func TestDeleteTag_NotFound(t *testing.T) {
+	c := newTestClient(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte(`{"error":"tag not found"}`))
+	})
+
+	_, _, err := handleDeleteTag(context.Background(), c, DeleteTagInput{ID: "missing"})
 	require.Error(t, err)
 	var apiErr *APIError
 	require.ErrorAs(t, err, &apiErr)

@@ -76,15 +76,15 @@ MCP (Model Context Protocol) server for the Salmon Hub API. Allows AI assistants
 
 ### Task 4: Write tools
 
-- [ ] implement `create_note` tool — `POST /api/notes` (title, body, tags)
-- [ ] implement `update_note` tool — `PUT /api/notes/{id}` (title, body)
-- [ ] implement `trash_note` tool — `DELETE /api/notes/{id}`
-- [ ] implement `archive_note` tool — `POST /api/notes/{id}/archive`
-- [ ] implement `add_tag` tool — `POST /api/notes/{id}/tags` (tag name)
-- [ ] implement `rename_tag` tool — `PUT /api/tags/{id}` (new_name)
-- [ ] implement `delete_tag` tool — `DELETE /api/tags/{id}`
-- [ ] write tests for each write tool: success, 403 (encrypted), 409 (conflict)
-- [ ] run `make test` — must pass
+- [x] implement `create_note` tool — `POST /api/notes` (title, body, tags)
+- [x] implement `update_note` tool — `PUT /api/notes/{id}` (title, body)
+- [x] implement `trash_note` tool — `DELETE /api/notes/{id}`
+- [x] implement `archive_note` tool — `POST /api/notes/{id}/archive`
+- [x] implement `add_tag` tool — `POST /api/notes/{id}/tags` (tag name)
+- [x] implement `rename_tag` tool — `PUT /api/tags/{id}` (new_name)
+- [x] implement `delete_tag` tool — `DELETE /api/tags/{id}`
+- [x] write tests for each write tool: success, 403 (encrypted), 409 (conflict)
+- [x] run `make test` — must pass
 
 ### Task 5: Entry point and build
 
