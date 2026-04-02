@@ -260,7 +260,7 @@ func TestParseFilename(t *testing.T) {
 		{"standard", `attachment; filename="photo.png"`, "photo.png"},
 		{"empty", "", ""},
 		{"no filename", "attachment", ""},
-		{"no quotes end", `attachment; filename="photo.png`, "photo.png"},
+		{"no quotes end", `attachment; filename="photo.png`, ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

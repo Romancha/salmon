@@ -279,7 +279,7 @@ func registerRenameTag(s *mcp.Server, c *Client) {
 func registerDeleteTag(s *mcp.Server, c *Client) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "delete_tag",
-		Description: "Delete a tag from all Bear notes",
+		Description: "Remove a tag from all Bear notes (does not delete the notes themselves)",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, input DeleteTagInput) (*mcp.CallToolResult, DeleteTagOutput, error) {
 		return handleDeleteTag(ctx, c, input)
 	})
@@ -349,7 +349,7 @@ func handleTrashNote(
 func handleArchiveNote(
 	ctx context.Context, c *Client, input ArchiveNoteInput,
 ) (*mcp.CallToolResult, ArchiveNoteOutput, error) {
-	data, err := c.postJSON(ctx, "/api/notes/"+input.ID+"/archive", nil)
+	data, err := c.postJSON(ctx, "/api/notes/"+input.ID+"/archive", struct{}{})
 	if err != nil {
 		return nil, ArchiveNoteOutput{}, err
 	}

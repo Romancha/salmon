@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"net/url"
 	"time"
@@ -95,20 +96,11 @@ func parseFilename(disposition string) string {
 	if disposition == "" {
 		return ""
 	}
-	const prefix = `filename="`
-	idx := len(disposition) - 1
-	for i := range len(disposition) - len(prefix) {
-		if disposition[i:i+len(prefix)] == prefix {
-			start := i + len(prefix)
-			for j := start; j <= idx; j++ {
-				if disposition[j] == '"' {
-					return disposition[start:j]
-				}
-			}
-			return disposition[start:]
-		}
+	_, params, err := mime.ParseMediaType(disposition)
+	if err != nil {
+		return ""
 	}
-	return ""
+	return params["filename"]
 }
 
 // postJSON performs a POST request with a JSON body.

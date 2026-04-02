@@ -1,6 +1,6 @@
 # salmon
 
-Monorepo with two Go binaries for syncing Bear notes with external consumers.
+Monorepo with three Go binaries for syncing Bear notes with external consumers.
 
 ## Project Structure
 
