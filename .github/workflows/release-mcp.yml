@@ -1,0 +1,87 @@
+name: Release MCP
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  build:
+    permissions:
+      contents: read
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            goos: darwin
+            goarch: arm64
+          - os: macos-latest
+            goos: darwin
+            goarch: amd64
+          - os: ubuntu-latest
+            goos: linux
+            goarch: arm64
+          - os: ubuntu-latest
+            goos: linux
+            goarch: amd64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+
+      - name: Extract version from tag
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+
+      - name: Build salmon-mcp
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+          BUILD_VERSION: ${{ steps.version.outputs.version }}
+        run: go build -ldflags "-X main.version=$BUILD_VERSION" -o salmon-mcp ./cmd/mcp
+
+      - name: Rename binary
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          BINARY_NAME="salmon-mcp-${VERSION}-${GOOS}-${GOARCH}"
+          mv salmon-mcp "$BINARY_NAME"
+          shasum -a 256 "$BINARY_NAME" > "${BINARY_NAME}.sha256"
+          echo "BINARY_NAME=${BINARY_NAME}" >> "$GITHUB_ENV"
+
+      - name: Upload release assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: mcp-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: |
+            ${{ env.BINARY_NAME }}
+            ${{ env.BINARY_NAME }}.sha256
+          retention-days: 5
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+
+      - name: List release assets
+        run: ls -la salmon-mcp-*
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          files: |
+            salmon-mcp-v*
+            salmon-mcp-v*.sha256

@@ -312,34 +312,80 @@ The MCP (Model Context Protocol) server allows AI assistants like Claude Code, C
 
 The server exposes all 13 consumer API operations as MCP tools over stdio transport.
 
-### Build
+### Install
 
-```
-make build-mcp
+Download the latest release for your platform from [GitHub Releases](https://github.com/Romancha/salmon/releases):
+
+```bash
+# macOS (Apple Silicon)
+curl -fsSL -o salmon-mcp https://github.com/Romancha/salmon/releases/latest/download/salmon-mcp-latest-darwin-arm64
+
+# macOS (Intel)
+curl -fsSL -o salmon-mcp https://github.com/Romancha/salmon/releases/latest/download/salmon-mcp-latest-darwin-amd64
+
+# Linux (arm64)
+curl -fsSL -o salmon-mcp https://github.com/Romancha/salmon/releases/latest/download/salmon-mcp-latest-linux-arm64
+
+# Linux (amd64)
+curl -fsSL -o salmon-mcp https://github.com/Romancha/salmon/releases/latest/download/salmon-mcp-latest-linux-amd64
 ```
 
-Or build everything (includes MCP server):
+Make it executable and move to a directory in your PATH:
 
-```
-make build
+```bash
+chmod +x salmon-mcp
+sudo mv salmon-mcp /usr/local/bin/
 ```
 
-### Environment Variables
+Verify the installation:
+
+```bash
+salmon-mcp --version
+```
+
+> Alternatively, build from source: `make build-mcp` (requires Go 1.26+). The binary will be in `bin/salmon-mcp`.
+
+### Setup
+
+You need two things before configuring an MCP client:
+
+1. **Hub URL** — the address of your running Salmon Hub instance (e.g. `https://salmon.example.com`)
+2. **Consumer token** — a Bearer token configured in the hub's `SALMON_HUB_CONSUMER_TOKENS` env var
 
 | Variable | Required | Description |
 |---|---|---|
-| `SALMON_HUB_URL` | Yes | Hub API URL (e.g. `https://salmon.example.com`) |
+| `SALMON_HUB_URL` | Yes | Hub API URL |
 | `SALMON_CONSUMER_TOKEN` | Yes | Consumer Bearer token |
 
 ### Claude Code
 
-Add to `.claude/mcp.json`:
+Add to `.claude/mcp.json` (project-level) or `~/.claude/mcp.json` (global):
 
 ```json
 {
   "mcpServers": {
     "salmon": {
-      "command": "/path/to/salmon-mcp",
+      "command": "salmon-mcp",
+      "env": {
+        "SALMON_HUB_URL": "https://salmon.example.com",
+        "SALMON_CONSUMER_TOKEN": "your-token"
+      }
+    }
+  }
+}
+```
+
+After saving, restart Claude Code. Tools will appear automatically — no approval prompts needed.
+
+### Cursor
+
+Add to `.cursor/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "salmon": {
+      "command": "salmon-mcp",
       "env": {
         "SALMON_HUB_URL": "https://salmon.example.com",
         "SALMON_CONSUMER_TOKEN": "your-token"
@@ -357,7 +403,7 @@ Add to your `openclaw.json` (or use the [OpenClaw skill](tools/consumer/openclaw
 {
   "mcpServers": {
     "salmon": {
-      "command": "/path/to/salmon-mcp",
+      "command": "salmon-mcp",
       "env": {
         "SALMON_HUB_URL": "https://salmon.example.com",
         "SALMON_CONSUMER_TOKEN": "your-token"
