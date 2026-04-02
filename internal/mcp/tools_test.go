@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"encoding/base64"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -164,6 +165,153 @@ func TestListNotes_APIError(t *testing.T) {
 	var apiErr *APIError
 	require.ErrorAs(t, err, &apiErr)
 	assert.Equal(t, http.StatusInternalServerError, apiErr.StatusCode)
+}
+
+// --- List Tags ---
+
+func TestListTags_Success(t *testing.T) {
+	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/tags", r.URL.Path)
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`[{"id":"tag-1","title":"work"},{"id":"tag-2","title":"personal"}]`))
+	})
+
+	_, out, err := handleListTags(context.Background(), c, ListTagsInput{})
+	require.NoError(t, err)
+	require.Len(t, out.Tags, 2)
+	assert.Equal(t, "tag-1", out.Tags[0].ID)
+	assert.Equal(t, "work", out.Tags[0].Title)
+	assert.Equal(t, "tag-2", out.Tags[1].ID)
+	assert.Equal(t, "personal", out.Tags[1].Title)
+}
+
+func TestListTags_APIError(t *testing.T) {
+	c := newTestClient(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte(`{"error":"unauthorized"}`))
+	})
+
+	_, _, err := handleListTags(context.Background(), c, ListTagsInput{})
+	require.Error(t, err)
+	var apiErr *APIError
+	require.ErrorAs(t, err, &apiErr)
+	assert.Equal(t, http.StatusUnauthorized, apiErr.StatusCode)
+}
+
+// --- Get Attachment ---
+
+func TestGetAttachment_Success(t *testing.T) {
+	fileContent := []byte("hello binary content")
+	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/attachments/att-123", r.URL.Path)
+		w.Header().Set("Content-Disposition", `attachment; filename="photo.png"`)
+		w.Header().Set("Content-Type", "image/png")
+		w.WriteHeader(http.StatusOK)
+		w.Write(fileContent)
+	})
+
+	_, out, err := handleGetAttachment(context.Background(), c, GetAttachmentInput{ID: "att-123"})
+	require.NoError(t, err)
+	assert.Equal(t, "att-123", out.ID)
+	assert.Equal(t, "photo.png", out.Filename)
+	assert.Equal(t, "image/png", out.ContentType)
+
+	decoded, err := base64.StdEncoding.DecodeString(out.Base64)
+	require.NoError(t, err)
+	assert.Equal(t, fileContent, decoded)
+}
+
+func TestGetAttachment_NotFound(t *testing.T) {
+	c := newTestClient(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte(`{"error":"attachment not found"}`))
+	})
+
+	_, _, err := handleGetAttachment(context.Background(), c, GetAttachmentInput{ID: "missing"})
+	require.Error(t, err)
+	var apiErr *APIError
+	require.ErrorAs(t, err, &apiErr)
+	assert.Equal(t, http.StatusNotFound, apiErr.StatusCode)
+}
+
+// --- Sync Status ---
+
+func TestSyncStatus_Success(t *testing.T) {
+	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/sync/status", r.URL.Path)
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{
+			"last_sync_at":"2025-01-15T10:30:00Z",
+			"last_push_at":"2025-01-15T10:25:00Z",
+			"queue_size":3,
+			"initial_sync_complete":"true",
+			"conflict_count":1,
+			"conflict_note_ids":["note-1"]
+		}`))
+	})
+
+	_, out, err := handleSyncStatus(context.Background(), c, SyncStatusInput{})
+	require.NoError(t, err)
+	assert.Equal(t, "2025-01-15T10:30:00Z", out.LastSyncAt)
+	assert.Equal(t, "2025-01-15T10:25:00Z", out.LastPushAt)
+	assert.Equal(t, 3, out.QueueSize)
+	assert.Equal(t, "true", out.InitialSyncComplete)
+	assert.Equal(t, 1, out.ConflictCount)
+	require.Len(t, out.ConflictNoteIDs, 1)
+	assert.Equal(t, "note-1", out.ConflictNoteIDs[0])
+}
+
+func TestSyncStatus_APIError(t *testing.T) {
+	c := newTestClient(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte(`{"error":"unauthorized"}`))
+	})
+
+	_, _, err := handleSyncStatus(context.Background(), c, SyncStatusInput{})
+	require.Error(t, err)
+	var apiErr *APIError
+	require.ErrorAs(t, err, &apiErr)
+	assert.Equal(t, http.StatusUnauthorized, apiErr.StatusCode)
+}
+
+// --- List Backlinks ---
+
+func TestListBacklinks_Success(t *testing.T) {
+	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/notes/note-abc/backlinks", r.URL.Path)
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`[{"id":"bl-1","title":"Linking Note","linked_by_id":"note-xyz","linking_to_id":"note-abc"}]`))
+	})
+
+	_, out, err := handleListBacklinks(context.Background(), c, ListBacklinksInput{NoteID: "note-abc"})
+	require.NoError(t, err)
+	require.Len(t, out.Backlinks, 1)
+	assert.Equal(t, "bl-1", out.Backlinks[0].ID)
+	assert.Equal(t, "Linking Note", out.Backlinks[0].Title)
+}
+
+func TestListBacklinks_Empty(t *testing.T) {
+	c := newTestClient(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`[]`))
+	})
+
+	_, out, err := handleListBacklinks(context.Background(), c, ListBacklinksInput{NoteID: "note-abc"})
+	require.NoError(t, err)
+	assert.Empty(t, out.Backlinks)
+}
+
+func TestListBacklinks_NoteNotFound(t *testing.T) {
+	c := newTestClient(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte(`{"error":"note not found"}`))
+	})
+
+	_, _, err := handleListBacklinks(context.Background(), c, ListBacklinksInput{NoteID: "missing"})
+	require.Error(t, err)
+	var apiErr *APIError
+	require.ErrorAs(t, err, &apiErr)
+	assert.Equal(t, http.StatusNotFound, apiErr.StatusCode)
 }
 
 func TestRegisterTools_AllRegistered(t *testing.T) {

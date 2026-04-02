@@ -46,6 +46,71 @@ func (c *Client) get(ctx context.Context, path string, query url.Values) ([]byte
 	return c.do(req)
 }
 
+// RawResponse holds the body and metadata from a binary HTTP response.
+type RawResponse struct {
+	Body        []byte
+	Filename    string
+	ContentType string
+}
+
+// getRaw performs a GET request and returns the raw response body along with content metadata.
+func (c *Client) getRaw(ctx context.Context, path string) (*RawResponse, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+path, http.NoBody)
+	if err != nil {
+		return nil, fmt.Errorf("creating request: %w", err)
+	}
+
+	req.Header.Set("Authorization", "Bearer "+c.token)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("executing request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("reading response body: %w", err)
+	}
+
+	if resp.StatusCode >= 400 {
+		return nil, &APIError{
+			StatusCode: resp.StatusCode,
+			Message:    parseErrorMessage(resp.StatusCode, data),
+		}
+	}
+
+	filename := parseFilename(resp.Header.Get("Content-Disposition"))
+	contentType := resp.Header.Get("Content-Type")
+
+	return &RawResponse{
+		Body:        data,
+		Filename:    filename,
+		ContentType: contentType,
+	}, nil
+}
+
+// parseFilename extracts the filename from a Content-Disposition header value.
+func parseFilename(disposition string) string {
+	if disposition == "" {
+		return ""
+	}
+	const prefix = `filename="`
+	idx := len(disposition) - 1
+	for i := range len(disposition) - len(prefix) {
+		if disposition[i:i+len(prefix)] == prefix {
+			start := i + len(prefix)
+			for j := start; j <= idx; j++ {
+				if disposition[j] == '"' {
+					return disposition[start:j]
+				}
+			}
+			return disposition[start:]
+		}
+	}
+	return ""
+}
+
 // postJSON performs a POST request with a JSON body.
 func (c *Client) postJSON(ctx context.Context, path string, body any) ([]byte, error) {
 	return c.doJSON(ctx, http.MethodPost, path, body)

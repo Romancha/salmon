@@ -214,3 +214,57 @@ func TestClient_ContextCanceled(t *testing.T) {
 	_, err := c.get(ctx, "/api/test", nil)
 	require.Error(t, err)
 }
+
+func TestClient_GetRaw_Success(t *testing.T) {
+	content := []byte("binary file content")
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodGet, r.Method)
+		assert.Equal(t, "/api/attachments/a1", r.URL.Path)
+		assert.Equal(t, "Bearer test-token", r.Header.Get("Authorization"))
+		w.Header().Set("Content-Disposition", `attachment; filename="doc.pdf"`)
+		w.Header().Set("Content-Type", "application/pdf")
+		w.WriteHeader(http.StatusOK)
+		w.Write(content)
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "test-token")
+	resp, err := c.getRaw(context.Background(), "/api/attachments/a1")
+	require.NoError(t, err)
+	assert.Equal(t, content, resp.Body)
+	assert.Equal(t, "doc.pdf", resp.Filename)
+	assert.Equal(t, "application/pdf", resp.ContentType)
+}
+
+func TestClient_GetRaw_Error(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte(`{"error":"not found"}`))
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "test-token")
+	_, err := c.getRaw(context.Background(), "/api/attachments/missing")
+	require.Error(t, err)
+	var apiErr *APIError
+	require.ErrorAs(t, err, &apiErr)
+	assert.Equal(t, http.StatusNotFound, apiErr.StatusCode)
+}
+
+func TestParseFilename(t *testing.T) {
+	tests := []struct {
+		name        string
+		disposition string
+		want        string
+	}{
+		{"standard", `attachment; filename="photo.png"`, "photo.png"},
+		{"empty", "", ""},
+		{"no filename", "attachment", ""},
+		{"no quotes end", `attachment; filename="photo.png`, "photo.png"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, parseFilename(tt.disposition))
+		})
+	}
+}

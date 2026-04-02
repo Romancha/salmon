@@ -67,12 +67,12 @@ MCP (Model Context Protocol) server for the Salmon Hub API. Allows AI assistants
 
 ### Task 3: Read-only tools (tags, attachments, sync)
 
-- [ ] implement `list_tags` tool — `GET /api/tags`
-- [ ] implement `get_attachment` tool — `GET /api/attachments/{id}` (return base64-encoded content + filename)
-- [ ] implement `sync_status` tool — `GET /api/sync/status`
-- [ ] implement `list_backlinks` tool — `GET /api/notes/{id}/backlinks`
-- [ ] write tests for each tool handler
-- [ ] run `make test` — must pass
+- [x] implement `list_tags` tool — `GET /api/tags`
+- [x] implement `get_attachment` tool — `GET /api/attachments/{id}` (return base64-encoded content + filename)
+- [x] implement `sync_status` tool — `GET /api/sync/status`
+- [x] implement `list_backlinks` tool — `GET /api/notes/{id}/backlinks`
+- [x] write tests for each tool handler
+- [x] run `make test` — must pass
 
 ### Task 4: Write tools
 
