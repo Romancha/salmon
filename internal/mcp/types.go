@@ -6,9 +6,9 @@ import "github.com/romancha/salmon/internal/models"
 
 // SearchNotesInput is the input for the search_notes tool.
 type SearchNotesInput struct {
-	Query string `json:"query" jsonschema:"full-text search query"`
-	Limit int    `json:"limit,omitempty" jsonschema:"max results (default 20, max 200)"`
-	Tag   string `json:"tag,omitempty" jsonschema:"filter by tag name"`
+	Query string `json:"query" jsonschema:"Full-text search query across note titles and bodies"`
+	Limit int    `json:"limit,omitempty" jsonschema:"Max results (default 20, max 200)"`
+	Tag   string `json:"tag,omitempty" jsonschema:"Filter by tag name"`
 }
 
 // SearchNotesOutput is the output for the search_notes tool.
@@ -20,7 +20,7 @@ type SearchNotesOutput struct {
 
 // GetNoteInput is the input for the get_note tool.
 type GetNoteInput struct {
-	ID string `json:"id" jsonschema:"note ID (hub UUID)"`
+	ID string `json:"id" jsonschema:"Note ID (hub UUID)"`
 }
 
 // GetNoteOutput is the output for the get_note tool.
@@ -32,11 +32,11 @@ type GetNoteOutput struct {
 
 // ListNotesInput is the input for the list_notes tool.
 type ListNotesInput struct {
-	Tag     string `json:"tag,omitempty" jsonschema:"filter by tag name"`
-	Sort    string `json:"sort,omitempty" jsonschema:"sort column: modified_at, created_at, or title"`
-	Order   string `json:"order,omitempty" jsonschema:"sort order: asc or desc"`
-	Limit   int    `json:"limit,omitempty" jsonschema:"max results (max 200)"`
-	Trashed string `json:"trashed,omitempty" jsonschema:"filter by trashed status: true or false"`
+	Tag     string `json:"tag,omitempty" jsonschema:"Filter by tag name"`
+	Sort    string `json:"sort,omitempty" jsonschema:"Sort by: modified_at, created_at, or title"`
+	Order   string `json:"order,omitempty" jsonschema:"Sort order: asc or desc"`
+	Limit   int    `json:"limit,omitempty" jsonschema:"Max results (max 200)"`
+	Trashed string `json:"trashed,omitempty" jsonschema:"Filter trashed notes: true or false"`
 }
 
 // ListNotesOutput is the output for the list_notes tool.
@@ -58,7 +58,7 @@ type ListTagsOutput struct {
 
 // GetAttachmentInput is the input for the get_attachment tool.
 type GetAttachmentInput struct {
-	ID string `json:"id" jsonschema:"attachment ID (hub UUID)"`
+	ID string `json:"id" jsonschema:"Attachment ID (hub UUID, from note attachments array)"`
 }
 
 // GetAttachmentOutput is the output for the get_attachment tool.
@@ -88,7 +88,7 @@ type SyncStatusOutput struct {
 
 // ListBacklinksInput is the input for the list_backlinks tool.
 type ListBacklinksInput struct {
-	NoteID string `json:"note_id" jsonschema:"note ID to get backlinks for"`
+	NoteID string `json:"note_id" jsonschema:"Note ID to get backlinks for (hub UUID)"`
 }
 
 // ListBacklinksOutput is the output for the list_backlinks tool.
@@ -100,9 +100,9 @@ type ListBacklinksOutput struct {
 
 // CreateNoteInput is the input for the create_note tool.
 type CreateNoteInput struct {
-	Title string   `json:"title" jsonschema:"note title"`
-	Body  string   `json:"body,omitempty" jsonschema:"note body (Markdown)"`
-	Tags  []string `json:"tags,omitempty" jsonschema:"tags to assign to the note"`
+	Title string   `json:"title" jsonschema:"Note title (plain text, not Markdown)"`
+	Body  string   `json:"body,omitempty" jsonschema:"Note body in Markdown format"`
+	Tags  []string `json:"tags,omitempty" jsonschema:"Tags to assign (do NOT also put #tags in body)"`
 }
 
 // CreateNoteOutput is the output for the create_note tool.
@@ -114,9 +114,9 @@ type CreateNoteOutput struct {
 
 // UpdateNoteInput is the input for the update_note tool.
 type UpdateNoteInput struct {
-	ID    string `json:"id" jsonschema:"note ID (hub UUID)"`
-	Title string `json:"title,omitempty" jsonschema:"new title (optional)"`
-	Body  string `json:"body" jsonschema:"new body (required)"`
+	ID    string `json:"id" jsonschema:"Note ID (hub UUID)"`
+	Title string `json:"title,omitempty" jsonschema:"New title (plain text)"`
+	Body  string `json:"body" jsonschema:"New body in Markdown (replaces entire body)"`
 }
 
 // UpdateNoteOutput is the output for the update_note tool.
@@ -128,7 +128,7 @@ type UpdateNoteOutput struct {
 
 // TrashNoteInput is the input for the trash_note tool.
 type TrashNoteInput struct {
-	ID string `json:"id" jsonschema:"note ID (hub UUID)"`
+	ID string `json:"id" jsonschema:"Note ID (hub UUID)"`
 }
 
 // TrashNoteOutput is the output for the trash_note tool.
@@ -140,7 +140,7 @@ type TrashNoteOutput struct {
 
 // ArchiveNoteInput is the input for the archive_note tool.
 type ArchiveNoteInput struct {
-	ID string `json:"id" jsonschema:"note ID (hub UUID)"`
+	ID string `json:"id" jsonschema:"Note ID (hub UUID)"`
 }
 
 // ArchiveNoteOutput is the output for the archive_note tool.
@@ -152,8 +152,8 @@ type ArchiveNoteOutput struct {
 
 // AddTagInput is the input for the add_tag tool.
 type AddTagInput struct {
-	NoteID string `json:"note_id" jsonschema:"note ID to add the tag to"`
-	Tag    string `json:"tag" jsonschema:"tag name to add"`
+	NoteID string `json:"note_id" jsonschema:"Note ID to add the tag to (hub UUID)"`
+	Tag    string `json:"tag" jsonschema:"Tag name to add (e.g. work/projects)"`
 }
 
 // AddTagOutput is the output for the add_tag tool.
@@ -165,8 +165,8 @@ type AddTagOutput struct {
 
 // RenameTagInput is the input for the rename_tag tool.
 type RenameTagInput struct {
-	ID      string `json:"id" jsonschema:"tag ID (hub UUID)"`
-	NewName string `json:"new_name" jsonschema:"new tag name"`
+	ID      string `json:"id" jsonschema:"Tag ID (hub UUID, from list_tags)"`
+	NewName string `json:"new_name" jsonschema:"New tag name"`
 }
 
 // RenameTagOutput is the output for the rename_tag tool.
@@ -178,7 +178,7 @@ type RenameTagOutput struct {
 
 // DeleteTagInput is the input for the delete_tag tool.
 type DeleteTagInput struct {
-	ID string `json:"id" jsonschema:"tag ID (hub UUID)"`
+	ID string `json:"id" jsonschema:"Tag ID (hub UUID, from list_tags)"`
 }
 
 // DeleteTagOutput is the output for the delete_tag tool.

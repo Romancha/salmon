@@ -61,10 +61,7 @@ func run() error {
 		Name:    "salmon-mcp",
 		Version: version,
 	}, &gomcp.ServerOptions{
-		Instructions: "Salmon MCP server provides access to the user's Bear notes. " +
-			"Use these tools when the user asks about their notes, wants to search, read, create, or edit notes in Bear. " +
-			"Notes are synced from the Bear app via Salmon Hub. " +
-			"Write operations (create, update, trash, archive, tag changes) are queued and applied to Bear asynchronously.",
+		Instructions: serverInstructions(),
 	})
 
 	mcp.RegisterTools(server, client)
@@ -78,4 +75,22 @@ func run() error {
 	}
 
 	return nil
+}
+
+func serverInstructions() string {
+	return "Salmon provides access to the user's Bear notes. " +
+		"Use these tools when the user asks about their notes, " +
+		"wants to search, read, create, or edit notes in Bear. " +
+		"Key behaviors: " +
+		"1) Note bodies are Markdown. Titles are plain text. " +
+		"2) list_notes omits body; use search_notes or get_note " +
+		"to read content. " +
+		"3) Writes are async: queued and applied to Bear by bridge. " +
+		"sync_status: synced → pending_to_bear → synced. " +
+		"4) Encrypted notes are read-only (403 on writes). " +
+		"5) Notes with sync_status conflict/pending_to_bear " +
+		"reject writes (409). " +
+		"6) When creating notes, do NOT put #tags in the body " +
+		"if you also pass them in the tags parameter — " +
+		"Bear adds them automatically, duplicating causes double tags."
 }
