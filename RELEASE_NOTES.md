@@ -1,5 +1,24 @@
 # Release Notes
 
+## Version 0.7.0 — 03 Apr 2026
+
+### 🎉 Major Features
+
+**Attachment File Mode & Bulk Download**
+- `get_attachment` now defaults to file mode — saves the attachment to disk and returns the file path instead of base64-encoded content. Eliminates context bloat when working with images and documents in AI agent pipelines.
+- New `list_attachments` tool returns attachment metadata (type, extension, size, dimensions, dates) without downloading file content — useful for deciding what to fetch before downloading.
+- New `download_note_attachments` tool for bulk downloading all or filtered attachments of a note to disk. Supports filtering by Bear attachment type (`image`, `file`, `video`) and/or file extension with AND logic.
+
+### 🆕 New
+
+- Hub API endpoint `GET /api/notes/{noteID}/attachments` returning `AttachmentMeta` array with extended metadata (normalized extension, creation and modification dates).
+
+### 🐞 Fixes
+
+- Fix code formatting in MCP tools (gofumpt).
+
+---
+
 ## Version 0.6.1 — 03 Apr 2026
 
 ### ✨ Improvements
