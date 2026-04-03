@@ -656,3 +656,45 @@ func TestRegisterTools_AllRegistered(t *testing.T) {
 	// so we verify by ensuring RegisterTools completes without error.
 	require.NotNil(t, s)
 }
+
+// TestToolSchemas_AllHaveProperties verifies that every tool's inputSchema
+// contains a "properties" field (even if empty). OpenAI-compatible APIs
+// reject schemas without "properties".
+func TestToolSchemas_AllHaveProperties(t *testing.T) {
+	c := NewClient("http://localhost", "token")
+	s := newMCPServer(c)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	serverTransport, clientTransport := gomcp.NewInMemoryTransports()
+
+	serverSession, err := s.Connect(ctx, serverTransport, nil)
+	require.NoError(t, err)
+	defer serverSession.Close()
+
+	client := gomcp.NewClient(
+		&gomcp.Implementation{Name: "test-client", Version: "1.0"}, nil,
+	)
+	clientSession, err := client.Connect(ctx, clientTransport, nil)
+	require.NoError(t, err)
+	defer clientSession.Close()
+
+	result, err := clientSession.ListTools(ctx, nil)
+	require.NoError(t, err)
+	require.NotEmpty(t, result.Tools, "expected at least one tool")
+	tools := result.Tools
+
+	for _, tool := range tools {
+		raw, err := json.Marshal(tool.InputSchema)
+		require.NoError(t, err, "tool %s: failed to marshal inputSchema", tool.Name)
+
+		var schema map[string]any
+		require.NoError(t, json.Unmarshal(raw, &schema))
+
+		_, hasProps := schema["properties"]
+		assert.True(t, hasProps,
+			"tool %q inputSchema missing 'properties' field: %s "+
+				"(OpenAI-compatible APIs require this)", tool.Name, string(raw))
+	}
+}

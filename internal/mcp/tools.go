@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"strconv"
 
+	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -99,6 +100,7 @@ func registerListTags(s *mcp.Server, c *Client) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "list_tags",
 		Description: "List all tags from Bear notes",
+		InputSchema: emptyObjectSchema(),
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ any) (*mcp.CallToolResult, ListTagsOutput, error) {
 		return handleListTags(ctx, c)
 	})
@@ -117,6 +119,7 @@ func registerSyncStatus(s *mcp.Server, c *Client) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "sync_status",
 		Description: "Get the current sync status between Bear and Salmon Hub",
+		InputSchema: emptyObjectSchema(),
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ any) (*mcp.CallToolResult, SyncStatusOutput, error) {
 		return handleSyncStatus(ctx, c)
 	})
@@ -417,4 +420,14 @@ func handleDeleteTag(
 	}
 
 	return nil, out, nil
+}
+
+// emptyObjectSchema returns a JSON Schema for tools that take no parameters.
+// Uses explicit empty Properties map so the serialized schema includes
+// "properties": {} — required by OpenAI-compatible APIs.
+func emptyObjectSchema() *jsonschema.Schema {
+	return &jsonschema.Schema{
+		Type:       "object",
+		Properties: map[string]*jsonschema.Schema{},
+	}
 }
