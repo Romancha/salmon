@@ -1,5 +1,13 @@
 # Release Notes
 
+## Version 0.7.1 — 03 Apr 2026
+
+### ✨ Improvements
+
+- Add `output_dir` parameter to `get_attachment` tool, allowing AI agents to save files to workspace-accessible directories instead of the system temp dir.
+
+---
+
 ## Version 0.7.0 — 03 Apr 2026
 
 ### 🎉 Major Features
