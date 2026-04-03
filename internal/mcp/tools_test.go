@@ -256,6 +256,28 @@ func TestGetAttachment_Base64Mode(t *testing.T) {
 	assert.Equal(t, fileContent, decoded)
 }
 
+func TestGetAttachment_CustomOutputDir(t *testing.T) {
+	fileContent := []byte("custom dir content")
+	c := newTestClient(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Disposition", `attachment; filename="doc.pdf"`)
+		w.Header().Set("Content-Type", "application/pdf")
+		w.WriteHeader(http.StatusOK)
+		w.Write(fileContent)
+	})
+
+	customDir := t.TempDir()
+	_, out, err := handleGetAttachment(context.Background(), c, GetAttachmentInput{
+		ID:        "att-456",
+		OutputDir: customDir,
+	})
+	require.NoError(t, err)
+	assert.True(t, strings.HasPrefix(out.FilePath, customDir))
+
+	saved, err := os.ReadFile(out.FilePath)
+	require.NoError(t, err)
+	assert.Equal(t, fileContent, saved)
+}
+
 func TestGetAttachment_NotFound(t *testing.T) {
 	c := newTestClient(t, func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)

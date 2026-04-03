@@ -39,7 +39,12 @@ func handleGetAttachment(
 		}, nil
 	}
 
-	filePath, err := saveToFile(defaultOutputDir(), input.ID, resp.Filename, resp.Body)
+	outputDir := input.OutputDir
+	if outputDir == "" {
+		outputDir = defaultOutputDir()
+	}
+
+	filePath, err := saveToFile(outputDir, input.ID, resp.Filename, resp.Body)
 	if err != nil {
 		return nil, GetAttachmentOutput{}, fmt.Errorf("saving attachment file: %w", err)
 	}

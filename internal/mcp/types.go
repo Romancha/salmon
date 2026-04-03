@@ -55,8 +55,9 @@ type ListTagsOutput struct {
 
 // GetAttachmentInput is the input for the get_attachment tool.
 type GetAttachmentInput struct {
-	ID   string `json:"id" jsonschema:"Attachment ID (hub UUID, from note attachments array)"`
-	Mode string `json:"mode,omitempty" jsonschema:"Download mode: file (default) saves to disk; base64 returns encoded content"`
+	ID        string `json:"id" jsonschema:"Attachment ID (hub UUID, from note attachments array)"`
+	Mode      string `json:"mode,omitempty" jsonschema:"Download mode: file (default) saves to disk; base64 returns encoded content"`
+	OutputDir string `json:"output_dir,omitempty" jsonschema:"Directory to save file (default: system temp dir). Only used in file mode."`
 }
 
 // GetAttachmentOutput is the output for the get_attachment tool.
