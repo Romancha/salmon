@@ -21,16 +21,17 @@ import (
 
 // mockBearDB implements beardb.BearDB for testing.
 type mockBearDB struct {
-	notes       []mapper.BearNoteRow
-	tags        []mapper.BearTagRow
-	attachments []mapper.BearAttachmentRow
-	backlinks   []mapper.BearBacklinkRow
-	noteTags    []beardb.NoteTagPair
-	pinnedTags  []beardb.NoteTagPair
-	noteUUIDs   []string
-	tagUUIDs    []string
-	attUUIDs    []string
-	blUUIDs     []string
+	notes          []mapper.BearNoteRow
+	tags           []mapper.BearTagRow
+	attachments    []mapper.BearAttachmentRow
+	backlinks      []mapper.BearBacklinkRow
+	noteTags       []beardb.NoteTagPair
+	pinnedTags     []beardb.NoteTagPair
+	noteUUIDs      []string
+	tagUUIDs       []string
+	attUUIDs       []string
+	allAttachments []mapper.BearAttachmentRow // full set for AttachmentsByUUIDs
+	blUUIDs        []string
 
 	// Verification data for write queue tests.
 	notesByUUID  map[string]*beardb.NoteBasicInfo
@@ -50,6 +51,20 @@ func (m *mockBearDB) Tags(_ context.Context, _ float64) ([]mapper.BearTagRow, er
 
 func (m *mockBearDB) Attachments(_ context.Context, _ float64) ([]mapper.BearAttachmentRow, error) {
 	return m.attachments, nil
+}
+
+func (m *mockBearDB) AttachmentsByUUIDs(_ context.Context, uuids []string) ([]mapper.BearAttachmentRow, error) {
+	uuidSet := make(map[string]bool, len(uuids))
+	for _, u := range uuids {
+		uuidSet[u] = true
+	}
+	var result []mapper.BearAttachmentRow
+	for i := range m.allAttachments {
+		if m.allAttachments[i].ZUNIQUEIDENTIFIER != nil && uuidSet[*m.allAttachments[i].ZUNIQUEIDENTIFIER] {
+			result = append(result, m.allAttachments[i])
+		}
+	}
+	return result, nil
 }
 
 func (m *mockBearDB) Backlinks(_ context.Context, _ float64) ([]mapper.BearBacklinkRow, error) {
@@ -933,6 +948,62 @@ func TestDeltaSync_UploadsChangedAttachments(t *testing.T) {
 
 	// Attachment file should have been uploaded.
 	assert.Len(t, hub.uploadedIDs, 1)
+}
+
+func TestDeltaSync_DetectsNewAttachmentsWithOldTimestamp(t *testing.T) {
+	tmpDir := t.TempDir()
+	statePath := filepath.Join(tmpDir, "state.json")
+
+	bearDataDir := filepath.Join(tmpDir, "bear-data")
+	fileDir := filepath.Join(bearDataDir, "Local Files", "Note Files", "att-pdf")
+	require.NoError(t, os.MkdirAll(fileDir, 0o750))
+	require.NoError(t, os.WriteFile(filepath.Join(fileDir, "doc.pdf"), []byte("pdf-data"), 0o600))
+
+	// State: lastSyncAt=200, known attachments = ["att-old"] (an image already synced).
+	state := &BridgeState{
+		LastSyncAt:         200,
+		KnownNoteIDs:       []string{"note-1"},
+		KnownAttachmentIDs: []string{"att-old"},
+	}
+	require.NoError(t, saveState(statePath, state))
+
+	// The PDF attachment has ZMODIFICATIONDATE=50 (older than lastSyncAt=200).
+	// Delta query (>= 200) won't find it, but UUID diff should.
+	pdfRow := mapper.BearAttachmentRow{
+		ZPK: 2, ZENT: 8, ZUNIQUEIDENTIFIER: strPtr("att-pdf"),
+		ZFILENAME: strPtr("doc.pdf"), ZNOTE: strPtr("note-1"),
+		ZMODIFICATIONDATE: floatPtr(50), // old timestamp!
+	}
+
+	db := &mockBearDB{
+		// Delta query returns nothing (no attachments with moddate >= 200).
+		attachments: nil,
+		// But Bear has both attachments.
+		allAttachments: []mapper.BearAttachmentRow{pdfRow},
+		attUUIDs:       []string{"att-old", "att-pdf"},
+		noteUUIDs:      []string{"note-1"},
+	}
+
+	hub := &mockHubClient{}
+	b := NewBridge(db, hub, nil, "", statePath, bearDataDir, testLogger())
+	b.sleepFn = func(_ time.Duration) {}
+
+	err := b.Run(context.Background())
+	require.NoError(t, err)
+
+	// The PDF should have been detected via UUID diff and pushed.
+	require.NotEmpty(t, hub.pushes)
+	var allAttachments []models.Attachment
+	for _, p := range hub.pushes {
+		allAttachments = append(allAttachments, p.Attachments...)
+	}
+	require.Len(t, allAttachments, 1)
+	assert.Equal(t, "file", allAttachments[0].Type)
+	assert.Equal(t, "doc.pdf", allAttachments[0].Filename)
+
+	// Attachment file should have been uploaded.
+	assert.Len(t, hub.uploadedIDs, 1)
+	assert.Equal(t, "att-pdf", hub.uploadedIDs[0])
 }
 
 func testLogger() *slog.Logger {

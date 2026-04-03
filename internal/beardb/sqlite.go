@@ -158,8 +158,6 @@ const attachmentColumns = `f.Z_PK, f.Z_ENT, f.ZUNIQUEIDENTIFIER, n.ZUNIQUEIDENTI
 	f.ZLASTEDITINGDEVICE, f.ZENCRYPTIONUNIQUEIDENTIFIER, f.ZSEARCHTEXT, f.ZENCRYPTEDDATA`
 
 // Attachments returns attachments modified since lastSyncAt (Core Data epoch).
-//
-//nolint:dupl // Attachments shares query pattern with Notes/Tags but scans different schema
 func (s *SQLiteBearDB) Attachments(ctx context.Context, lastSyncAt float64) ([]mapper.BearAttachmentRow, error) {
 	//nolint:gosec // column list is a constant, ZNOTE is Bear's FK column name
 	query := "SELECT " + attachmentColumns + " FROM ZSFNOTEFILE f LEFT JOIN ZSFNOTE n ON f.ZNOTE = n.Z_PK"
@@ -170,6 +168,33 @@ func (s *SQLiteBearDB) Attachments(ctx context.Context, lastSyncAt float64) ([]m
 		args = append(args, lastSyncAt)
 	}
 
+	return s.queryAttachments(ctx, query, args...)
+}
+
+// AttachmentsByUUIDs returns attachments matching the given Bear UUIDs.
+func (s *SQLiteBearDB) AttachmentsByUUIDs(ctx context.Context, uuids []string) ([]mapper.BearAttachmentRow, error) {
+	if len(uuids) == 0 {
+		return nil, nil
+	}
+
+	placeholders := make([]string, len(uuids))
+	args := make([]any, len(uuids))
+	for i, u := range uuids {
+		placeholders[i] = "?"
+		args[i] = u
+	}
+
+	//nolint:gosec // column list is a constant, placeholders are generated
+	query := "SELECT " + attachmentColumns + " FROM ZSFNOTEFILE f LEFT JOIN ZSFNOTE n ON f.ZNOTE = n.Z_PK" +
+		" WHERE f.ZUNIQUEIDENTIFIER IN (" + strings.Join(placeholders, ",") + ")"
+
+	return s.queryAttachments(ctx, query, args...)
+}
+
+// queryAttachments executes a query and scans rows into BearAttachmentRow slices.
+//
+//nolint:dupl // shares scan pattern with Notes/Tags but scans different schema
+func (s *SQLiteBearDB) queryAttachments(ctx context.Context, query string, args ...any) ([]mapper.BearAttachmentRow, error) {
 	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("query attachments: %w", err)

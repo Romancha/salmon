@@ -36,6 +36,9 @@ type BearDB interface {
 	// If lastSyncAt is 0, returns all attachments.
 	Attachments(ctx context.Context, lastSyncAt float64) ([]mapper.BearAttachmentRow, error)
 
+	// AttachmentsByUUIDs returns attachments matching the given Bear UUIDs.
+	AttachmentsByUUIDs(ctx context.Context, uuids []string) ([]mapper.BearAttachmentRow, error)
+
 	// Backlinks returns backlinks modified since lastSyncAt (Core Data epoch).
 	// If lastSyncAt is 0, returns all backlinks.
 	Backlinks(ctx context.Context, lastSyncAt float64) ([]mapper.BearBacklinkRow, error)

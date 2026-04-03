@@ -359,6 +359,16 @@ func (b *Bridge) buildDeltaPush(ctx context.Context, state *BridgeState) (*model
 		return nil, fmt.Errorf("read delta attachments: %w", err)
 	}
 
+	// Detect new attachments missed by ZMODIFICATIONDATE-based delta.
+	// Bear preserves original file timestamps for file attachments (PDFs, documents),
+	// so their ZMODIFICATIONDATE can be older than lastSyncAt even when just added.
+	// Also returns all current UUIDs to reuse in deletion detection below.
+	newAttRows, currentAttUUIDs, err := b.readNewAttachments(ctx, state.KnownAttachmentIDs, attachmentRows)
+	if err != nil {
+		return nil, fmt.Errorf("read new attachments: %w", err)
+	}
+	attachmentRows = append(attachmentRows, newAttRows...)
+
 	backlinkRows, err := b.db.Backlinks(ctx, state.LastSyncAt)
 	if err != nil {
 		return nil, fmt.Errorf("read delta backlinks: %w", err)
@@ -432,11 +442,7 @@ func (b *Bridge) buildDeltaPush(ctx context.Context, state *BridgeState) (*model
 	}
 	req.DeletedTagIDs = deletedTagIDs
 
-	deletedAttIDs, err := b.detectDeletions(ctx, state.KnownAttachmentIDs, b.db.AllAttachmentUUIDs)
-	if err != nil {
-		return nil, fmt.Errorf("detect attachment deletions: %w", err)
-	}
-	req.DeletedAttachmentIDs = deletedAttIDs
+	req.DeletedAttachmentIDs = diffIDs(state.KnownAttachmentIDs, currentAttUUIDs)
 
 	deletedBlIDs, err := b.detectDeletions(ctx, state.KnownBacklinkIDs, b.db.AllBacklinkUUIDs)
 	if err != nil {
@@ -603,6 +609,67 @@ func (b *Bridge) detectDeletions(
 	}
 
 	return deleted, nil
+}
+
+// diffIDs returns IDs present in knownIDs but absent from currentIDs.
+func diffIDs(knownIDs, currentIDs []string) []string {
+	currentSet := make(map[string]bool, len(currentIDs))
+	for _, id := range currentIDs {
+		currentSet[id] = true
+	}
+
+	var deleted []string
+	for _, id := range knownIDs {
+		if !currentSet[id] {
+			deleted = append(deleted, id)
+		}
+	}
+
+	return deleted
+}
+
+// readNewAttachments detects attachments that exist in Bear but are not in knownIDs
+// and were not already picked up by the ZMODIFICATIONDATE-based delta query.
+// Returns the new attachment rows and the full list of current UUIDs (for reuse in deletion detection).
+func (b *Bridge) readNewAttachments(
+	ctx context.Context, knownIDs []string, alreadyRead []mapper.BearAttachmentRow,
+) ([]mapper.BearAttachmentRow, []string, error) {
+	currentIDs, err := b.db.AllAttachmentUUIDs(ctx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("get all attachment UUIDs: %w", err)
+	}
+
+	knownSet := make(map[string]bool, len(knownIDs))
+	for _, id := range knownIDs {
+		knownSet[id] = true
+	}
+
+	alreadyReadSet := make(map[string]bool, len(alreadyRead))
+	for i := range alreadyRead {
+		if alreadyRead[i].ZUNIQUEIDENTIFIER != nil {
+			alreadyReadSet[*alreadyRead[i].ZUNIQUEIDENTIFIER] = true
+		}
+	}
+
+	var newUUIDs []string
+	for _, id := range currentIDs {
+		if !knownSet[id] && !alreadyReadSet[id] {
+			newUUIDs = append(newUUIDs, id)
+		}
+	}
+
+	if len(newUUIDs) == 0 {
+		return nil, currentIDs, nil
+	}
+
+	b.logger.Info("detected new attachments not in delta", "count", len(newUUIDs))
+
+	rows, err := b.db.AttachmentsByUUIDs(ctx, newUUIDs)
+	if err != nil {
+		return nil, nil, fmt.Errorf("read attachments by UUIDs: %w", err)
+	}
+
+	return rows, currentIDs, nil
 }
 
 // updateKnownIDs refreshes the known ID sets in state from the current Bear database.

@@ -465,6 +465,38 @@ func TestAttachments_NoteUUIDResolution(t *testing.T) {
 	}
 }
 
+func TestAttachmentsByUUIDs(t *testing.T) {
+	bearDB := setupTestBearDB(t)
+	ctx := context.Background()
+
+	t.Run("returns matching attachments", func(t *testing.T) {
+		atts, err := bearDB.AttachmentsByUUIDs(ctx, []string{"att-uuid-2"})
+		require.NoError(t, err)
+		require.Len(t, atts, 1)
+		require.NotNil(t, atts[0].ZUNIQUEIDENTIFIER)
+		assert.Equal(t, "att-uuid-2", *atts[0].ZUNIQUEIDENTIFIER)
+		assert.Equal(t, int64(8), atts[0].ZENT) // file type
+	})
+
+	t.Run("returns multiple", func(t *testing.T) {
+		atts, err := bearDB.AttachmentsByUUIDs(ctx, []string{"att-uuid-1", "att-uuid-2"})
+		require.NoError(t, err)
+		assert.Len(t, atts, 2)
+	})
+
+	t.Run("empty uuids returns nil", func(t *testing.T) {
+		atts, err := bearDB.AttachmentsByUUIDs(ctx, nil)
+		require.NoError(t, err)
+		assert.Nil(t, atts)
+	})
+
+	t.Run("unknown uuid returns empty", func(t *testing.T) {
+		atts, err := bearDB.AttachmentsByUUIDs(ctx, []string{"nonexistent"})
+		require.NoError(t, err)
+		assert.Empty(t, atts)
+	})
+}
+
 func TestBacklinks_All(t *testing.T) {
 	bearDB := setupTestBearDB(t)
 	ctx := context.Background()
