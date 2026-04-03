@@ -401,16 +401,24 @@ Add to your `openclaw.json` (or use the [OpenClaw skill](tools/consumer/openclaw
 
 ```json
 {
-  "mcpServers": {
-    "salmon": {
-      "command": "salmon-mcp",
-      "env": {
-        "SALMON_HUB_URL": "https://salmon.example.com",
-        "SALMON_CONSUMER_TOKEN": "your-token"
+  "mcp": {
+    "servers": {
+      "salmon": {
+        "command": "salmon-mcp",
+        "env": {
+          "SALMON_HUB_URL": "https://salmon.example.com",
+          "SALMON_CONSUMER_TOKEN": "your-token"
+        }
       }
     }
   }
 }
+```
+
+Or via CLI:
+
+```bash
+openclaw mcp set salmon '{"command":"salmon-mcp","env":{"SALMON_HUB_URL":"https://salmon.example.com","SALMON_CONSUMER_TOKEN":"your-token"}}'
 ```
 
 ### Available Tools
