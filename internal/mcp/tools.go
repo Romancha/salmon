@@ -2,7 +2,6 @@ package mcp
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -19,6 +18,8 @@ func RegisterTools(s *mcp.Server, c *Client) {
 	registerListNotes(s, c)
 	registerListTags(s, c)
 	registerGetAttachment(s, c)
+	registerListAttachments(s, c)
+	registerDownloadNoteAttachments(s, c)
 	registerSyncStatus(s, c)
 	registerListBacklinks(s, c)
 	registerCreateNote(s, c)
@@ -108,10 +109,35 @@ func registerListTags(s *mcp.Server, c *Client) {
 
 func registerGetAttachment(s *mcp.Server, c *Client) {
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "get_attachment",
-		Description: "Download a Bear note attachment by ID. Returns base64-encoded content with filename and content type",
+		Name: "get_attachment",
+		Description: "Download a Bear note attachment by ID. " +
+			"Default mode=file saves to disk and returns the file path. " +
+			"mode=base64 returns base64-encoded content inline.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, input GetAttachmentInput) (*mcp.CallToolResult, GetAttachmentOutput, error) {
 		return handleGetAttachment(ctx, c, input)
+	})
+}
+
+func registerListAttachments(s *mcp.Server, c *Client) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "list_attachments",
+		Description: "List attachment metadata for a Bear note " +
+			"(id, type, filename, size, extension, dimensions, dates). Does not download file content.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, input ListAttachmentsInput) (*mcp.CallToolResult, ListAttachmentsOutput, error) {
+		return handleListAttachments(ctx, c, input)
+	})
+}
+
+func registerDownloadNoteAttachments(s *mcp.Server, c *Client) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "download_note_attachments",
+		Description: "Download all or filtered attachments for a Bear note to disk. " +
+			"Filter by Bear type (image/file/video) and/or file extension. " +
+			"Returns file paths for each downloaded attachment.",
+	}, func(
+		ctx context.Context, _ *mcp.CallToolRequest, input DownloadNoteAttachmentsInput,
+	) (*mcp.CallToolResult, DownloadNoteAttachmentsOutput, error) {
+		return handleDownloadNoteAttachments(ctx, c, input)
 	})
 }
 
@@ -177,22 +203,6 @@ func handleListTags(ctx context.Context, c *Client) (*mcp.CallToolResult, ListTa
 	}
 
 	return nil, out, nil
-}
-
-func handleGetAttachment(ctx context.Context, c *Client, input GetAttachmentInput) (*mcp.CallToolResult, GetAttachmentOutput, error) {
-	resp, err := c.getRaw(ctx, "/api/attachments/"+url.PathEscape(input.ID))
-	if err != nil {
-		return nil, GetAttachmentOutput{}, err
-	}
-
-	encoded := base64.StdEncoding.EncodeToString(resp.Body)
-
-	return nil, GetAttachmentOutput{
-		ID:          input.ID,
-		Filename:    resp.Filename,
-		ContentType: resp.ContentType,
-		Base64:      encoded,
-	}, nil
 }
 
 func handleSyncStatus(ctx context.Context, c *Client) (*mcp.CallToolResult, SyncStatusOutput, error) {

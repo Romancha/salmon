@@ -6,6 +6,9 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	gomcp "github.com/modelcontextprotocol/go-sdk/mcp"
@@ -201,7 +204,7 @@ func TestListTags_APIError(t *testing.T) {
 
 // --- Get Attachment ---
 
-func TestGetAttachment_Success(t *testing.T) {
+func TestGetAttachment_FileMode_Default(t *testing.T) {
 	fileContent := []byte("hello binary content")
 	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/api/attachments/att-123", r.URL.Path)
@@ -216,6 +219,37 @@ func TestGetAttachment_Success(t *testing.T) {
 	assert.Equal(t, "att-123", out.ID)
 	assert.Equal(t, "photo.png", out.Filename)
 	assert.Equal(t, "image/png", out.ContentType)
+	assert.Equal(t, int64(len(fileContent)), out.Size)
+	assert.NotEmpty(t, out.FilePath)
+	assert.Empty(t, out.Base64)
+
+	saved, err := os.ReadFile(out.FilePath)
+	require.NoError(t, err)
+	assert.Equal(t, fileContent, saved)
+
+	t.Cleanup(func() { os.RemoveAll(filepath.Dir(out.FilePath)) })
+}
+
+func TestGetAttachment_Base64Mode(t *testing.T) {
+	fileContent := []byte("hello binary content")
+	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/attachments/att-123", r.URL.Path)
+		w.Header().Set("Content-Disposition", `attachment; filename="photo.png"`)
+		w.Header().Set("Content-Type", "image/png")
+		w.WriteHeader(http.StatusOK)
+		w.Write(fileContent)
+	})
+
+	_, out, err := handleGetAttachment(context.Background(), c, GetAttachmentInput{
+		ID:   "att-123",
+		Mode: "base64",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "att-123", out.ID)
+	assert.Equal(t, "photo.png", out.Filename)
+	assert.Equal(t, "image/png", out.ContentType)
+	assert.Equal(t, int64(len(fileContent)), out.Size)
+	assert.Empty(t, out.FilePath)
 
 	decoded, err := base64.StdEncoding.DecodeString(out.Base64)
 	require.NoError(t, err)
@@ -229,6 +263,216 @@ func TestGetAttachment_NotFound(t *testing.T) {
 	})
 
 	_, _, err := handleGetAttachment(context.Background(), c, GetAttachmentInput{ID: "missing"})
+	require.Error(t, err)
+	var apiErr *APIError
+	require.ErrorAs(t, err, &apiErr)
+	assert.Equal(t, http.StatusNotFound, apiErr.StatusCode)
+}
+
+func TestGetAttachment_InvalidMode(t *testing.T) {
+	c := newTestClient(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	_, _, err := handleGetAttachment(context.Background(), c, GetAttachmentInput{
+		ID:   "att-1",
+		Mode: "invalid",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid mode")
+}
+
+// --- List Attachments ---
+
+func TestListAttachments_Success(t *testing.T) {
+	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/notes/note-1/attachments", r.URL.Path)
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`[
+			{"id":"att-1","type":"image","filename":"photo.png","file_size":1024,"width":800,"height":600},
+			{"id":"att-2","type":"file","filename":"doc.pdf","file_size":2048}
+		]`))
+	})
+
+	_, out, err := handleListAttachments(context.Background(), c, ListAttachmentsInput{NoteID: "note-1"})
+	require.NoError(t, err)
+	require.Len(t, out.Attachments, 2)
+	assert.Equal(t, "att-1", out.Attachments[0].ID)
+	assert.Equal(t, "image", out.Attachments[0].Type)
+	assert.Equal(t, "photo.png", out.Attachments[0].Filename)
+	assert.Equal(t, int64(1024), out.Attachments[0].FileSize)
+	assert.Equal(t, "att-2", out.Attachments[1].ID)
+	assert.Equal(t, "file", out.Attachments[1].Type)
+}
+
+func TestListAttachments_NoteNotFound(t *testing.T) {
+	c := newTestClient(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte(`{"error":"not found"}`))
+	})
+
+	_, _, err := handleListAttachments(context.Background(), c, ListAttachmentsInput{NoteID: "missing"})
+	require.Error(t, err)
+	var apiErr *APIError
+	require.ErrorAs(t, err, &apiErr)
+	assert.Equal(t, http.StatusNotFound, apiErr.StatusCode)
+}
+
+// --- Download Note Attachments ---
+
+const testNoteAttachmentsPath = "/api/notes/note-1/attachments"
+
+func TestDownloadNoteAttachments_Success(t *testing.T) {
+	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case testNoteAttachmentsPath:
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`[{"id":"att-1","type":"image","filename":"photo.png","normalized_extension":"png"}]`))
+		case "/api/attachments/att-1":
+			w.Header().Set("Content-Disposition", `attachment; filename="photo.png"`)
+			w.Header().Set("Content-Type", "image/png")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("png-bytes"))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	})
+
+	outputDir := t.TempDir()
+	_, out, err := handleDownloadNoteAttachments(context.Background(), c, DownloadNoteAttachmentsInput{
+		NoteID:    "note-1",
+		OutputDir: outputDir,
+	})
+	require.NoError(t, err)
+	require.Len(t, out.Downloaded, 1)
+	assert.Equal(t, 0, out.Skipped)
+	assert.Equal(t, "att-1", out.Downloaded[0].ID)
+	assert.Equal(t, "photo.png", out.Downloaded[0].Filename)
+	assert.Equal(t, "image/png", out.Downloaded[0].ContentType)
+	assert.Equal(t, int64(len("png-bytes")), out.Downloaded[0].Size)
+	assert.True(t, strings.HasPrefix(out.Downloaded[0].FilePath, outputDir))
+
+	saved, err := os.ReadFile(out.Downloaded[0].FilePath)
+	require.NoError(t, err)
+	assert.Equal(t, []byte("png-bytes"), saved)
+}
+
+func TestDownloadNoteAttachments_TypeFilter(t *testing.T) {
+	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case testNoteAttachmentsPath:
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`[
+				{"id":"att-1","type":"image","filename":"photo.png","normalized_extension":"png"},
+				{"id":"att-2","type":"file","filename":"doc.pdf","normalized_extension":"pdf"}
+			]`))
+		case "/api/attachments/att-1":
+			w.Header().Set("Content-Disposition", `attachment; filename="photo.png"`)
+			w.Header().Set("Content-Type", "image/png")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("img"))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	})
+
+	_, out, err := handleDownloadNoteAttachments(context.Background(), c, DownloadNoteAttachmentsInput{
+		NoteID:    "note-1",
+		OutputDir: t.TempDir(),
+		Types:     []string{"image"},
+	})
+	require.NoError(t, err)
+	assert.Len(t, out.Downloaded, 1)
+	assert.Equal(t, 1, out.Skipped)
+	assert.Equal(t, "att-1", out.Downloaded[0].ID)
+}
+
+func TestDownloadNoteAttachments_ExtensionFilter(t *testing.T) {
+	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case testNoteAttachmentsPath:
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`[
+				{"id":"att-1","type":"image","filename":"photo.png","normalized_extension":"png"},
+				{"id":"att-2","type":"file","filename":"doc.pdf","normalized_extension":"pdf"}
+			]`))
+		case "/api/attachments/att-2":
+			w.Header().Set("Content-Disposition", `attachment; filename="doc.pdf"`)
+			w.Header().Set("Content-Type", "application/pdf")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("pdf"))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	})
+
+	_, out, err := handleDownloadNoteAttachments(context.Background(), c, DownloadNoteAttachmentsInput{
+		NoteID:     "note-1",
+		OutputDir:  t.TempDir(),
+		Extensions: []string{".pdf"},
+	})
+	require.NoError(t, err)
+	assert.Len(t, out.Downloaded, 1)
+	assert.Equal(t, 1, out.Skipped)
+	assert.Equal(t, "att-2", out.Downloaded[0].ID)
+}
+
+func TestDownloadNoteAttachments_BothFilters(t *testing.T) {
+	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case testNoteAttachmentsPath:
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`[
+				{"id":"att-1","type":"image","filename":"photo.png","normalized_extension":"png"},
+				{"id":"att-2","type":"file","filename":"doc.pdf","normalized_extension":"pdf"},
+				{"id":"att-3","type":"image","filename":"scan.pdf","normalized_extension":"pdf"}
+			]`))
+		case "/api/attachments/att-3":
+			w.Header().Set("Content-Disposition", `attachment; filename="scan.pdf"`)
+			w.Header().Set("Content-Type", "application/pdf")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("scan"))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	})
+
+	_, out, err := handleDownloadNoteAttachments(context.Background(), c, DownloadNoteAttachmentsInput{
+		NoteID:     "note-1",
+		OutputDir:  t.TempDir(),
+		Types:      []string{"image"},
+		Extensions: []string{"pdf"},
+	})
+	require.NoError(t, err)
+	assert.Len(t, out.Downloaded, 1)
+	assert.Equal(t, 2, out.Skipped)
+	assert.Equal(t, "att-3", out.Downloaded[0].ID)
+}
+
+func TestDownloadNoteAttachments_NoAttachments(t *testing.T) {
+	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`[]`))
+	})
+
+	_, out, err := handleDownloadNoteAttachments(context.Background(), c, DownloadNoteAttachmentsInput{
+		NoteID:    "note-1",
+		OutputDir: t.TempDir(),
+	})
+	require.NoError(t, err)
+	assert.Empty(t, out.Downloaded)
+	assert.Equal(t, 0, out.Skipped)
+}
+
+func TestDownloadNoteAttachments_NoteNotFound(t *testing.T) {
+	c := newTestClient(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte(`{"error":"not found"}`))
+	})
+
+	_, _, err := handleDownloadNoteAttachments(context.Background(), c, DownloadNoteAttachmentsInput{
+		NoteID: "missing",
+	})
 	require.Error(t, err)
 	var apiErr *APIError
 	require.ErrorAs(t, err, &apiErr)

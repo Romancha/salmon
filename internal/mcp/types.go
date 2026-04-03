@@ -55,15 +55,57 @@ type ListTagsOutput struct {
 
 // GetAttachmentInput is the input for the get_attachment tool.
 type GetAttachmentInput struct {
-	ID string `json:"id" jsonschema:"Attachment ID (hub UUID, from note attachments array)"`
+	ID   string `json:"id" jsonschema:"Attachment ID (hub UUID, from note attachments array)"`
+	Mode string `json:"mode,omitempty" jsonschema:"Download mode: file (default) saves to disk; base64 returns encoded content"`
 }
 
 // GetAttachmentOutput is the output for the get_attachment tool.
+// In file mode: FilePath is set, Base64 is empty.
+// In base64 mode: Base64 is set, FilePath is empty.
 type GetAttachmentOutput struct {
 	ID          string `json:"id"`
 	Filename    string `json:"filename"`
 	ContentType string `json:"content_type"`
-	Base64      string `json:"base64"`
+	Size        int64  `json:"size,omitempty"`
+	FilePath    string `json:"file_path,omitempty"`
+	Base64      string `json:"base64,omitempty"`
+}
+
+// --- List Attachments ---
+
+// ListAttachmentsInput is the input for the list_attachments tool.
+type ListAttachmentsInput struct {
+	NoteID string `json:"note_id" jsonschema:"Note ID to list attachments for (hub UUID)"`
+}
+
+// ListAttachmentsOutput is the output for the list_attachments tool.
+type ListAttachmentsOutput struct {
+	Attachments []models.AttachmentMeta `json:"attachments"`
+}
+
+// --- Download Note Attachments ---
+
+// DownloadNoteAttachmentsInput is the input for the download_note_attachments tool.
+type DownloadNoteAttachmentsInput struct {
+	NoteID     string   `json:"note_id" jsonschema:"Note ID (hub UUID)"`
+	OutputDir  string   `json:"output_dir,omitempty" jsonschema:"Directory to save files (default: system temp dir)"`
+	Types      []string `json:"types,omitempty" jsonschema:"Bear attachment types to include: image, file, video. Omit for all."`
+	Extensions []string `json:"extensions,omitempty" jsonschema:"File extensions to include (e.g. pdf, png). Omit for all."`
+}
+
+// DownloadedAttachment is a single downloaded attachment result.
+type DownloadedAttachment struct {
+	ID          string `json:"id"`
+	Filename    string `json:"filename"`
+	ContentType string `json:"content_type"`
+	Size        int64  `json:"size"`
+	FilePath    string `json:"file_path"`
+}
+
+// DownloadNoteAttachmentsOutput is the output for the download_note_attachments tool.
+type DownloadNoteAttachmentsOutput struct {
+	Downloaded []DownloadedAttachment `json:"downloaded"`
+	Skipped    int                    `json:"skipped"`
 }
 
 // --- Sync Status ---

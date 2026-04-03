@@ -1037,6 +1037,54 @@ func TestListBacklinks_NoteNotFound(t *testing.T) {
 
 // --- Attachments tests ---
 
+func TestListNoteAttachments(t *testing.T) {
+	ts, s := setupServer(t)
+
+	require.NoError(t, s.CreateNote(t.Context(), &models.Note{ID: "note-1", Title: "Note 1"}))
+
+	bearID := "bear-att-1" //nolint:goconst // test data
+	err := s.ProcessSyncPush(t.Context(), models.SyncPushRequest{
+		Attachments: []models.Attachment{
+			{
+				ID: "att-1", BearID: &bearID, NoteID: "note-1",
+				Type: "image", Filename: "photo.png", NormalizedExtension: "png",
+				FileSize: 1024, Width: 800, Height: 600,
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	resp := doRequest(t, ts, http.MethodGet, "/api/notes/note-1/attachments", nil, consumerToken, nil)
+
+	result := readBodySlice(t, resp)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Len(t, result, 1)
+	assert.Equal(t, "image", result[0]["type"])
+	assert.Equal(t, "photo.png", result[0]["filename"])
+	assert.Equal(t, "png", result[0]["normalized_extension"])
+}
+
+func TestListNoteAttachments_NoteNotFound(t *testing.T) {
+	ts, _ := setupServer(t)
+
+	resp := doRequest(t, ts, http.MethodGet, "/api/notes/nonexistent/attachments", nil, consumerToken, nil)
+	defer resp.Body.Close() //nolint:errcheck // test
+
+	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
+}
+
+func TestListNoteAttachments_NoAttachments(t *testing.T) {
+	ts, s := setupServer(t)
+
+	require.NoError(t, s.CreateNote(t.Context(), &models.Note{ID: "note-1", Title: "Note 1"}))
+
+	resp := doRequest(t, ts, http.MethodGet, "/api/notes/note-1/attachments", nil, consumerToken, nil)
+
+	result := readBodySlice(t, resp)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Empty(t, result)
+}
+
 func TestGetAttachment_NotFound(t *testing.T) {
 	ts, _ := setupServer(t)
 

@@ -77,6 +77,7 @@ func NewServer(s store.Store, consumerTokens map[string]string, bridgeToken, att
 			r.With(idempotencyRequired, defaultLimit).Post("/{id}/archive", srv.archiveNote)
 
 			r.Route("/{noteID}/attachments", func(r chi.Router) {
+				r.With(defaultLimit).Get("/", srv.listNoteAttachments)
 				r.With(idempotencyRequired, bodyLimitMiddleware(10<<20)).Post("/", srv.addFile) // 10 MB
 			})
 

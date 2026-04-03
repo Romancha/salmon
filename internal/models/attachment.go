@@ -61,6 +61,20 @@ type AttachmentInfo struct {
 	Height   int    `json:"height,omitempty"`
 }
 
+// AttachmentMeta is a richer consumer API representation that includes dates
+// and normalized extension for filtering, but excludes internal fields.
+type AttachmentMeta struct {
+	ID                  string `json:"id"`
+	Type                string `json:"type"`
+	Filename            string `json:"filename,omitempty"`
+	NormalizedExtension string `json:"normalized_extension,omitempty"`
+	FileSize            int64  `json:"file_size,omitempty"`
+	Width               int    `json:"width,omitempty"`
+	Height              int    `json:"height,omitempty"`
+	CreatedAt           string `json:"created_at,omitempty"`
+	ModifiedAt          string `json:"modified_at,omitempty"`
+}
+
 // ToInfo converts an Attachment to its slim consumer API representation.
 func (a *Attachment) ToInfo() AttachmentInfo {
 	return AttachmentInfo{
@@ -70,6 +84,21 @@ func (a *Attachment) ToInfo() AttachmentInfo {
 		FileSize: a.FileSize,
 		Width:    a.Width,
 		Height:   a.Height,
+	}
+}
+
+// ToMeta converts an Attachment to its richer consumer API representation.
+func (a *Attachment) ToMeta() AttachmentMeta {
+	return AttachmentMeta{
+		ID:                  a.ID,
+		Type:                a.Type,
+		Filename:            a.Filename,
+		NormalizedExtension: a.NormalizedExtension,
+		FileSize:            a.FileSize,
+		Width:               a.Width,
+		Height:              a.Height,
+		CreatedAt:           a.CreatedAt,
+		ModifiedAt:          a.ModifiedAt,
 	}
 }
 
@@ -85,4 +114,18 @@ func AttachmentsToInfo(attachments []Attachment) []AttachmentInfo {
 	}
 
 	return infos
+}
+
+// AttachmentsToMeta converts a slice of Attachments to AttachmentMeta.
+func AttachmentsToMeta(attachments []Attachment) []AttachmentMeta {
+	if len(attachments) == 0 {
+		return nil
+	}
+
+	metas := make([]AttachmentMeta, len(attachments))
+	for i := range attachments {
+		metas[i] = attachments[i].ToMeta()
+	}
+
+	return metas
 }

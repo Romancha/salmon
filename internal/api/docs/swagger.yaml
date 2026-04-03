@@ -84,6 +84,27 @@ definitions:
       width:
         type: integer
     type: object
+  models.AttachmentMeta:
+    properties:
+      created_at:
+        type: string
+      file_size:
+        type: integer
+      filename:
+        type: string
+      height:
+        type: integer
+      id:
+        type: string
+      modified_at:
+        type: string
+      normalized_extension:
+        type: string
+      type:
+        type: string
+      width:
+        type: integer
+    type: object
   models.Backlink:
     properties:
       bear_id:
@@ -628,6 +649,45 @@ paths:
       tags:
       - Notes
   /api/notes/{noteID}/attachments:
+    get:
+      description: Returns metadata for all attachments belonging to the specified
+        note.
+      parameters:
+      - description: Note ID
+        in: path
+        name: noteID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.AttachmentMeta'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List attachments for a note
+      tags:
+      - Attachments
     post:
       consumes:
       - multipart/form-data

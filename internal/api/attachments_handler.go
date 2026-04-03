@@ -13,6 +13,47 @@ import (
 
 const fallbackFilename = "file"
 
+// listNoteAttachments godoc
+// @Summary List attachments for a note
+// @Description Returns metadata for all attachments belonging to the specified note.
+// @Tags Attachments
+// @Produce json
+// @Param noteID path string true "Note ID"
+// @Success 200 {array} models.AttachmentMeta
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Security BearerAuth
+// @Router /api/notes/{noteID}/attachments [get]
+func (s *Server) listNoteAttachments(w http.ResponseWriter, r *http.Request) {
+	noteID := chi.URLParam(r, "noteID")
+
+	note, err := s.store.GetNote(r.Context(), noteID)
+	if err != nil {
+		writeInternalError(w, "failed to get note", err)
+		return
+	}
+
+	if note == nil {
+		writeError(w, http.StatusNotFound, "note not found")
+		return
+	}
+
+	attachments, err := s.store.ListAttachmentsByNote(r.Context(), noteID)
+	if err != nil {
+		writeInternalError(w, "failed to list attachments", err)
+		return
+	}
+
+	metas := models.AttachmentsToMeta(attachments)
+	if metas == nil {
+		metas = []models.AttachmentMeta{}
+	}
+
+	writeJSON(w, http.StatusOK, metas)
+}
+
 // getAttachment godoc
 // @Summary Get an attachment
 // @Description Downloads the attachment file by ID. Returns the file with Content-Disposition header.

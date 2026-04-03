@@ -92,5 +92,7 @@ func serverInstructions() string {
 		"reject writes (409). " +
 		"6) When creating notes, do NOT put #tags in the body " +
 		"if you also pass them in the tags parameter — " +
-		"Bear adds them automatically, duplicating causes double tags."
+		"Bear adds them automatically, duplicating causes double tags. " +
+		"7) get_attachment defaults to file mode (saves to disk, returns path). " +
+		"Use list_attachments for metadata, download_note_attachments for bulk download."
 }
