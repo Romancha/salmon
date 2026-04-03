@@ -32,7 +32,7 @@ func RegisterTools(s *mcp.Server, c *Client) {
 
 func registerSearchNotes(s *mcp.Server, c *Client) {
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "search_notes",
+		Name: "search_notes",
 		Description: "Full-text search across Bear notes. " +
 			"Returns matching notes with full body content.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, input SearchNotesInput) (*mcp.CallToolResult, SearchNotesOutput, error) {
@@ -51,7 +51,7 @@ func registerGetNote(s *mcp.Server, c *Client) {
 
 func registerListNotes(s *mcp.Server, c *Client) {
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "list_notes",
+		Name: "list_notes",
 		Description: "List Bear notes with filtering, sorting, and pagination. " +
 			"Does NOT include body — use get_note or search_notes to read content.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, input ListNotesInput) (*mcp.CallToolResult, ListNotesOutput, error) {
@@ -229,7 +229,7 @@ func handleListBacklinks(
 
 func registerCreateNote(s *mcp.Server, c *Client) {
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "create_note",
+		Name: "create_note",
 		Description: "Create a new Bear note. Body is Markdown. " +
 			"Do NOT put #tags in body if also passing them in tags array. " +
 			"Returns 403 for encrypted notes.",
@@ -240,7 +240,7 @@ func registerCreateNote(s *mcp.Server, c *Client) {
 
 func registerUpdateNote(s *mcp.Server, c *Client) {
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "update_note",
+		Name: "update_note",
 		Description: "Update a Bear note's title and/or body (Markdown). " +
 			"Returns 403 for encrypted notes, 409 if conflicts or not synced.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, input UpdateNoteInput) (*mcp.CallToolResult, UpdateNoteOutput, error) {
