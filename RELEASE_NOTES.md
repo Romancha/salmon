@@ -1,5 +1,13 @@
 # Release Notes
 
+## Version 0.7.3 — 06 Apr 2026
+
+### 🐞 Fixes
+
+- Fix note title duplication when updating notes via API. The `body` field already contains the title as its first line, but a separate `title` field was also being sent, causing the title to appear twice in Bear. Now `body` is the single source of truth for updates — title is auto-extracted from the first line.
+
+---
+
 ## Version 0.7.2 — 03 Apr 2026
 
 ### 🐞 Fixes
