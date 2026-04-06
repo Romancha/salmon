@@ -375,7 +375,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Updates an existing note's title and/or body. Body is required. Requires Idempotency-Key header.",
+                "description": "Updates an existing note's body. Title is auto-extracted from the first line. Requires Idempotency-Key header.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1246,10 +1246,6 @@
                 "body": {
                     "type": "string",
                     "example": "# Updated Content\nNew body text."
-                },
-                "title": {
-                    "type": "string",
-                    "example": "Updated Title"
                 }
             }
         },

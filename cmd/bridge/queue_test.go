@@ -1280,7 +1280,7 @@ func TestExtractNoteTitle(t *testing.T) {
 		expected string
 	}{
 		{"create with title", `{"title":"My Note","body":"content"}`, "create", "My Note"},
-		{"update with title", `{"title":"Updated","body":"content"}`, "update", "Updated"},
+		{"update with body title", `{"body":"# Updated\ncontent"}`, "update", "Updated"},
 		{"add_tag extracts tag", `{"tag":"work"}`, "add_tag", "work"},
 		{"rename_tag extracts name", `{"name":"old","new_name":"new"}`, "rename_tag", "old"},
 		{"delete_tag extracts name", `{"name":"tag/to/delete"}`, "delete_tag", "tag/to/delete"},

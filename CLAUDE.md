@@ -53,7 +53,7 @@ Run these checks before committing (in order):
 5. `make test-coverage` — ensure coverage does not decrease compared to the main branch
 6. `make tidy` — update go.mod/go.sum if dependencies changed
 7. If interfaces changed: `make generate` — regenerate mocks
-8. If swag annotations changed: `make swagger` — regenerate OpenAPI spec
+8. If swag annotations OR request/response structs changed: `make swagger` — regenerate OpenAPI spec (docs.go, swagger.json, swagger.yaml)
 
 ## Code Patterns
 

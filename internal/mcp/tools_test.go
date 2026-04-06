@@ -651,22 +651,21 @@ func TestUpdateNote_Success(t *testing.T) {
 
 		var body map[string]any
 		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
-		assert.Equal(t, "Updated Title", body["title"])
-		assert.Equal(t, "updated body", body["body"])
+		assert.Nil(t, body["title"], "title should not be sent in request body")
+		assert.Equal(t, "# Updated Title\nupdated body", body["body"])
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"id":"note-1","title":"Updated Title","body":"updated body"}`))
+		w.Write([]byte(`{"id":"note-1","title":"Updated Title","body":"# Updated Title\nupdated body"}`))
 	})
 
 	_, out, err := handleUpdateNote(context.Background(), c, UpdateNoteInput{
-		ID:    "note-1",
-		Title: "Updated Title",
-		Body:  "updated body",
+		ID:   "note-1",
+		Body: "# Updated Title\nupdated body",
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "note-1", out.ID)
 	assert.Equal(t, "Updated Title", out.Title)
-	assert.Equal(t, "updated body", out.Body)
+	assert.Equal(t, "# Updated Title\nupdated body", out.Body)
 }
 
 func TestUpdateNote_BodyOnly(t *testing.T) {

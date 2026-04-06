@@ -2327,15 +2327,15 @@ func TestAcceptance_CreateUpdateCoalescing(t *testing.T) {
 		`{"title":"Initial Title","body":"Initial Body","tags":["#tag1"]}`, "consumer-a")
 	require.NoError(t, err)
 
-	// Consumer updates the note before bridge processes it.
+	// Consumer updates the note before bridge processes it (update payload has body only, no title).
 	coalesced, err := s.CoalesceCreateUpdate(ctx, "key-update-1", "n-create",
-		`{"title":"Updated Title","body":"Updated Body"}`, "consumer-a")
+		`{"body":"Updated Body"}`, "consumer-a")
 	require.NoError(t, err)
 	require.NotNil(t, coalesced, "should find and coalesce with pending create")
 	assert.Equal(t, createItem.ID, coalesced.ID, "same queue item")
 
-	// Verify the payload has the updated title/body but preserves tags.
-	assert.Contains(t, coalesced.Payload, `"title":"Updated Title"`)
+	// Verify the payload has the updated body, original title from create, and preserves tags.
+	assert.Contains(t, coalesced.Payload, `"title":"Initial Title"`)
 	assert.Contains(t, coalesced.Payload, `"body":"Updated Body"`)
 	assert.Contains(t, coalesced.Payload, `"tags"`)
 	assert.Contains(t, coalesced.Payload, `#tag1`)
@@ -2345,7 +2345,7 @@ func TestAcceptance_CreateUpdateCoalescing(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, items, 1)
 	assert.Equal(t, "create", items[0].Action)
-	assert.Contains(t, items[0].Payload, `"Updated Title"`)
+	assert.Contains(t, items[0].Payload, `"Initial Title"`)
 }
 
 // TestAcceptance_BackwardCompat_NullExpectedBearModifiedAt verifies that notes

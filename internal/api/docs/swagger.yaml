@@ -65,9 +65,6 @@ definitions:
           # Updated Content
           New body text.
         type: string
-      title:
-        example: Updated Title
-        type: string
     type: object
   models.AttachmentInfo:
     properties:
@@ -547,8 +544,8 @@ paths:
     put:
       consumes:
       - application/json
-      description: Updates an existing note's title and/or body. Body is required.
-        Requires Idempotency-Key header.
+      description: Updates an existing note's body. Title is auto-extracted from the
+        first line. Requires Idempotency-Key header.
       parameters:
       - description: Note ID
         in: path

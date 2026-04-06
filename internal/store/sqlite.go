@@ -1770,10 +1770,8 @@ func (s *SQLiteStore) CoalesceCreateUpdate(
 		return nil, fmt.Errorf("unmarshal update payload: %w", jsonErr)
 	}
 
-	// Merge update fields into create payload (title, body).
-	if v, ok := updateMap["title"]; ok {
-		createMap["title"] = v
-	}
+	// Merge update body into create payload. Title in create payload is updated
+	// from the body's first line by the API handler, not from a separate title field.
 	if v, ok := updateMap["body"]; ok {
 		createMap["body"] = v
 	}

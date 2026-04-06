@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -303,13 +304,12 @@ func (s *Server) createNote(w http.ResponseWriter, r *http.Request) {
 }
 
 type updateNoteRequest struct {
-	Title string `json:"title,omitempty" example:"Updated Title"`
-	Body  string `json:"body" example:"# Updated Content\nNew body text."`
+	Body string `json:"body" example:"# Updated Content\nNew body text."`
 }
 
 // updateNote godoc
 // @Summary Update a note
-// @Description Updates an existing note's title and/or body. Body is required. Requires Idempotency-Key header.
+// @Description Updates an existing note's body. Title is auto-extracted from the first line. Requires Idempotency-Key header.
 // @Tags Notes
 // @Accept json
 // @Produce json
@@ -356,7 +356,7 @@ func (s *Server) updateNote(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if req.Body == "" {
-		writeError(w, http.StatusBadRequest, "body is required (title-only updates are not supported)")
+		writeError(w, http.StatusBadRequest, "body is required")
 		return
 	}
 
@@ -392,13 +392,8 @@ func (s *Server) updateNote(w http.ResponseWriter, r *http.Request) {
 
 	snapshotPendingBear(note)
 
-	if req.Title != "" {
-		note.Title = req.Title
-	}
-
-	if req.Body != "" {
-		note.Body = req.Body
-	}
+	note.Title = extractTitleFromBody(req.Body)
+	note.Body = req.Body
 
 	note.SyncStatus = syncStatusPendingToBear
 	note.HubModifiedAt = now
@@ -410,12 +405,8 @@ func (s *Server) updateNote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	payloadMap := map[string]string{}
-	if req.Title != "" {
-		payloadMap["title"] = req.Title
-	}
-	if req.Body != "" {
-		payloadMap["body"] = req.Body
+	payloadMap := map[string]string{
+		"body": req.Body,
 	}
 	if note.BearID != nil && *note.BearID != "" {
 		payloadMap["bear_id"] = *note.BearID
@@ -821,12 +812,8 @@ func (s *Server) handleCreateUpdateCoalesce(
 	note *models.Note, req updateNoteRequest,
 	idempotencyKey, consumerID string,
 ) {
-	payloadMap := map[string]string{}
-	if req.Title != "" {
-		payloadMap["title"] = req.Title
-	}
-	if req.Body != "" {
-		payloadMap["body"] = req.Body
+	payloadMap := map[string]string{
+		"body": req.Body,
 	}
 	payload, _ := json.Marshal(payloadMap) //nolint:errcheck // marshaling a simple map cannot fail
 
@@ -843,12 +830,8 @@ func (s *Server) handleCreateUpdateCoalesce(
 	}
 
 	now := time.Now().UTC().Format(time.RFC3339)
-	if req.Title != "" {
-		note.Title = req.Title
-	}
-	if req.Body != "" {
-		note.Body = req.Body
-	}
+	note.Title = extractTitleFromBody(req.Body)
+	note.Body = req.Body
 	note.HubModifiedAt = now
 	if err := s.store.UpdateNote(r.Context(), note); err != nil {
 		writeInternalError(w, "failed to update note", err)
@@ -876,6 +859,28 @@ func snapshotPendingBear(note *models.Note) {
 	bearBody := note.Body
 	note.PendingBearTitle = &bearTitle
 	note.PendingBearBody = &bearBody
+}
+
+// extractTitleFromBody extracts the title from the first line of the note body.
+// Bear stores the title as the first line of ZTEXT, optionally prefixed with markdown heading (#).
+func extractTitleFromBody(body string) string {
+	if body == "" {
+		return ""
+	}
+
+	firstLine := body
+	if idx := strings.IndexByte(body, '\n'); idx != -1 {
+		firstLine = body[:idx]
+	}
+
+	// Strip markdown heading prefix (e.g. "# Title" → "Title", "## Sub" → "Sub").
+	// Use TrimLeft only after confirming "# " pattern to avoid stripping # from hashtags like "#tag".
+	trimmed := strings.TrimSpace(firstLine)
+	if strings.HasPrefix(trimmed, "# ") || strings.HasPrefix(trimmed, "## ") {
+		trimmed = strings.TrimSpace(strings.TrimLeft(trimmed, "#"))
+	}
+
+	return trimmed
 }
 
 // logNoteRestoreError logs when a note state rollback fails after an enqueue error.

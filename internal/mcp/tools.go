@@ -251,7 +251,7 @@ func registerCreateNote(s *mcp.Server, c *Client) {
 func registerUpdateNote(s *mcp.Server, c *Client) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "update_note",
-		Description: "Update a Bear note's title and/or body (Markdown). " +
+		Description: "Update a Bear note's body (Markdown). The title is the first line of the body (e.g. '# Title'). " +
 			"Returns 403 for encrypted notes, 409 if conflicts or not synced.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, input UpdateNoteInput) (*mcp.CallToolResult, UpdateNoteOutput, error) {
 		return handleUpdateNote(ctx, c, input)
@@ -331,9 +331,6 @@ func handleUpdateNote(
 	ctx context.Context, c *Client, input UpdateNoteInput,
 ) (*mcp.CallToolResult, UpdateNoteOutput, error) {
 	body := map[string]any{"body": input.Body}
-	if input.Title != "" {
-		body["title"] = input.Title
-	}
 
 	data, err := c.putJSON(ctx, "/api/notes/"+url.PathEscape(input.ID), body)
 	if err != nil {

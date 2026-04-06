@@ -547,7 +547,7 @@ func TestUpdateNote(t *testing.T) {
 		ID: "note-1", Title: "Old Title", Body: "Old body", BearID: &bearID,
 	}))
 
-	body := map[string]string{"title": "New Title", "body": "New body"}
+	body := map[string]string{"body": "# New Title\nNew body"}
 
 	resp := doRequest(t, ts, http.MethodPut, "/api/notes/note-1", body, consumerToken,
 		map[string]string{"Idempotency-Key": "key-2"})
@@ -577,7 +577,7 @@ func TestUpdateNote_NoBearID_409(t *testing.T) {
 func TestUpdateNote_NotFound(t *testing.T) {
 	ts, _ := setupServer(t)
 
-	body := map[string]string{"title": "New Title", "body": "Some body"}
+	body := map[string]string{"body": "# New Title\nSome body"}
 
 	resp := doRequest(t, ts, http.MethodPut, "/api/notes/nonexistent", body, consumerToken,
 		map[string]string{"Idempotency-Key": "key-2"})
@@ -593,7 +593,7 @@ func TestUpdateNote_Encrypted403(t *testing.T) {
 		ID: "enc-1", Title: "Encrypted", Body: "", Encrypted: 1,
 	}))
 
-	body := map[string]string{"title": "Updated", "body": "Some body"}
+	body := map[string]string{"body": "# Updated\nSome body"}
 
 	resp := doRequest(t, ts, http.MethodPut, "/api/notes/enc-1", body, consumerToken,
 		map[string]string{"Idempotency-Key": "key-3"})
@@ -1704,7 +1704,7 @@ func TestUpdateNote_QueueItemHasConsumerID(t *testing.T) {
 		ID: "note-cid-upd", Title: "Old", Body: "Old body", BearID: &bearID,
 	}))
 
-	body := map[string]string{"title": "New", "body": "New body"}
+	body := map[string]string{"body": "# New\nNew body"}
 	resp := doRequest(t, ts, http.MethodPut, "/api/notes/note-cid-upd", body, "token-upd",
 		map[string]string{"Idempotency-Key": "cid-update-1"})
 	defer resp.Body.Close() //nolint:errcheck // test
@@ -1811,7 +1811,7 @@ func TestUpdateNote_PendingBearFieldsViaHTTP(t *testing.T) {
 		ID: "note-http-pb", Title: "Original Title", Body: "Original Body", BearID: &bearID,
 	}))
 
-	body := map[string]string{"title": "Updated Title", "body": "Updated Body"}
+	body := map[string]string{"body": "# Updated Title\nUpdated Body"}
 	resp := doRequest(t, ts, http.MethodPut, "/api/notes/note-http-pb", body, consumerToken,
 		map[string]string{"Idempotency-Key": "key-pb-http"})
 	defer resp.Body.Close() //nolint:errcheck // test
@@ -1822,7 +1822,7 @@ func TestUpdateNote_PendingBearFieldsViaHTTP(t *testing.T) {
 	note, err := s.GetNote(t.Context(), "note-http-pb")
 	require.NoError(t, err)
 	assert.Equal(t, "Updated Title", note.Title)
-	assert.Equal(t, "Updated Body", note.Body)
+	assert.Equal(t, "# Updated Title\nUpdated Body", note.Body)
 	require.NotNil(t, note.PendingBearTitle, "pending_bear_title should be set after consumer update")
 	require.NotNil(t, note.PendingBearBody, "pending_bear_body should be set after consumer update")
 	assert.Equal(t, "Original Title", *note.PendingBearTitle)
@@ -1929,7 +1929,7 @@ func TestUpdateNote_ConsecutiveUpdatePreservesSnapshot(t *testing.T) {
 
 	// First consumer update: sets pending_bear fields to Bear's original values.
 	resp := doRequest(t, ts, http.MethodPut, "/api/notes/note-consec",
-		map[string]string{"title": "Consumer V1", "body": "Consumer Body V1"}, consumerToken,
+		map[string]string{"body": "# Consumer V1\nConsumer Body V1"}, consumerToken,
 		map[string]string{"Idempotency-Key": "key-consec-1"})
 	defer resp.Body.Close() //nolint:errcheck // test
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
@@ -1943,7 +1943,7 @@ func TestUpdateNote_ConsecutiveUpdatePreservesSnapshot(t *testing.T) {
 
 	// Second consumer update: pending_bear fields must still point to Bear's original values.
 	resp2 := doRequest(t, ts, http.MethodPut, "/api/notes/note-consec",
-		map[string]string{"title": "Consumer V2", "body": "Consumer Body V2"}, consumerToken,
+		map[string]string{"body": "# Consumer V2\nConsumer Body V2"}, consumerToken,
 		map[string]string{"Idempotency-Key": "key-consec-2"})
 	defer resp2.Body.Close() //nolint:errcheck // test
 	assert.Equal(t, http.StatusOK, resp2.StatusCode)
@@ -2009,26 +2009,25 @@ func TestUpdateNote_CreateUpdateCoalescing(t *testing.T) {
 	noteID := createResult["id"].(string)
 
 	// Step 2: Update the note before it syncs to Bear (BearID is nil).
-	updateBody := map[string]string{"title": "Updated Title", "body": "Updated body"}
+	updateBody := map[string]string{"body": "# Updated Title\nUpdated body"}
 	updateResp := doRequest(t, ts, http.MethodPut, "/api/notes/"+noteID, updateBody, consumerToken,
 		map[string]string{"Idempotency-Key": "update-key-1"})
 	updateResult := readBody(t, updateResp)
 	assert.Equal(t, http.StatusOK, updateResp.StatusCode)
 	assert.Equal(t, "Updated Title", updateResult["title"])
-	assert.Equal(t, "Updated body", updateResult["body"])
+	assert.Equal(t, "# Updated Title\nUpdated body", updateResult["body"])
 
 	// Verify only one queue item exists (the create item was coalesced).
 	pendingCount, err := s.PendingQueueCount(ctx)
 	require.NoError(t, err)
 	assert.Equal(t, 1, pendingCount, "should have exactly one queue item (coalesced)")
 
-	// Verify the create queue item's payload was updated with new title/body.
+	// Verify the create queue item's payload was updated with new body.
 	item, err := s.GetQueueItemByIdempotencyKey(ctx, "create-key-1", "testapp")
 	require.NoError(t, err)
 	require.NotNil(t, item)
 	assert.Equal(t, "create", item.Action, "coalesced item should remain a create action")
-	assert.Contains(t, item.Payload, `"title":"Updated Title"`)
-	assert.Contains(t, item.Payload, `"body":"Updated body"`)
+	assert.Contains(t, item.Payload, `"body":"# Updated Title\nUpdated body"`)
 }
 
 func TestUpdateNote_CreateUpdateCoalescing_PreservesTags(t *testing.T) {

@@ -34,8 +34,7 @@ type createPayload struct {
 
 // updatePayload is the JSON structure for "update" action payloads.
 type updatePayload struct {
-	Title string `json:"title,omitempty"`
-	Body  string `json:"body,omitempty"`
+	Body string `json:"body,omitempty"`
 }
 
 // addTagPayload is the JSON structure for "add_tag" action payloads.
@@ -209,12 +208,13 @@ func (b *Bridge) extractConflictContent(
 		return "", "", nil
 	}
 
-	if t, ok := payloadMap["title"].(string); ok {
-		title = t
-	}
-
 	if bd, ok := payloadMap["body"].(string); ok {
 		body = bd
+	}
+
+	// For create payloads, title may still be in the payload.
+	if t, ok := payloadMap["title"].(string); ok {
+		title = t
 	}
 
 	bearID, _ := payloadMap["bear_id"].(string)
@@ -636,8 +636,22 @@ func extractNoteTitle(payload, action string) string {
 		return ""
 	}
 
+	// Title may be explicit (create payloads) or extracted from body's first line (update payloads).
 	if title, ok := m["title"].(string); ok && title != "" {
 		return title
+	}
+	if body, ok := m["body"].(string); ok && body != "" {
+		firstLine := body
+		if idx := strings.IndexByte(body, '\n'); idx != -1 {
+			firstLine = body[:idx]
+		}
+		trimmed := strings.TrimSpace(firstLine)
+		if strings.HasPrefix(trimmed, "# ") || strings.HasPrefix(trimmed, "## ") {
+			trimmed = strings.TrimSpace(strings.TrimLeft(trimmed, "#"))
+		}
+		if trimmed != "" {
+			return trimmed
+		}
 	}
 
 	switch action {

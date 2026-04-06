@@ -151,9 +151,8 @@ type CreateNoteOutput struct {
 
 // UpdateNoteInput is the input for the update_note tool.
 type UpdateNoteInput struct {
-	ID    string `json:"id" jsonschema:"Note ID (hub UUID)"`
-	Title string `json:"title,omitempty" jsonschema:"New title (plain text)"`
-	Body  string `json:"body" jsonschema:"New body in Markdown (replaces entire body)"`
+	ID   string `json:"id" jsonschema:"Note ID (hub UUID)"`
+	Body string `json:"body" jsonschema:"Full note text in Markdown including title as first line (e.g. # Title). Replaces entire content."`
 }
 
 // UpdateNoteOutput is the output for the update_note tool.
